@@ -1,0 +1,71 @@
+# Temp files
+*~
+difflist
+
+# Databases
+btcd.db
+*-shm
+*-wal
+
+# Developer tools
+dev/
+
+# Lint report
+lint.report
+
+# Log files
+*.log
+
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+
+# Folders
+.DS_Store
+_obj
+_test
+.idea/
+
+# Architecture specific extensions/prefixes
+*.[568vq]
+[568vq].out
+
+*.cgo1.go
+*.cgo2.c
+_cgo_defun.c
+_cgo_gotypes.go
+_cgo_export.*
+
+_testmain.go
+
+# binary
+*.exe
+bin/
+
+# IDE files
+.idea/
+.DS_Store
+.vscode/
+
+# Test files
+test/
+testConfig.json
+address/test.go
+address/test_test.go
+test_*/
+wallet/testWallets
+txscript/data/testWallets
+database/ldb/testData
+
+# Wallet generated
+userData/
+
+# proto files
+api/proto/gen.bat
+
+# pprof files
+test_profile/
+
+# report for make test
+test.report
