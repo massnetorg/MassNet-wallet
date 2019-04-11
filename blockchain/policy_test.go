@@ -8,10 +8,10 @@ package blockchain
 import (
 	"testing"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 const defaultMinRelayTxFee = massutil.Amount(1000)

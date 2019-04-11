@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"testing"
 
-	"massnet.org/mass-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/btcec"
 )
 
 // TestSetInt ensures that setting a field value to various native integers

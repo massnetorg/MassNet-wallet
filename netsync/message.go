@@ -7,8 +7,8 @@ import (
 
 	gowire "github.com/tendermint/go-wire"
 
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 //protocol msg byte

@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	"github.com/bytom/common"
 	"github.com/bytom/crypto"

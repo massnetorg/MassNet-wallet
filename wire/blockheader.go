@@ -13,10 +13,10 @@ import (
 	"math/big"
 	"time"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/poc"
-	"massnet.org/mass-wallet/wire/pb"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/poc"
+	"github.com/massnetorg/MassNet-wallet/wire/pb"
 
 	"github.com/golang/protobuf/proto"
 )

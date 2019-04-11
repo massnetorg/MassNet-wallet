@@ -9,20 +9,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"massnet.org/mass-wallet/consensus"
+	"github.com/massnetorg/MassNet-wallet/consensus"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	"massnet.org/mass-wallet/version"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/version"
+	"github.com/massnetorg/MassNet-wallet/wire"
 
 	"errors"
 
 	"github.com/btcsuite/go-flags"
-	"massnet.org/mass-wallet/config/pb"
+	"github.com/massnetorg/MassNet-wallet/config/pb"
 )
 
 const (

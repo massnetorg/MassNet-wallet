@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"testing"
 
-	"massnet.org/mass-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/txscript"
 )
 
 // TestScriptBuilderAddOp tests that pushing opcodes to a script via the

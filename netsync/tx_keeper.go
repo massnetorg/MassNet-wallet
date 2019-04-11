@@ -3,11 +3,11 @@ package netsync
 import (
 	"math/rand"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	//log "github.com/sirupsen/logrus"
 
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 const (

@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"testing"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 func TestAddOrphan(t *testing.T) {

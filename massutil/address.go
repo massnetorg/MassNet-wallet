@@ -10,13 +10,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"massnet.org/mass-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/config"
 	"strings"
 
 	"github.com/btcsuite/golangcrypto/ripemd160"
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/massutil/base58"
-	"massnet.org/mass-wallet/massutil/bech32"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/massutil/base58"
+	"github.com/massnetorg/MassNet-wallet/massutil/bech32"
 )
 
 // UnsupportedWitnessVerError describes an error where a segwit address being

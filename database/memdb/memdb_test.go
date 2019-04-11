@@ -8,12 +8,12 @@ import (
 	"reflect"
 	"testing"
 
-	"massnet.org/mass-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/config"
 
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/database/memdb"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/database/memdb"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // TestClosed ensure calling the interface functions on a closed database

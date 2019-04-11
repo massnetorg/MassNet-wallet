@@ -10,7 +10,7 @@ import (
 
 	"testing"
 
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 
 	"github.com/btcsuite/golangcrypto/ripemd160"
 )

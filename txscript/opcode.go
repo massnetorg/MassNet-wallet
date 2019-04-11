@@ -13,8 +13,8 @@ import (
 	"fmt"
 	"hash"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/wire"
 
 	"github.com/btcsuite/fastsha256"
 	"github.com/btcsuite/golangcrypto/ripemd160"

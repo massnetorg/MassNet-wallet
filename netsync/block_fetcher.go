@@ -1,11 +1,11 @@
 package netsync
 
 import (
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 	//log "github.com/sirupsen/logrus"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
 
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 const (

@@ -8,9 +8,9 @@ package blockchain
 import (
 	"fmt"
 
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // BehaviorFlags is a bitmask defining tweaks to the normal behavior when

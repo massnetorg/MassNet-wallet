@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	"github.com/pkg/errors"
 	//log "github.com/sirupsen/logrus"
@@ -14,9 +14,9 @@ import (
 	gowire "github.com/tendermint/go-wire"
 	cmn "github.com/tendermint/tmlibs/common"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/consensus"
-	"massnet.org/mass-wallet/p2p/connection"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/consensus"
+	"github.com/massnetorg/MassNet-wallet/p2p/connection"
 )
 
 // peerConn contains the raw connection and its config.

@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 )
 
 // appDataDir returns an operating system specific directory to be used for

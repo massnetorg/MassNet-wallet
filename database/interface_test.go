@@ -9,9 +9,9 @@ import (
 	"reflect"
 	"testing"
 
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 
 	"github.com/davecgh/go-spew/spew"
 )

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	"github.com/spf13/viper"
 )

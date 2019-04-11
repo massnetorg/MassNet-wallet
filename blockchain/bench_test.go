@@ -8,8 +8,8 @@ package blockchain_test
 import (
 	"testing"
 
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/blockchain"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 // BenchmarkIsCoinBase performs a simple benchmark against the IsCoinBase

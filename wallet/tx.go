@@ -3,16 +3,16 @@ package wallet
 import (
 	"encoding/hex"
 
-	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/utxo"
-	"massnet.org/mass-wallet/wire"
+	pb "github.com/massnetorg/MassNet-wallet/api/proto"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/utxo"
+	"github.com/massnetorg/MassNet-wallet/wire"
 
 	"google.golang.org/grpc/status"
 )

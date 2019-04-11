@@ -6,7 +6,7 @@
 package blockchain
 
 import (
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // MpRuleError identifies a rule violation.  It is used to indicate that

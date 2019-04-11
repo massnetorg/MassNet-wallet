@@ -1,8 +1,8 @@
 package chain
 
 import (
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 // ErrBadTx is returned for transactions failing validation

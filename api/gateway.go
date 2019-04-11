@@ -10,7 +10,7 @@ import (
 
 	"fmt"
 
-	gw "massnet.org/mass-wallet/api/proto"
+	gw "github.com/massnetorg/MassNet-wallet/api/proto"
 )
 
 func Run(portHttp string, portGRPC string) error {

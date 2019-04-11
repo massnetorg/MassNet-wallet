@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 )
 
 const (

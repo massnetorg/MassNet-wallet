@@ -4,8 +4,8 @@ import (
 	"sync"
 	"time"
 
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 type orphanBlock struct {

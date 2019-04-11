@@ -10,7 +10,7 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	wirepb "massnet.org/mass-wallet/wire/pb"
+	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
 )
 
 // HashSize is the array size used to store sha hashes.  See Hash.

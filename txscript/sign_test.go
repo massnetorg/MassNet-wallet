@@ -8,12 +8,12 @@ package txscript_test
 import (
 	"errors"
 	"fmt"
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wallet"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/wallet"
+	"github.com/massnetorg/MassNet-wallet/wire"
 	"os"
 	"path/filepath"
 )

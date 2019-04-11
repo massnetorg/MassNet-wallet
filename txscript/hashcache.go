@@ -8,7 +8,7 @@ package txscript
 import (
 	"sync"
 
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // TxSigHashes houses the partial set of sighashes introduced within BIP0143.

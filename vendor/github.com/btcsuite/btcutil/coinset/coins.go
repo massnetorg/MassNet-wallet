@@ -9,8 +9,8 @@ import (
 	"errors"
 	"sort"
 
-	"massnet.org/mass-wallet/chainhash"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/chainhash"
+	"github.com/massnetorg/MassNet-wallet/wire"
 	"github.com/btcsuite/btcutil"
 )
 

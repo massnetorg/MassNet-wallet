@@ -4,13 +4,13 @@ import (
 	"container/list"
 	"sort"
 
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/blockchain"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/txscript"
 )
 
 var (

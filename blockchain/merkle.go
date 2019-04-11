@@ -8,9 +8,9 @@ package blockchain
 import (
 	"math"
 
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/wire"
 
 	"bytes"
 	"fmt"

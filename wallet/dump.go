@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/wallet/hdkeychain"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/wallet/hdkeychain"
 )
 
 // KeyImage is the struct for hold export key data

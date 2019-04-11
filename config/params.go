@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"strings"
 
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 var (

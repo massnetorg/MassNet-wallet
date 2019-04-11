@@ -13,8 +13,8 @@ package massutil_test
 //	"testing"
 //	"time"
 //
-//	"massnet.org/mass-wallet/massutil"
-//	"massnet.org/mass-wallet/wire"
+//	"github.com/massnetorg/MassNet-wallet/massutil"
+//	"github.com/massnetorg/MassNet-wallet/wire"
 //	"github.com/davecgh/go-spew/spew"
 //)
 //

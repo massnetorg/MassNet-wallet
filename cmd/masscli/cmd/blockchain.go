@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/api/proto"
+	"github.com/massnetorg/MassNet-wallet/logging"
 )
 
 // sendTransactionCmd represents the sendTransaction command

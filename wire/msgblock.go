@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"io"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	"github.com/golang/protobuf/proto"
 
-	wirepb "massnet.org/mass-wallet/wire/pb"
+	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
 )
 
 // defaultTransactionAlloc is the default size used for the backing array

@@ -5,16 +5,16 @@ import (
 	"net"
 	"sync"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 	//log "github.com/sirupsen/logrus"
 	"gopkg.in/fatih/set.v0"
 
-	"massnet.org/mass-wallet/consensus"
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/p2p/trust"
+	"github.com/massnetorg/MassNet-wallet/consensus"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/p2p/trust"
 
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 const (

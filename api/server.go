@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"net"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/netsync"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/netsync"
 
 	"google.golang.org/grpc"
 
-	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/utxo"
-	"massnet.org/mass-wallet/wallet"
+	pb "github.com/massnetorg/MassNet-wallet/api/proto"
+	"github.com/massnetorg/MassNet-wallet/blockchain"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/utxo"
+	"github.com/massnetorg/MassNet-wallet/wallet"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	"google.golang.org/grpc/reflection"
 )

@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"math/big"
 
-	"massnet.org/mass-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/btcec"
 )
 
 // BigIntToProto get proto BigInt from golang big.Int

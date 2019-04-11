@@ -3,7 +3,7 @@ package api
 import (
 	"strings"
 
-	pb "massnet.org/mass-wallet/api/proto"
+	pb "github.com/massnetorg/MassNet-wallet/api/proto"
 )
 
 type addrAndBalanceList []*pb.AddressAndBalance

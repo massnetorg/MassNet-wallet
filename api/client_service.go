@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 
-	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/logging"
+	pb "github.com/massnetorg/MassNet-wallet/api/proto"
+	"github.com/massnetorg/MassNet-wallet/logging"
 )
 
 func (s *Server) GetClientStatus(ctx context.Context, in *pb.GetClientStatusRequest) (*pb.GetClientStatusResponse, error) {

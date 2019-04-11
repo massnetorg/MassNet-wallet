@@ -19,11 +19,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/massutil/base58"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/massutil/base58"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 const (

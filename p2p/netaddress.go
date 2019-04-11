@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	cmn "github.com/tendermint/tmlibs/common"
 )

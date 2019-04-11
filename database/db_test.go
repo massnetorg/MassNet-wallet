@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"testing"
 
-	"massnet.org/mass-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/database"
 )
 
 var (

@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // OutOfRangeError describes an error due to accessing an element that is out

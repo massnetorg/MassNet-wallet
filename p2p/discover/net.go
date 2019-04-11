@@ -8,9 +8,9 @@ import (
 	"net"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
-	"massnet.org/mass-wallet/p2p/netutil"
+	"github.com/massnetorg/MassNet-wallet/p2p/netutil"
 
 	//log "github.com/sirupsen/logrus"
 	crypto "github.com/tendermint/go-crypto"

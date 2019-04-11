@@ -9,7 +9,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"massnet.org/mass-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/btcec"
 )
 
 func TestGenerateSharedSecret(t *testing.T) {

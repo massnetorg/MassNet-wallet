@@ -7,7 +7,7 @@ package btcutil
 import (
 	"bytes"
 	"io"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // TxIndexUnknown is the value returned for a transaction index that is unknown.

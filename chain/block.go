@@ -1,10 +1,10 @@
 package chain
 
 import (
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/blockchain"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 var (

@@ -3,13 +3,13 @@ package wallet
 import (
 	"errors"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 func NewWitnessProgram(pubkeys []*btcec.PublicKey, nrequired int) (string, error) {

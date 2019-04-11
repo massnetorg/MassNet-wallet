@@ -4,7 +4,7 @@ package p2p
 
 import (
 	"bytes"
-	"massnet.org/mass-wallet/consensus"
+	"github.com/massnetorg/MassNet-wallet/consensus"
 	"testing"
 )
 

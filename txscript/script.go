@@ -10,7 +10,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // isSmallInt returns whether or not the opcode is considered a small integer,

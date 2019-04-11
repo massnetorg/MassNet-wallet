@@ -4,8 +4,8 @@ package txscript
 import (
 	"testing"
 
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 var msgtx = wire.NewMsgTx()

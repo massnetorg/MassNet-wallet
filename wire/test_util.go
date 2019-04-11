@@ -6,9 +6,9 @@ import (
 	"math/rand"
 	"time"
 
-	"massnet.org/mass-wallet/poc"
-	"massnet.org/mass-wallet/btcec"
-	wirepb "massnet.org/mass-wallet/wire/pb"
+	"github.com/massnetorg/MassNet-wallet/poc"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
 )
 
 func mockBlock(txCount int) *MsgBlock {

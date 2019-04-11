@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	rpcprotobuf "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/logging"
+	rpcprotobuf "github.com/massnetorg/MassNet-wallet/api/proto"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	"github.com/spf13/cobra"
 )

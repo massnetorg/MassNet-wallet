@@ -14,7 +14,7 @@ import (
 	"io"
 	"runtime/debug"
 
-	"massnet.org/mass-wallet/wallet/internal/zero"
+	"github.com/massnetorg/MassNet-wallet/wallet/internal/zero"
 
 	"github.com/btcsuite/golangcrypto/nacl/secretbox"
 	"github.com/btcsuite/golangcrypto/scrypt"

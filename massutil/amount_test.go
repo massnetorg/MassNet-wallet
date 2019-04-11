@@ -9,7 +9,7 @@ import (
 	"math"
 	"testing"
 
-	. "massnet.org/mass-wallet/massutil"
+	. "github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 func TestAmountCreation(t *testing.T) {

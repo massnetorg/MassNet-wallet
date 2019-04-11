@@ -8,20 +8,20 @@ import (
 	"sync"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 	//log "github.com/sirupsen/logrus"
 
 	"github.com/tendermint/go-crypto"
 	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 
-	cfg "massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/consensus"
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/p2p/connection"
-	"massnet.org/mass-wallet/p2p/discover"
-	"massnet.org/mass-wallet/p2p/trust"
-	"massnet.org/mass-wallet/version"
+	cfg "github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/consensus"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/p2p/connection"
+	"github.com/massnetorg/MassNet-wallet/p2p/discover"
+	"github.com/massnetorg/MassNet-wallet/p2p/trust"
+	"github.com/massnetorg/MassNet-wallet/version"
 )
 
 const (

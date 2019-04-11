@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"massnet.org/mass-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/btcec"
 )
 
 // TestBigInt tests encode/decode BigInt.

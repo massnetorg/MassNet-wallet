@@ -6,8 +6,8 @@
 package blockchain
 
 import (
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 // maybeAcceptBlock potentially accepts a block into the memory block chain.

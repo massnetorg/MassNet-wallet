@@ -8,9 +8,9 @@ package blockchain
 import (
 	"fmt"
 
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // TxData contains contextual information about transactions such as which block

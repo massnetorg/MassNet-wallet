@@ -8,7 +8,7 @@ package blockchain_test
 import (
 	"testing"
 
-	"massnet.org/mass-wallet/blockchain"
+	"github.com/massnetorg/MassNet-wallet/blockchain"
 )
 
 // TestErrorCodeStringer tests the stringized output for the ErrorCode type.

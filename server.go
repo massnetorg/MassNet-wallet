@@ -9,25 +9,25 @@ package main
 
 import (
 	"fmt"
-	"massnet.org/mass-wallet/consensus"
+	"github.com/massnetorg/MassNet-wallet/consensus"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/wallet"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/wallet"
 
-	"massnet.org/mass-wallet/api"
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/chain"
-	"massnet.org/mass-wallet/chainindexer"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/netsync"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/api"
+	"github.com/massnetorg/MassNet-wallet/blockchain"
+	"github.com/massnetorg/MassNet-wallet/chain"
+	"github.com/massnetorg/MassNet-wallet/chainindexer"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/netsync"
+	"github.com/massnetorg/MassNet-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/wire"
 
-	"massnet.org/mass-wallet/utxo"
+	"github.com/massnetorg/MassNet-wallet/utxo"
 )
 
 type server struct {

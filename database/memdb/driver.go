@@ -7,7 +7,7 @@ package memdb
 import (
 	"fmt"
 
-	"massnet.org/mass-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/database"
 )
 
 func init() {

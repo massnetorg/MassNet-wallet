@@ -10,8 +10,8 @@ import (
 	"crypto/rand"
 	"sync"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // sigInfo represents an entry in the SigCache. Entries in the sigcache are a

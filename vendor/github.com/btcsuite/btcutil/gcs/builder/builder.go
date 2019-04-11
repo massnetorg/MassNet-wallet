@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"math"
 
-	"massnet.org/mass-wallet/chainhash"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/chainhash"
+	"github.com/massnetorg/MassNet-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/wire"
 	"btcutil/gcs"
 )
 

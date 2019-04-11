@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"strings"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/chaincfg"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/chaincfg"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/btcsuite/golangcrypto/ripemd160"
 	"github.com/btcsuite/btcutil/bech32"

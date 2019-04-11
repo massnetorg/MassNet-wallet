@@ -8,7 +8,7 @@ package blockchain_test
 import (
 	"time"
 
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // Block100000 defines block 100,000 of the block chain.  It is used to

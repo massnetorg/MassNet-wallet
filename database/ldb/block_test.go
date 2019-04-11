@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 func TestLevelDb_FetchBlockBySha(t *testing.T) {

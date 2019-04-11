@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	//log "github.com/sirupsen/logrus"
 	cmn "github.com/tendermint/tmlibs/common"
 
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/p2p/upnp"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/p2p/upnp"
 )
 
 const (

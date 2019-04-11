@@ -13,8 +13,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/logging"
 )
 
 // dirEmpty returns whether or not the specified directory path is empty.

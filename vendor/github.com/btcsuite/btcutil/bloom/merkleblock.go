@@ -5,8 +5,8 @@
 package bloom
 
 import (
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/blockchain"
+	"github.com/massnetorg/MassNet-wallet/wire"
 	"github.com/btcsuite/btcutil"
 )
 

@@ -9,8 +9,8 @@ import (
 	"crypto/rand"
 	"testing"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // genRandomSig returns a random message, public key, and a signature of the

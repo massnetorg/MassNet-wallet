@@ -11,8 +11,8 @@ import (
 	"bytes"
 	"sort"
 
-	"massnet.org/mass-wallet/chainhash"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/chainhash"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // InPlaceSort modifies the passed transaction inputs and outputs to be sorted

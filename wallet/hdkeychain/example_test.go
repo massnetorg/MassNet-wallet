@@ -8,7 +8,7 @@ package hdkeychain
 import (
 	"fmt"
 
-	"massnet.org/mass-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/config"
 )
 
 // This example demonstrates how to generate a cryptographically random seed

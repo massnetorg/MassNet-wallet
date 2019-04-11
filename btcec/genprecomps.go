@@ -17,7 +17,7 @@ import (
 	"log"
 	"os"
 
-	"massnet.org/mass-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/btcec"
 )
 
 func main() {

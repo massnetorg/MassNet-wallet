@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	. "massnet.org/mass-wallet/wallet/internal/zero"
+	. "github.com/massnetorg/MassNet-wallet/wallet/internal/zero"
 )
 
 func makeOneBytes(n int) []byte {

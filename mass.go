@@ -16,15 +16,15 @@ import (
 	"runtime"
 	"runtime/pprof"
 
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/version"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/version"
 
 	"path/filepath"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/limits"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/limits"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 var (

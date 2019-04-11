@@ -3,8 +3,8 @@ package netsync
 import (
 	"time"
 
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 // Reject block from far future (12 seconds for now)

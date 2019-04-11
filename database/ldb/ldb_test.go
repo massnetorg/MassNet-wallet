@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 const (

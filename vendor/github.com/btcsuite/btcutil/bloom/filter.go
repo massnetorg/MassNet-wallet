@@ -9,8 +9,8 @@ import (
 	"math"
 	"sync"
 
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/txscript"
+	"github.com/massnetorg/MassNet-wallet/wire"
 	"github.com/btcsuite/btcutil"
 )
 

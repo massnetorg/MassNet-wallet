@@ -14,7 +14,7 @@ import (
 	"math/big"
 	"testing"
 
-	"massnet.org/mass-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/btcec"
 )
 
 // TestAddJacobian tests addition of points projected in Jacobian coordinates.

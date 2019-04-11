@@ -8,7 +8,7 @@ package zero_test
 import (
 	"testing"
 
-	. "massnet.org/mass-wallet/wallet/internal/zero"
+	. "github.com/massnetorg/MassNet-wallet/wallet/internal/zero"
 )
 
 var (

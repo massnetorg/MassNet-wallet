@@ -1,6 +1,6 @@
 package main
 
-import "massnet.org/mass-wallet/cmd/masscli/cmd"
+import "github.com/massnetorg/MassNet-wallet/cmd/masscli/cmd"
 
 func main() {
 	cmd.Execute()

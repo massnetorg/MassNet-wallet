@@ -6,9 +6,9 @@ import (
 
 	"math/big"
 
-	"massnet.org/mass-wallet/poc"
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/poc"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // genesisCoinbaseTx is the coinbase transaction for genesis block

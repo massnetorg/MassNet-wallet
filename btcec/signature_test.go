@@ -12,7 +12,7 @@ import (
 	"math/big"
 	"testing"
 
-	"massnet.org/mass-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/btcec"
 
 	"github.com/btcsuite/fastsha256"
 )

@@ -9,14 +9,14 @@ import (
 	"bytes"
 	"encoding/binary"
 
-	"massnet.org/mass-wallet/logging"
-	wirepb "massnet.org/mass-wallet/wire/pb"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
 
 	"github.com/golang/protobuf/proto"
 
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 
 	"github.com/btcsuite/goleveldb/leveldb"
 )

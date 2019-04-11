@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	//log "github.com/sirupsen/logrus"
 	"net"
@@ -16,15 +16,15 @@ import (
 	"github.com/tendermint/go-crypto"
 	cmn "github.com/tendermint/tmlibs/common"
 
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/config"
-	cfg "massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/consensus"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/p2p"
-	"massnet.org/mass-wallet/p2p/discover"
-	"massnet.org/mass-wallet/version"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/blockchain"
+	"github.com/massnetorg/MassNet-wallet/config"
+	cfg "github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/consensus"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/p2p"
+	"github.com/massnetorg/MassNet-wallet/p2p/discover"
+	"github.com/massnetorg/MassNet-wallet/version"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 const (

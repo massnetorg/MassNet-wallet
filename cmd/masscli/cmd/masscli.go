@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

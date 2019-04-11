@@ -8,11 +8,11 @@ package database_test
 import (
 	"fmt"
 
-	"massnet.org/mass-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/config"
 
-	"massnet.org/mass-wallet/database"
-	_ "massnet.org/mass-wallet/database/memdb"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/database"
+	_ "github.com/massnetorg/MassNet-wallet/database/memdb"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 // This example demonstrates creating a new database and inserting the genesis
@@ -22,8 +22,8 @@ func ExampleCreateDB() {
 	// Ordinarily this would be whatever driver(s) your application
 	// requires.
 	// import (
-	//	"massnet.org/mass-wallet/database"
-	// 	_ "massnet.org/mass-wallet/database/memdb"
+	//	"github.com/massnetorg/MassNet-wallet/database"
+	// 	_ "github.com/massnetorg/MassNet-wallet/database/memdb"
 	// )
 
 	// Create a database and schedule it to be closed on exit.  This example

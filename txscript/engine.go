@@ -10,13 +10,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 	"math/big"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/wire"
 
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 // halforder is used to tame ECDSA malleability (see BIP0062).

@@ -5,9 +5,9 @@ import (
 	"io"
 	"reflect"
 
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/btcec"
-	wirepb "massnet.org/mass-wallet/wire/pb"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
 
 	"github.com/golang/protobuf/proto"
 )

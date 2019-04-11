@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // testReorganization performs reorganization tests for the passed DB type.

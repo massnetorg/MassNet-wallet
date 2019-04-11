@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"massnet.org/mass-wallet/blockchain"
+	"github.com/massnetorg/MassNet-wallet/blockchain"
 )
 
 // TestTimeSorter tests the timeSorter implementation.

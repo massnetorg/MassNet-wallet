@@ -6,11 +6,11 @@
 package blockchain
 
 import (
-	"massnet.org/mass-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/config"
 
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // LatestCheckpoint returns the most recent checkpoint (regardless of whether it

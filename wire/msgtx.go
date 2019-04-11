@@ -11,8 +11,8 @@ import (
 	"math"
 	"strconv"
 
-	"massnet.org/mass-wallet/logging"
-	wirepb "massnet.org/mass-wallet/wire/pb"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
 
 	"github.com/golang/protobuf/proto"
 )

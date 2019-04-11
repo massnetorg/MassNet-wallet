@@ -3,13 +3,13 @@ package netsync
 import (
 	"time"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	//log "github.com/sirupsen/logrus"
 
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/p2p"
-	"massnet.org/mass-wallet/p2p/connection"
+	"github.com/massnetorg/MassNet-wallet/errors"
+	"github.com/massnetorg/MassNet-wallet/p2p"
+	"github.com/massnetorg/MassNet-wallet/p2p/connection"
 )
 
 const (

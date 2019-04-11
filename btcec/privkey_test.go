@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"testing"
 
-	"massnet.org/mass-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/btcec"
 )
 
 func TestPrivKeys(t *testing.T) {

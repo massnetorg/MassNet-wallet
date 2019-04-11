@@ -8,8 +8,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // This example demonstrates signing a message with a secp256k1 private key that

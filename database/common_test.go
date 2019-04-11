@@ -15,13 +15,13 @@ import (
 	"strings"
 	"testing"
 
-	"massnet.org/mass-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/config"
 
-	"massnet.org/mass-wallet/database"
-	_ "massnet.org/mass-wallet/database/ldb"
-	_ "massnet.org/mass-wallet/database/memdb"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/database"
+	_ "github.com/massnetorg/MassNet-wallet/database/ldb"
+	_ "github.com/massnetorg/MassNet-wallet/database/memdb"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 var (

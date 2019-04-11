@@ -21,9 +21,9 @@ if [ "$2" = "CURRENT" ]
       BINARY_OUTPUT_NAME='./bin/'$PACKAGE_NAME-$1
       if [ "$3" = "DEBUG" ]
         then
-        go build -gcflags "-N -l" -ldflags "-X massnet.org/mass-wallet/version.GitCommit=`git rev-parse HEAD`" -o $BINARY_OUTPUT_NAME
+        go build -gcflags "-N -l" -ldflags "-X github.com/massnetorg/MassNet-wallet/version.GitCommit=`git rev-parse HEAD`" -o $BINARY_OUTPUT_NAME
       else
-        go build -gcflags "-N -l" -ldflags "-X massnet.org/mass-wallet/version.GitCommit=`git rev-parse HEAD`" -o $BINARY_OUTPUT_NAME
+        go build -gcflags "-N -l" -ldflags "-X github.com/massnetorg/MassNet-wallet/version.GitCommit=`git rev-parse HEAD`" -o $BINARY_OUTPUT_NAME
       fi
       
       echo "    $BINARY_OUTPUT_NAME"
@@ -46,7 +46,7 @@ do
     fi
 
     echo "Building for $GOOS/$GOARCH ..."
-    env GOOS=$GOOS GOARCH=$GOARCH go build -gcflags "-N -l" -ldflags "-X massnet.org/mass-wallet/version.GitCommit=`git rev-parse HEAD`" -o $BINARY_OUTPUT_NAME
+    env GOOS=$GOOS GOARCH=$GOARCH go build -gcflags "-N -l" -ldflags "-X github.com/massnetorg/MassNet-wallet/version.GitCommit=`git rev-parse HEAD`" -o $BINARY_OUTPUT_NAME
     echo "    $BINARY_OUTPUT_NAME"
 
 done

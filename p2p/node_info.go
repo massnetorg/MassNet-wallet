@@ -7,7 +7,7 @@ import (
 
 	crypto "github.com/tendermint/go-crypto"
 
-	"massnet.org/mass-wallet/version"
+	"github.com/massnetorg/MassNet-wallet/version"
 )
 
 const maxNodeInfoSize = 10240 // 10Kb

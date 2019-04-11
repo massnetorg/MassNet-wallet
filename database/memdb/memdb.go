@@ -10,12 +10,12 @@ import (
 	"math"
 	"sync"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/database"
+	"github.com/massnetorg/MassNet-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/wire"
 
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 // Errors that the various database functions may return.

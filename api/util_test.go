@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	pb "massnet.org/mass-wallet/api/proto"
+	pb "github.com/massnetorg/MassNet-wallet/api/proto"
 )
 
 var (

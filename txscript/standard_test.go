@@ -10,8 +10,8 @@ import (
 	"reflect"
 	"testing"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/massutil"
 )
 
 // decodeHex decodes the passed hex string and returns the resulting bytes.  It

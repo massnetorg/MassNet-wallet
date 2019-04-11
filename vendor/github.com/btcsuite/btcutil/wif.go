@@ -8,9 +8,9 @@ import (
 	"bytes"
 	"errors"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/chaincfg"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/chaincfg"
+	"github.com/massnetorg/MassNet-wallet/wire"
 	"github.com/btcsuite/btcutil/base58"
 )
 

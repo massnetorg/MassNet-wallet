@@ -30,7 +30,7 @@ package version
 import (
 	"sync"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/MassNet-wallet/logging"
 
 	gover "github.com/hashicorp/go-version"
 	set "gopkg.in/fatih/set.v0"

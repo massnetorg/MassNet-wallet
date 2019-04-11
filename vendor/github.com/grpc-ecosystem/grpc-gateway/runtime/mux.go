@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"massnet.org/mass-wallet/consensus"
+	"github.com/massnetorg/MassNet-wallet/consensus"
 	"context"
 	"fmt"
 	"net"

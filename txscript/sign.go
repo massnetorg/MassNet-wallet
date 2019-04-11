@@ -9,11 +9,11 @@ import (
 	"errors"
 	"fmt"
 
-	"massnet.org/mass-wallet/config"
+	"github.com/massnetorg/MassNet-wallet/config"
 
-	"massnet.org/mass-wallet/btcec"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/massnetorg/MassNet-wallet/wire"
 )
 
 // KeyDB is an interface type provided to SignTxOutput, it encapsulates

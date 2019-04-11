@@ -34,9 +34,9 @@ do
     BINARY_OUTPUT_NAME_CMD=$BINARY_OUTPUT_DIR'/'$RELEASE_NAME'cli'$BINARY_OUTPUT_EXT
 
     echo "Building for $GOOS/$GOARCH ..."
-    env GOROOT_FINAL=/dev/null GOOS=$GOOS GOARCH=$GOARCH go build -gcflags=-trimpath=$GOPATH/src/massnet.org/mass-wallet -asmflags=-trimpath=$GOPATH/src/massnet.org/mass-wallet -ldflags "-s -w -X massnet.org/mass-wallet/version.GitCommit=`git rev-parse HEAD` -X massnet.org/mass-wallet/consensus.UserTestNetStr=true" -o $BINARY_OUTPUT_NAME_MAIN
+    env GOROOT_FINAL=/dev/null GOOS=$GOOS GOARCH=$GOARCH go build -gcflags=-trimpath=$GOPATH/src/github.com/massnetorg/MassNet-wallet -asmflags=-trimpath=$GOPATH/src/github.com/massnetorg/MassNet-wallet -ldflags "-s -w -X github.com/massnetorg/MassNet-wallet/version.GitCommit=`git rev-parse HEAD` -X github.com/massnetorg/MassNet-wallet/consensus.UserTestNetStr=true" -o $BINARY_OUTPUT_NAME_MAIN
     echo "    $BINARY_OUTPUT_NAME_MAIN"
-    env GOROOT_FINAL=/dev/null GOOS=$GOOS GOARCH=$GOARCH go build -gcflags=-trimpath=$GOPATH/src/massnet.org/mass-wallet -asmflags=-trimpath=$GOPATH/src/massnet.org/mass-wallet -ldflags "-s -w" -o $BINARY_OUTPUT_NAME_CMD cmd/masscli/main.go
+    env GOROOT_FINAL=/dev/null GOOS=$GOOS GOARCH=$GOARCH go build -gcflags=-trimpath=$GOPATH/src/github.com/massnetorg/MassNet-wallet -asmflags=-trimpath=$GOPATH/src/github.com/massnetorg/MassNet-wallet -ldflags "-s -w" -o $BINARY_OUTPUT_NAME_CMD cmd/masscli/main.go
     echo "    $BINARY_OUTPUT_NAME_CMD"
     cp sample-config.json $BINARY_OUTPUT_DIR/config.json
 
