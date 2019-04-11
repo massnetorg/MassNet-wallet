@@ -1,0 +1,113 @@
+syntax = "proto3";
+package wirepb;
+
+// Proto for Blocks
+message Block {
+    BlockHeader header = 1;
+    ProposalArea Proposals = 2;
+    repeated Tx Transactions = 3;
+}
+
+// Proto for BlockHeaders
+message BlockHeader {
+    Hash chain_id = 1;
+    uint64 version = 2;
+    uint64 height = 3;
+    int64 timestamp = 4;
+    Hash previous = 5;
+    Hash transaction_root = 6;
+    Hash proposal_root = 7;
+    BigInt target = 8;
+    BigInt challenge = 9;
+    PublicKey pub_key = 10;
+    Proof proof = 11;
+    Signature sig_q = 12;
+    Signature sig2 = 13;
+    repeated PublicKey ban_list = 14;
+}
+
+// Proto for Hashes
+message Hash {
+    fixed64 s0 = 1;
+    fixed64 s1 = 2;
+    fixed64 s2 = 3;
+    fixed64 s3 = 4;
+}
+
+// Proto for Proofs
+message Proof {
+    bytes x = 1;
+    bytes x_prime = 2;
+    int32 bit_length = 3;
+}
+
+// Proto for Crypto
+message PublicKey {
+    BigInt raw_x = 1;
+    BigInt raw_y = 2;
+}
+
+message PrivateKey {
+    PublicKey raw_pub = 1;
+    BigInt raw_d = 2;
+}
+
+message Signature {
+    BigInt raw_r = 1;
+    BigInt raw_s = 2;
+}
+
+// Proto for BigInt
+message BigInt {
+    bytes raw_abs = 1;
+}
+
+// Proto for ProposalAreas
+message ProposalArea {
+    repeated Punishment punishments= 1;
+    Proposal place_holder = 2;
+    repeated Proposal other_proposals = 3;
+}
+
+message Proposal {
+    int32 version = 1;
+    int32 type  = 2;
+    bytes content = 3;
+}
+
+message Punishment {
+    int32 version = 1;
+    int32 type = 2;
+    BlockHeader testimony_a = 3;
+    BlockHeader testimony_b = 4;
+}
+
+// Proto for Transactions
+message Tx {
+    int32 version = 1;
+    repeated TxIn tx_in = 2;
+    repeated TxOut tx_out = 3;
+    uint32 lock_time = 4;
+    bytes payload = 5;
+}
+
+message OutPoint {
+    Hash hash = 1;
+    uint32 index = 2;
+}
+
+message TxIn {
+    OutPoint previous_out_point = 1;
+    repeated bytes witness = 2;
+    uint32 sequence = 3;
+}
+
+message TxOut {
+    int64 value = 1;
+    bytes pk_script = 2;
+}
+
+message BlockBase {
+    BlockHeader header = 1;
+    ProposalArea Proposals = 2;
+}
