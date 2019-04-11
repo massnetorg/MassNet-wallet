@@ -1,0 +1,443 @@
+syntax = "proto3";
+package rpcprotobuf;
+
+import "google/api/annotations.proto";
+import "protoc-gen-swagger/options/annotations.proto";
+
+import "google/protobuf/empty.proto";
+
+
+// API Framework general options
+
+option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+	info: {
+		title: "api";
+		version: "1.0";
+		contact: {
+			name: "MASS Client API";
+			url: "";
+			email: "@massnet.org";
+		};
+	};
+
+	// Overwriting host entry breaks tests, so this is not done here.
+	external_docs: {
+		url: "https://docs.massnet.org/";
+		description: "MASS Client API Documentation";
+	}
+	schemes: HTTP;
+	schemes: HTTPS;
+	consumes: "application/json";
+	consumes: "application/x-foo-mime";
+	produces: "application/json";
+	produces: "application/x-foo-mime";
+	
+	responses: {
+		key: "403";
+		value: {
+			description: "Returned when the user does not have permission to access the resource.";
+		}
+	}
+	responses: {
+		key: "404";
+		value: {
+			description: "Returned when the resource does not exist.";
+			schema: {
+				json_schema: {
+					type: STRING;
+				}
+			}
+		}
+	}
+};
+
+
+// API Endpoints
+service ApiService {
+
+    rpc CreateAddress (CreateAddressRequest) returns (CreateAddressResponse) {
+        option (google.api.http) = {
+            post: "/v1/addresses"
+            body: "*"
+        };
+    }
+    rpc GetAddresses (google.protobuf.Empty) returns (GetAddressesResponse) {
+        option (google.api.http) = {
+        get: "/v1/addresses"
+        };
+    }
+
+    rpc GetBalance (GetBalanceRequest) returns (GetBalanceResponse) {
+        option (google.api.http) = {
+            get: "/v1/addresses/{addresses}/balance"    
+        };
+    }
+    rpc GetAllBalance (google.protobuf.Empty) returns (GetAllBalanceResponse) {
+        option (google.api.http) = {
+            get: "/v1/addresses/balance"
+        };
+    }
+    rpc GetUtxo (GetUtxoRequest) returns (GetUtxoResponse) {
+        option (google.api.http) = {
+            get: "/v1/addresses/{addresses}/utxos"
+        };
+    }
+    rpc GetAllUtxo (google.protobuf.Empty) returns (GetUtxoResponse) {
+        option (google.api.http) = {
+            get: "/v1/addresses/utxos"
+        };
+    }
+    rpc ValidateAddress (ValidateAddressRequest) returns (ValidateAddressResponse) {
+        option (google.api.http) = {
+            get: "/v1/addresses/{address}/validate"
+        };
+    }
+    rpc GetUtxoByAmount (GetUtxoByAmountRequest) returns (GetUtxoByAmountResponse){
+        option (google.api.http) = {
+            get: "/v1/addresses/utxos/{amount}"
+        };
+    }
+
+    rpc CreateRawTransaction (CreateRawTransactionRequest) returns (CreateRawTransactionResponse) {
+        option (google.api.http) = {
+            post: "/v1/transactions/creating"
+            body: "*"
+        };
+    }
+    rpc GetTransactionFee (GetTransactionFeeRequest) returns (GetTransactionFeeResponse){
+             option (google.api.http) = {
+                 post: "/v1/transactions/fee"
+                 body: "*"
+             };
+        }
+
+    rpc AutoCreateTransaction (CreateRawTransactionAutoRequest) returns (CreateRawTransactionResponse){
+        option (google.api.http) = {
+            post: "/v1/transactions/creating/auto"
+            body: "*"
+        };
+    }
+
+    rpc SignRawTransaction (SignRawTransactionRequest) returns (SignRawTransactionResponse){
+        option (google.api.http) = {
+            post: "/v1/transactions/signing"
+            body: "*"
+        };
+    }
+
+    rpc SendRawTransaction (SendRawTransactionRequest) returns (SendRawTransactionResponse) {
+        option (google.api.http) = {
+            post: "/v1/transactions/sending"
+            body: "*"
+        };
+    }
+
+    rpc GetRawTransaction (GetRawTransactionRequest) returns (GetRawTransactionResponse) {
+        option (google.api.http) = {
+            get: "/v1/transactions/{txId}/details"
+        };
+    }
+
+    rpc GetTxStatus (GetTxStatusRequest) returns (GetTxStatusResponse) {
+        option (google.api.http) = {
+            get: "/v1/transactions/{txId}/status"
+        };
+    }
+
+    rpc GetClientStatus (GetClientStatusRequest) returns (GetClientStatusResponse) {
+        option (google.api.http) = {
+              get: "/v1/client/status"
+        };
+    }
+
+}
+
+message Vin {
+    string txid = 1;
+    uint32 vout = 2;
+    uint32 sequence =3;
+    repeated string witness= 4;
+}
+
+message ToAddressForTx {
+    string address = 1;
+    double value = 2;
+}
+
+message InputsInTx {
+    string txid = 1;
+    uint32 index = 2;
+    string address = 3;
+    double value = 4;
+}
+
+message ScriptPubKeyResult {
+    string Asm = 1;
+    string Hex = 2;
+    int32 ReqSigs = 3;
+    string Type = 4;
+    repeated string Addresses = 5;
+}
+
+message Vout {
+    double value = 1;
+    uint32 n = 2;
+    ScriptPubKeyResult ScriptPubKey = 3;
+}
+
+
+message TransactionInput {
+    string txId = 1;
+    uint32 vout = 2;
+}
+
+
+message GetTransactionFeeRequest {
+    map <string, double> amounts = 1;
+    int64 lockTime = 2;
+}
+
+
+message CreateRawTransactionRequest {
+    repeated TransactionInput inputs = 1;
+    map <string, double> amounts = 2;
+    int64 lockTime = 3;
+}
+
+
+message CreateRawTransactionAutoRequest {
+    map <string, double> amounts = 1;
+    int64 lockTime = 2;
+    double userTxFee = 3;
+}
+
+message auto{
+    map <string, double> amounts = 2;
+    int64 lockTime = 3;
+}
+
+message CreateRawTransactionResponse {
+    string hex = 1;
+}
+
+message GetTransactionFeeResponse {
+    double userTxFee = 1;
+}
+
+
+message SignRawTransactionRequest {
+    string rawTx = 1;
+    string flags = 2;
+    string password = 3;
+}
+
+
+message SignRawTransactionResponse {
+    string hex = 1;
+    bool complete = 2;
+}
+
+message SendRawTransactionRequest {
+    string hexTx = 1;
+    bool allowHighFees = 2;
+}
+
+message SendRawTransactionResponse {
+    string hex = 1;
+}
+
+message PubKeyAndAddress {
+    string pubKey = 1;
+    string address = 2;
+}
+
+message CreateAddressRequest {
+    int32 signRequire = 1;
+    int32 pubKeyNumber = 2;
+    int32 version = 3;
+}
+
+message CreateAddressResponse {
+    string address = 1;
+}
+
+
+message GetBalanceRequest {
+    repeated string addresses = 1;
+}
+
+message AddressAndBalance {
+    string address = 1;
+    double balance = 2;
+}
+
+message GetBalanceResponse {
+    repeated AddressAndBalance balance = 1;
+}
+
+message GetAllBalanceResponse {
+    double balance = 1;
+}
+
+message ValidateAddressRequest {
+    string address = 1;
+}
+
+message ValidateAddressResponse {
+    bool isValid = 1;
+    string address = 2;
+}
+
+message GetUtxoRequest {
+    repeated string addresses = 1;
+}
+
+message Unspent {
+    string txId = 1;
+    uint32 vout = 2;
+    double amount = 3;
+}
+
+message AddressToUnspent {
+    string address = 1;
+    repeated Unspent unspents= 2;
+}
+
+message GetUtxoResponse {
+    repeated AddressToUnspent addressToUtxo = 1;
+}
+
+
+message TxListReply {
+    string sha = 1;
+    string blkSha = 2;
+    int32 height = 3;
+    repeated bool txSpent = 4;
+}
+
+message Utxo {
+    string tx = 1;
+    int32 height = 2;
+    bool coinbase = 3;
+    uint32 index = 4;
+    double value = 5;
+}
+
+message UtxosForAddress {
+    string address = 1;
+    repeated Utxo utxos = 2;
+}
+
+
+message GetAddressesResponse  {
+    repeated AddressAndBalance addressList = 1;
+}
+
+message GetTxStatusRequest {
+    string txId = 1;
+}
+
+message GetTxStatusResponse {
+    string code = 1;
+    string status = 2;
+}
+
+
+message GetUtxoByAmountRequest {
+    double amount = 1;
+}
+
+message GetUtxoByAmountResponse {
+    repeated Unspent utxo = 1;
+}
+
+message DumpWalletRequest{
+    string dumpDirPath = 1;
+}
+
+message DumpWalletResponse{
+
+}
+
+message ImportWalletRequest{
+    string importDirPath = 1;
+    string oldPassword = 2;
+    string newPassword = 3;
+}
+
+message ImportWalletResponse{
+
+}
+
+message GetClientStatusRequest{
+    // empty
+}
+
+message GetClientStatusResponse{
+      bool peerListening       = 1;
+      bool syncing             = 2;
+      string chainID           = 3;
+      uint64 localBestHeight   = 4;
+      uint64 knownBestHeight   = 5;
+      message peerCountInfo {
+          uint32 total    = 1;
+          uint32 outbound = 2;
+          uint32 inbound  = 3;
+      }
+      peerCountInfo peerCount  = 6;
+      message peerInfo {
+          string id        = 1;
+          string address   = 2;
+          string direction = 3;
+      }
+      message peerList {
+          repeated peerInfo outbound = 1;
+          repeated peerInfo inbound  = 2;
+          repeated peerInfo other    = 3;
+      }
+      peerList peers           = 7;
+}
+
+//
+message Coinbase {
+    string hex = 1;
+    string txHash = 2;
+    int32 version = 3;
+    uint32 lockTime = 4;
+    repeated ToAddressForTx to = 5;
+}
+
+message GetRawTransactionRequest {
+    string txId = 1;
+    bool verbose = 2;
+}
+
+message GetRawTransactionResponse {
+    string mtxHex = 1;
+    TxRawResult rawTxn =2;
+}
+
+message TxRawResult {
+    string hex = 1;
+    string txid = 2;
+    int32 version = 3;
+    uint32 lockTime = 4;
+    BlockInfoForTx block = 5;
+    repeated Vin vin = 6;
+    repeated Vout vout = 7;
+    repeated string fromAddress = 8;
+    repeated ToAddressForTx to = 9;
+    repeated InputsInTx inputs = 10;
+    string payload = 11;
+    uint64 confirmations = 12;
+    int32 size = 13;
+    double fee = 14;
+    int32 status = 15;
+}
+
+message BlockInfoForTx {
+    uint64 height = 1;
+    string blockHash = 2;
+    int64 timestamp = 3;
+}
+
