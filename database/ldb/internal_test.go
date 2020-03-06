@@ -1,61 +1,43 @@
-// Modified for MassNet
-// Copyright (c) 2013-2014 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package ldb
 
 import (
 	"bytes"
-
+	"encoding/binary"
 	"testing"
 
-	"github.com/massnetorg/MassNet-wallet/massutil"
-
-	"github.com/btcsuite/golangcrypto/ripemd160"
+	"github.com/stretchr/testify/assert"
+	"massnet.org/mass-wallet/database/storage"
 )
 
+func unpackTxIndex(data [16]byte) *txIndex {
+	return &txIndex{
+		blkHeight: binary.BigEndian.Uint64(data[:8]),
+		txOffset:  binary.LittleEndian.Uint32(data[8:12]),
+		txLen:     binary.LittleEndian.Uint32(data[12:]),
+	}
+}
+
 func TestAddrIndexKeySerialization(t *testing.T) {
-	var hash160Bytes [ripemd160.Size]byte
 	var packedIndex [16]byte
 
-	fakeHash160 := massutil.Hash160([]byte("testing"))
-	copy(fakeHash160, hash160Bytes[:])
-
-	fakeIndex := txAddrIndex{
-		hash160:   hash160Bytes,
+	fakeIndex := txIndex{
 		blkHeight: 1,
-		txoffset:  5,
-		txlen:     360,
+		txOffset:  5,
+		txLen:     360,
 	}
 
-	serializedKey := addrIndexToKey(&fakeIndex)
-	copy(packedIndex[:], serializedKey[23:39])
+	serializedKey := txIndexToKey(&fakeIndex)
+	copy(packedIndex[:], serializedKey[35:])
 	unpackedIndex := unpackTxIndex(packedIndex)
-
-	if unpackedIndex.blkHeight != fakeIndex.blkHeight {
-		t.Errorf("Incorrect block height. Unpack addr index key"+
-			"serialization failed. Expected %d, received %d",
-			1, unpackedIndex.blkHeight)
-	}
-
-	if unpackedIndex.txoffset != fakeIndex.txoffset {
-		t.Errorf("Incorrect tx offset. Unpack addr index key"+
-			"serialization failed. Expected %d, received %d",
-			5, unpackedIndex.txoffset)
-	}
-
-	if unpackedIndex.txlen != fakeIndex.txlen {
-		t.Errorf("Incorrect tx len. Unpack addr index key"+
-			"serialization failed. Expected %d, received %d",
-			360, unpackedIndex.txlen)
-	}
+	assert.Equal(t, unpackedIndex.blkHeight, fakeIndex.blkHeight)
+	assert.Equal(t, unpackedIndex.txOffset, fakeIndex.txOffset)
+	assert.Equal(t, unpackedIndex.txLen, fakeIndex.txLen)
 }
 
 func TestBytesPrefix(t *testing.T) {
 	testKey := []byte("a")
 
-	prefixRange := bytesPrefix(testKey)
+	prefixRange := storage.BytesPrefix(testKey)
 	if !bytes.Equal(prefixRange.Start, []byte("a")) {
 		t.Errorf("Wrong prefix start, got %d, expected %d", prefixRange.Start,
 			[]byte("a"))

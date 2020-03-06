@@ -1,6 +1,3 @@
-// Copyright (c) 2017-2019 The massnet developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
 // Copyright (c) 2013-2014 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -9,46 +6,56 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-	"github.com/massnetorg/MassNet-wallet/version"
-
-	"path/filepath"
-
-	"github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/database"
-	"github.com/massnetorg/MassNet-wallet/limits"
-	"github.com/massnetorg/MassNet-wallet/massutil"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/database"
+	_ "massnet.org/mass-wallet/database/ldb"
+	"massnet.org/mass-wallet/database/storage"
+	_ "massnet.org/mass-wallet/database/storage/ldbstorage"
+	_ "massnet.org/mass-wallet/database/storage/rdbstorage"
+	"massnet.org/mass-wallet/limits"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	_ "massnet.org/mass-wallet/masswallet/db/ldb"
+	_ "massnet.org/mass-wallet/masswallet/db/rdb"
+	"massnet.org/mass-wallet/version"
 )
 
 var (
 	cfg             *config.Config
+	closeDbChannel  = make(chan struct{})
 	shutdownChannel = make(chan struct{})
 )
 
+// winServiceMain is only invoked on Windows.  It detects when mass is running
+// as a service and reacts accordingly.
 var winServiceMain func() (bool, error)
 
+// massMain is the real main function for mass.  It is necessary to work around
+// the fact that deferred functions do not run when os.Exit() is called.  The
+// optional serverChan parameter is mainly used by the service code to be
+// notified with the server once it is setup so it can gracefully stop it when
+// requested from the service control manager.
 func massMain(serverChan chan<- *server) error {
-	tcfg, _, err := config.ParseConfig()
+	// Load configuration and parse command line.  This function also
+	// initializes logging and configures it accordingly.
+	tempCfg, _, err := config.ParseConfig()
 	if err != nil {
 		return err
 	}
 
-	tcfg, err = config.LoadConfig(tcfg)
-	if err != nil {
-		return err
-	}
+	config.LoadConfig(tempCfg)
+	cfg = config.CheckConfig(tempCfg)
 
-	cfg, err = config.CheckConfig(tcfg)
-	if err != nil {
-		return err
-	}
+	logging.Init(cfg.Log.LogDir, config.DefaultLoggingFilename, cfg.Log.LogLevel, 1, false)
 
 	// Show version at startup.
 	logging.CPrint(logging.INFO, fmt.Sprintf("version %s", version.GetVersion()), logging.LogFormat{})
@@ -80,63 +87,81 @@ func massMain(serverChan chan<- *server) error {
 	// Load the block database.
 	db, err := loadBlockDB()
 	if err != nil {
-		logging.CPrint(logging.ERROR, "loadBlockDB error", logging.LogFormat{"err": err})
+		logging.CPrint(logging.ERROR, "loadBlockDB error", logging.LogFormat{
+			"dbtype": cfg.Data.DbType,
+			"dir":    cfg.Data.DbDir,
+			"err":    err,
+		})
 		return err
 	}
-	defer db.Close()
 
-	if config.DropAddrIndex {
-		logging.CPrint(logging.INFO, "deleting entire addrindex", logging.LogFormat{})
-		err := db.DeleteAddrIndex()
-		if err != nil {
-			logging.CPrint(logging.ERROR, "unable to delete the addrindex", logging.LogFormat{"err": err})
-			return err
-		}
-		logging.CPrint(logging.INFO, "successfully deleted addrindex, exiting", logging.LogFormat{})
-		return nil
-	}
-
-	// Ensure the database is sync'd and closed on Ctrl+C.
-	addInterruptHandler(func() {
-		logging.CPrint(logging.INFO, "gracefully shutting down the database", logging.LogFormat{})
-		db.RollbackClose()
-	})
-
-	// Create server and start it.
+	// Create server
 	server, err := newServer(db)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "unable to start server on address", logging.LogFormat{"addr": cfg.Network.P2P.ListenAddress, "err": err})
 		return err
 	}
+
+	// Load wallet
+	loader := NewLoader(server, &config.ChainParams, cfg)
+	if err = loader.LoadWallet(); err != nil {
+		return err
+	}
+
 	addInterruptHandler(func() {
-		logging.CPrint(logging.INFO, "gracefully shutting down the server", logging.LogFormat{})
+		logging.CPrint(logging.INFO, "Stopping server...", logging.LogFormat{})
 		server.Stop()
+
+		logging.CPrint(logging.INFO, "Unloading wallet...", logging.LogFormat{})
+		err := loader.UnloadWallet()
+		if err != nil {
+			logging.CPrint(logging.ERROR, "failed to unload wallet", logging.LogFormat{"err": err})
+		}
+
 		server.WaitForShutdown()
+		err = db.Close()
+		logging.CPrint(logging.INFO, "Chain db closed", logging.LogFormat{
+			"err": err,
+		})
+		closeDbChannel <- struct{}{}
 	})
+
+	// Start server
 	server.Start()
 	if serverChan != nil {
 		serverChan <- server
 	}
 
+	// Monitor for graceful server shutdown and signal the main goroutine
+	// when done.  This is done in a separate goroutine rather than waiting
+	// directly so the main goroutine can be signaled for shutdown by either
+	// a graceful shutdown or from the main interrupt handler.  This is
+	// necessary since the main goroutine must be kept running long enough
+	// for the interrupt handler goroutine to finish.
 	go func() {
-		server.WaitForShutdown()
-		logging.CPrint(logging.INFO, "server shutdown complete", logging.LogFormat{})
-		shutdownChannel <- struct{}{}
+		shutdownChannel <- (<-closeDbChannel)
 	}()
 
+	// Wait for shutdown signal from either a graceful server stop or from
+	// the interrupt handler.
 	<-shutdownChannel
-	logging.CPrint(logging.INFO, "shutdown complete", logging.LogFormat{})
+	logging.CPrint(logging.INFO, "Shutdown complete", logging.LogFormat{})
 	return nil
 }
 
 func main() {
+	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
+	// Up some limits.
 	if err := limits.SetLimits(); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to set limits: %v\n", err)
 		os.Exit(1)
 	}
 
+	// Call serviceMain on Windows to handle running as a service.  When
+	// the return isService flag is true, exit now since we ran as a
+	// service.  Otherwise, just fall through to normal operation.
 	if runtime.GOOS == "windows" {
 		isService, err := winServiceMain()
 		if err != nil {
@@ -148,78 +173,100 @@ func main() {
 		}
 	}
 
+	// Work around defer not working after os.Exit()
 	if err := massMain(nil); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 }
 
+// blockDbNamePrefix is the prefix for the block database name.  The
+// database type is appended to this value to form the full block
+// database name.
 const blockDbNamePrefix = "blocks"
 
+// dbPath returns the path to the block database given a database type.
 func blockDbPath(dbType string) string {
+	// The database name is based on the database type.
 	dbName := blockDbNamePrefix + ".db"
 	if dbType == "sqlite" {
 		dbName = dbName + ".db"
 	}
-	dbPath := filepath.Join(cfg.Db.DataDir, dbName)
+	dbPath := filepath.Join(cfg.Data.DbDir, dbName)
 	return dbPath
 }
 
-func warnMultipeDBs() {
-	dbTypes := []string{"leveldb", "sqlite"}
-	duplicateDbPaths := make([]string, 0, len(dbTypes)-1)
-	for _, dbType := range dbTypes {
-		if dbType == cfg.Db.DbType {
-			continue
-		}
-
-		dbPath := blockDbPath(dbType)
-		if FileExists(dbPath) {
-			duplicateDbPaths = append(duplicateDbPaths, dbPath)
-		}
-	}
-
-	if len(duplicateDbPaths) > 0 {
-		selectedDbPath := blockDbPath(cfg.Db.DbType)
-		str := fmt.Sprintf("WARNING: There are multiple block chain databases "+
-			"using different database types.\nYou probably don't "+
-			"want to waste disk space by having more than one.\n"+
-			"Your current database is located at [%v].\nThe "+
-			"additional database is located at %v", selectedDbPath,
-			duplicateDbPaths)
-		logging.CPrint(logging.WARN, str, logging.LogFormat{})
-	}
-}
-
+// setupBlockDB loads (or creates when needed) the block database taking into
+// account the selected database backend.  It also contains additional logic
+// such warning the user if there are multiple databases which consume space on
+// the file system and ensuring the regression test database is clean when in
+// regression test mode.
 func setupBlockDB() (database.Db, error) {
-	if cfg.Db.DbType == "memdb" {
+	// The memdb backend does not have a file path associated with it, so
+	// handle it uniquely.  We also don't want to worry about the multiple
+	// database type warnings when running with the memory database.
+	if cfg.Data.DbType == "memdb" {
 		logging.CPrint(logging.INFO, "creating block database in memory", logging.LogFormat{})
-		db, err := database.CreateDB(cfg.Db.DbType)
+		db, err := database.CreateDB(cfg.Data.DbType)
 		if err != nil {
 			return nil, err
 		}
 		return db, nil
 	}
 
-	warnMultipeDBs()
-
-	dbPath := blockDbPath(cfg.Db.DbType)
-
-	logging.CPrint(logging.INFO, "loading block database", logging.LogFormat{"from": dbPath})
-	db, err := database.OpenDB(cfg.Db.DbType, dbPath)
+	// Create the new path if needed.
+	err := os.MkdirAll(cfg.Data.DbDir, 0700)
 	if err != nil {
-		// Return the error if it's not because the database
-		// doesn't exist.
-		if err != database.ErrDbDoesNotExist {
-			return nil, err
-		}
+		return nil, err
+	}
 
-		// Create the db if it does not exist.
-		err = os.MkdirAll(cfg.Db.DataDir, 0700)
-		if err != nil {
+	// check version file
+	verFile := filepath.Join(cfg.Data.DbDir, ".ver")
+	fi, err := os.Stat(verFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = storage.CheckVersion(cfg.Data.DbType, cfg.Data.DbDir, true)
+			if err != nil {
+				logging.CPrint(logging.ERROR, "ver file create error", logging.LogFormat{
+					"dbtype": cfg.Data.DbType,
+					"path":   cfg.Data.DbDir,
+					"err":    err,
+				})
+				return nil, err
+			}
+		} else {
 			return nil, err
 		}
-		db, err = database.CreateDB(cfg.Db.DbType, dbPath)
+	}
+	if fi != nil {
+		err = storage.CheckVersion(cfg.Data.DbType, cfg.Data.DbDir, false)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "ver file check error", logging.LogFormat{
+				"dbtype": cfg.Data.DbType,
+				"path":   cfg.Data.DbDir,
+				"err":    err,
+			})
+			return nil, err
+		}
+	}
+
+	// blocksd.db
+	dbPath := blockDbPath(cfg.Data.DbType)
+	logging.CPrint(logging.INFO, "loading block database", logging.LogFormat{"db type": cfg.Data.DbType, "from": dbPath})
+	var db database.Db
+	fi, err = os.Stat(dbPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			db, err = database.CreateDB(cfg.Data.DbType, dbPath)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+	if fi != nil {
+		db, err = database.OpenDB(cfg.Data.DbType, dbPath)
 		if err != nil {
 			return nil, err
 		}
@@ -235,16 +282,18 @@ func loadBlockDB() (database.Db, error) {
 		return nil, err
 	}
 
+	// Get the latest block height from the database.
 	_, height, err := db.NewestSha()
 	if err != nil {
 		db.Close()
 		return nil, err
 	}
 
-	if height == -1 {
+	// Insert the appropriate genesis block for the Mass network being
+	// connected to if needed.
+	if height == math.MaxUint64 {
 		genesis := massutil.NewBlock(config.ChainParams.GenesisBlock)
-		_, err := db.InsertBlock(genesis)
-		if err != nil {
+		if err := db.InitByGenesisBlock(genesis); err != nil {
 			db.Close()
 			return nil, err
 		}

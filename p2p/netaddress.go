@@ -1,4 +1,4 @@
-// Modified for Bytom
+// Modified for MASSNET
 // Originally Copyright (c) 2013-2014 Conformal Systems LLC.
 // https://github.com/conformal/btcd/blob/master/LICENSE
 
@@ -11,9 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	cmn "github.com/tendermint/tmlibs/common"
+	"massnet.org/mass-wallet/logging"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 // NetAddress defines information about a peer on the network
@@ -28,6 +27,7 @@ type NetAddress struct {
 // address. When testing, other net.Addr (except TCP) will result in
 // using 0.0.0.0:0. When normal run, other net.Addr (except TCP) will
 // panic.
+// TODO: socks proxies?
 func NewNetAddress(addr net.Addr) *NetAddress {
 	tcpAddr, ok := addr.(*net.TCPAddr)
 	if !ok {
@@ -145,6 +145,7 @@ func (na *NetAddress) DialTimeout(timeout time.Duration) (net.Conn, error) {
 
 // Routable returns true if the address is routable.
 func (na *NetAddress) Routable() bool {
+	// TODO(oga) bitcoind doesn't include RFC3849 here, but should we?
 	return na.Valid() && !(na.RFC1918() || na.RFC3927() || na.RFC4862() ||
 		na.RFC4193() || na.RFC4843() || na.Local())
 }

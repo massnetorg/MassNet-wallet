@@ -1,117 +1,116 @@
-// Modified for MassNet
-// Copyright (c) 2013, 2014 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package massutil_test
 
 import (
 	"math"
+	"strconv"
 	"testing"
 
-	. "github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/stretchr/testify/assert"
+	"massnet.org/mass-wallet/consensus"
+	. "massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/massutil/safetype"
 )
 
 func TestAmountCreation(t *testing.T) {
 	tests := []struct {
 		name     string
-		amount   float64
+		mass     float64
 		valid    bool
-		expected Amount
+		expected uint64
 	}{
 		// Positive tests.
 		{
 			name:     "zero",
-			amount:   0,
+			mass:     0,
 			valid:    true,
 			expected: 0,
 		},
 		{
 			name:     "max producible",
-			amount:   21e6,
+			mass:     float64(consensus.MaxMass),
 			valid:    true,
-			expected: MaxMaxwell,
+			expected: MaxAmount().UintValue(),
 		},
 		{
-			name:     "min producible",
-			amount:   -21e6,
-			valid:    true,
-			expected: -MaxMaxwell,
-		},
-		{
-			name:     "exceeds max producible",
-			amount:   21e6 + 1e-8,
-			valid:    true,
-			expected: MaxMaxwell + 1,
-		},
-		{
-			name:     "exceeds min producible",
-			amount:   -21e6 - 1e-8,
-			valid:    true,
-			expected: -MaxMaxwell - 1,
+			name:  "exceeds max producible",
+			mass:  float64(consensus.MaxMass) + 1e-7,
+			valid: false,
 		},
 		{
 			name:     "one hundred",
-			amount:   100,
+			mass:     100,
 			valid:    true,
-			expected: 100 * MaxwellPerMass,
+			expected: (100 * consensus.MaxwellPerMass),
 		},
 		{
 			name:     "fraction",
-			amount:   0.01234567,
+			mass:     0.01234567,
 			valid:    true,
 			expected: 1234567,
 		},
 		{
-			name:     "rounding up",
-			amount:   54.999999999999943157,
+			name:     "rounding up 1",
+			mass:     54.999999999999943157,
 			valid:    true,
-			expected: 55 * MaxwellPerMass,
+			expected: 5500000000,
 		},
 		{
-			name:     "rounding down",
-			amount:   55.000000000000056843,
+			name:     "rounding up 2",
+			mass:     54.999999995000001357,
 			valid:    true,
-			expected: 55 * MaxwellPerMass,
+			expected: 5500000000,
+		},
+		{
+			name:     "rounding down 1",
+			mass:     54.999999994987654321,
+			valid:    true,
+			expected: 5499999999,
+		},
+		{
+			name:     "rounding down 2",
+			mass:     55.000000000000056843,
+			valid:    true,
+			expected: 5500000000,
 		},
 
 		// Negative tests.
 		{
-			name:   "not-a-number",
-			amount: math.NaN(),
-			valid:  false,
+			name:  "not-a-number",
+			mass:  math.NaN(),
+			valid: false,
 		},
 		{
-			name:   "-infinity",
-			amount: math.Inf(-1),
-			valid:  false,
+			name:  "-infinity",
+			mass:  math.Inf(-1),
+			valid: false,
 		},
 		{
-			name:   "+infinity",
-			amount: math.Inf(1),
-			valid:  false,
+			name:  "+infinity",
+			mass:  math.Inf(1),
+			valid: false,
 		},
 	}
 
 	for _, test := range tests {
-		a, err := NewAmount(test.amount)
-		switch {
-		case test.valid && err != nil:
-			t.Errorf("%v: Positive test Amount creation failed with: %v", test.name, err)
-			continue
-		case !test.valid && err == nil:
-			t.Errorf("%v: Negative test Amount creation succeeded (value %v) when should fail", test.name, a)
-			continue
-		}
-
-		if a != test.expected {
-			t.Errorf("%v: Created amount %v does not match expected %v", test.name, a, test.expected)
-			continue
-		}
+		t.Run(test.name, func(t *testing.T) {
+			a, err := NewAmountFromMass(test.mass)
+			if test.valid {
+				assert.Nil(t, err)
+				if a.UintValue() != test.expected {
+					t.Fatalf("expect %d but got %d", test.expected, a.UintValue())
+				}
+			} else {
+				assert.NotNil(t, err)
+			}
+		})
 	}
 }
 
 func TestAmountUnitConversions(t *testing.T) {
+
+	amt, err := NewAmountFromUint(44433322211100)
+	assert.Nil(t, err)
+
 	tests := []struct {
 		name      string
 		amount    Amount
@@ -121,28 +120,28 @@ func TestAmountUnitConversions(t *testing.T) {
 	}{
 		{
 			name:      "MMASS",
-			amount:    MaxMaxwell,
+			amount:    MaxAmount(),
 			unit:      AmountMegaMASS,
-			converted: 21,
-			s:         "21 MMASS",
+			converted: float64(consensus.MaxMass) / 1000000,
+			s:         strconv.FormatFloat(float64(consensus.MaxMass)/1000000, 'f', -1, 64) + " MMASS",
 		},
 		{
 			name:      "kMASS",
-			amount:    44433322211100,
+			amount:    amt,
 			unit:      AmountKiloMASS,
 			converted: 444.33322211100,
 			s:         "444.333222111 kMASS",
 		},
 		{
 			name:      "MASS",
-			amount:    44433322211100,
+			amount:    amt,
 			unit:      AmountMASS,
 			converted: 444333.22211100,
 			s:         "444333.222111 MASS",
 		},
 		{
 			name:      "mMASS",
-			amount:    44433322211100,
+			amount:    amt,
 			unit:      AmountMilliMASS,
 			converted: 444333222.11100,
 			s:         "444333222.111 mMASS",
@@ -150,15 +149,15 @@ func TestAmountUnitConversions(t *testing.T) {
 		{
 
 			name:      "μMASS",
-			amount:    44433322211100,
+			amount:    amt,
 			unit:      AmountMicroMASS,
 			converted: 444333222111.00,
 			s:         "444333222111 μMASS",
 		},
 		{
 
-			name:      "Maxwell",
-			amount:    44433322211100,
+			name:      "maxwell",
+			amount:    amt,
 			unit:      AmountMaxwell,
 			converted: 44433322211100,
 			s:         "44433322211100 Maxwell",
@@ -166,7 +165,7 @@ func TestAmountUnitConversions(t *testing.T) {
 		{
 
 			name:      "non-standard unit",
-			amount:    44433322211100,
+			amount:    amt,
 			unit:      AmountUnit(-1),
 			converted: 4443332.2211100,
 			s:         "4443332.22111 1e-1 MASS",
@@ -197,7 +196,7 @@ func TestAmountUnitConversions(t *testing.T) {
 		s1 := test.amount.Format(AmountMASS)
 		s2 := test.amount.String()
 		if s1 != s2 {
-			t.Errorf("%v: String does not match Format(AmountMASS): %v != %v", test.name, s1, s2)
+			t.Errorf("%v: String does not match Format(AmountMass): %v != %v", test.name, s1, s2)
 		}
 	}
 }
@@ -205,57 +204,34 @@ func TestAmountUnitConversions(t *testing.T) {
 func TestAmountMulF64(t *testing.T) {
 	tests := []struct {
 		name string
-		amt  Amount
+		amt  uint64
 		mul  float64
-		res  Amount
+		res  uint64
+		err  error
 	}{
 		{
 			name: "Multiply 0.1 MASS by 2",
-			amt:  100e5, // 0.1 MASS
+			amt:  10000000, // 0.1 MASS
 			mul:  2,
-			res:  200e5, // 0.2 MASS
+			res:  20000000, // 0.2 MASS
 		},
 		{
 			name: "Multiply 0.2 MASS by 0.02",
-			amt:  200e5, // 0.2 MASS
+			amt:  20000000, // 0.2 MASS
 			mul:  1.02,
-			res:  204e5, // 0.204 MASS
+			res:  20400000, // 0.204 MASS
 		},
 		{
 			name: "Multiply 0.1 MASS by -2",
-			amt:  100e5, // 0.1 MASS
-			mul:  -2,
-			res:  -200e5, // -0.2 MASS
-		},
-		{
-			name: "Multiply 0.2 MASS by -0.02",
-			amt:  200e5, // 0.2 MASS
+			amt:  10000000, // 0.1 MASS
 			mul:  -1.02,
-			res:  -204e5, // -0.204 MASS
+			err:  safetype.ErrUint128Underflow,
 		},
 		{
-			name: "Multiply -0.1 MASS by 2",
-			amt:  -100e5, // -0.1 MASS
-			mul:  2,
-			res:  -200e5, // -0.2 MASS
-		},
-		{
-			name: "Multiply -0.2 MASS by 0.02",
-			amt:  -200e5, // -0.2 MASS
-			mul:  1.02,
-			res:  -204e5, // -0.204 MASS
-		},
-		{
-			name: "Multiply -0.1 MASS by -2",
-			amt:  -100e5, // -0.1 MASS
-			mul:  -2,
-			res:  200e5, // 0.2 MASS
-		},
-		{
-			name: "Multiply -0.2 MASS by -0.02",
-			amt:  -200e5, // -0.2 MASS
-			mul:  -1.02,
-			res:  204e5, // 0.204 MASS
+			name: "Multiply overflow",
+			amt:  100000001, // 1.00000001 MASS
+			mul:  float64(consensus.MaxMass),
+			err:  ErrMaxAmount,
 		},
 		{
 			name: "Round down",
@@ -271,7 +247,7 @@ func TestAmountMulF64(t *testing.T) {
 		},
 		{
 			name: "Multiply by 0.",
-			amt:  1e8, // 1 MASS
+			amt:  100000000, // 1 MASS
 			mul:  0,
 			res:  0, // 0 MASS
 		},
@@ -302,9 +278,43 @@ func TestAmountMulF64(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		a := test.amt.MulF64(test.mul)
-		if a != test.res {
-			t.Errorf("%v: expected %v got %v", test.name, test.res, a)
+		a, err := NewAmountFromUint(test.amt)
+		assert.Nil(t, err)
+		r, err := a.MulF64(test.mul)
+		assert.Equal(t, test.err, err)
+		if err != nil {
+			continue
 		}
+
+		b, err := NewAmountFromUint(test.res)
+		assert.Nil(t, err)
+		assert.Equal(t, r.UintValue(), b.UintValue())
 	}
+}
+
+func TestAdd(t *testing.T) {
+	a, err := NewAmountFromUint(1)
+	assert.Nil(t, err)
+	_, err = MaxAmount().Add(a)
+	assert.Equal(t, ErrMaxAmount, err)
+}
+
+func TestSub(t *testing.T) {
+	a, err := NewAmountFromUint(0)
+	assert.Nil(t, err)
+	b, err := NewAmountFromUint(1)
+	assert.Nil(t, err)
+	c, err := NewAmountFromUint(0)
+	assert.Nil(t, err)
+
+	_, err = a.Sub(b)
+	assert.Equal(t, safetype.ErrUint128Underflow, err)
+
+	v1, err := a.Sub(c)
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(0), v1.UintValue())
+
+	v2, err := b.Sub(c)
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(1), v2.UintValue())
 }

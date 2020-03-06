@@ -5,22 +5,22 @@ import (
 	"net"
 	"sync"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-	//log "github.com/sirupsen/logrus"
-	"gopkg.in/fatih/set.v0"
-
-	"github.com/massnetorg/MassNet-wallet/consensus"
-	"github.com/massnetorg/MassNet-wallet/errors"
-	"github.com/massnetorg/MassNet-wallet/p2p/trust"
-
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	set "gopkg.in/fatih/set.v0"
+	"massnet.org/mass-wallet/consensus"
+	"massnet.org/mass-wallet/errors"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/massutil/ccache"
+	"massnet.org/mass-wallet/p2p/trust"
+	"massnet.org/mass-wallet/wire"
 )
 
 const (
 	maxKnownTxs         = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks      = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 	defaultBanThreshold = uint64(100)
+
+	maxBanScoreCache = 1000
 )
 
 //BasePeer is the interface for connection level peer
@@ -34,7 +34,7 @@ type BasePeer interface {
 
 //BasePeerSet is the intergace for connection level peer manager
 type BasePeerSet interface {
-	AddBannedPeer(string) error
+	AddBannedPeer(string, string) error
 	StopPeerGracefully(string)
 }
 
@@ -65,9 +65,9 @@ func newPeer(height uint64, hash *wire.Hash, basePeer BasePeer) *peer {
 		services:    basePeer.ServiceFlag(),
 		height:      height,
 		hash:        hash,
-		knownTxs:    set.New(),
-		knownBlocks: set.New(),
-		filterAdds:  set.New(),
+		knownTxs:    set.New(set.ThreadSafe).(*set.Set),
+		knownBlocks: set.New(set.ThreadSafe).(*set.Set),
+		filterAdds:  set.New(set.ThreadSafe).(*set.Set),
 	}
 }
 
@@ -131,6 +131,11 @@ func (p *peer) getBlockByHeight(height uint64) bool {
 
 func (p *peer) getBlocks(locator []*wire.Hash, stopHash *wire.Hash) bool {
 	msg := struct{ BlockchainMessage }{NewGetBlocksMessage(locator, stopHash)}
+	return p.TrySend(BlockchainChannel, msg)
+}
+
+func (p *peer) getHeaderByHeight(height uint64) bool {
+	msg := struct{ BlockchainMessage }{&GetHeaderMessage{Height: height}}
 	return p.TrySend(BlockchainChannel, msg)
 }
 
@@ -202,21 +207,31 @@ func (p *peer) sendBlock(block *massutil.Block) (bool, error) {
 	return ok, nil
 }
 
-func (p *peer) sendBlocks(blocks []*massutil.Block) (bool, error) {
-	msg, err := NewBlocksMessage(blocks)
-	if err != nil {
-		return false, errors.Wrap(err, "fail on NewBlocksMessage")
-	}
-
+func (p *peer) sendBlocks(blockHashes []*wire.Hash, rawBlocks [][]byte) (bool, error) {
+	msg := &BlocksMessage{rawBlocks}
+	//msg, err := NewBlocksMessage(blocks)
+	//if err != nil {
+	//	return false, errors.Wrap(err, "fail on NewBlocksMessage")
+	//}
 	if ok := p.TrySend(BlockchainChannel, struct{ BlockchainMessage }{msg}); !ok {
 		return ok, nil
 	}
 
-	for _, block := range blocks {
-		blcokHash := block.Hash()
-		p.knownBlocks.Add(blcokHash.String())
+	for _, blockHash := range blockHashes {
+		//blockHash := block.Hash()
+		p.knownBlocks.Add(blockHash.String())
 	}
 	return true, nil
+}
+
+func (p *peer) sendHeader(header *wire.BlockHeader) (bool, error) {
+	msg, err := NewHeaderMessage(header)
+	if err != nil {
+		return false, errors.Wrap(err, "fail on NewHeaderMessage")
+	}
+
+	ok := p.TrySend(BlockchainChannel, struct{ BlockchainMessage }{msg})
+	return ok, nil
 }
 
 func (p *peer) sendHeaders(headers []*wire.BlockHeader) (bool, error) {
@@ -259,15 +274,17 @@ func (p *peer) setStatus(height uint64, hash *wire.Hash) {
 
 type peerSet struct {
 	BasePeerSet
-	mtx   sync.RWMutex
-	peers map[string]*peer
+	mtx           sync.RWMutex
+	peers         map[string]*peer
+	banScoreCache *ccache.CCache
 }
 
 // newPeerSet creates a new peer set to track the active participants.
 func newPeerSet(basePeerSet BasePeerSet) *peerSet {
 	return &peerSet{
-		BasePeerSet: basePeerSet,
-		peers:       make(map[string]*peer),
+		BasePeerSet:   basePeerSet,
+		peers:         make(map[string]*peer),
+		banScoreCache: ccache.NewCCache(maxBanScoreCache),
 	}
 }
 
@@ -282,10 +299,14 @@ func (ps *peerSet) addBanScore(peerID string, persistent, transient uint64, reas
 	if ban := peer.addBanScore(persistent, transient, reason); !ban {
 		return
 	}
-	if err := ps.AddBannedPeer(peer.Addr().String()); err != nil {
+	ip, _, _ := net.SplitHostPort(peer.Addr().String())
+	if err := ps.AddBannedPeer(peerID, ip); err != nil {
 		logging.CPrint(logging.ERROR, "fail on add ban peer", logging.LogFormat{"err": err})
 	}
+	logging.CPrint(logging.INFO, "add banned peer", logging.LogFormat{"id": peerID, "address": peer.Addr().String()})
 	ps.removePeer(peerID)
+	// if peer banned, no need to keep score
+	ps.banScoreCache.Remove(peerID)
 }
 
 func (ps *peerSet) addPeer(peer BasePeer, height uint64, hash *wire.Hash) {
@@ -294,6 +315,12 @@ func (ps *peerSet) addPeer(peer BasePeer, height uint64, hash *wire.Hash) {
 
 	if _, ok := ps.peers[peer.ID()]; !ok {
 		ps.peers[peer.ID()] = newPeer(height, hash, peer)
+		if value, ok := ps.banScoreCache.Get(peer.ID()); ok {
+			banScore, ok := value.(*trust.DynamicBanScore)
+			if ok {
+				ps.peers[peer.ID()].banScore.ResetFrom(banScore)
+			}
+		}
 		return
 	}
 	logging.CPrint(logging.WARN, "add existing peer to blockKeeper", logging.LogFormat{"id": peer.ID()})
@@ -400,6 +427,13 @@ func (ps *peerSet) getPeerInfos() []*PeerInfo {
 	return result
 }
 
+func (ps *peerSet) getPeerCount() int {
+	ps.mtx.RLock()
+	defer ps.mtx.RUnlock()
+
+	return len(ps.peers)
+}
+
 func (ps *peerSet) peersWithoutBlock(hash *wire.Hash) []*peer {
 	ps.mtx.RLock()
 	defer ps.mtx.RUnlock()
@@ -428,8 +462,12 @@ func (ps *peerSet) peersWithoutTx(hash *wire.Hash) []*peer {
 
 func (ps *peerSet) removePeer(peerID string) {
 	ps.mtx.Lock()
-	delete(ps.peers, peerID)
+	if p, ok := ps.peers[peerID]; ok {
+		if p.banScore.Int() != 0 {
+			ps.banScoreCache.Add(peerID, &p.banScore)
+		}
+		delete(ps.peers, peerID)
+	}
 	ps.mtx.Unlock()
-
 	ps.StopPeerGracefully(peerID)
 }

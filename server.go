@@ -1,6 +1,3 @@
-// Copyright (c) 2017-2019 The massnet developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -8,45 +5,30 @@
 package main
 
 import (
-	"fmt"
-	"github.com/massnetorg/MassNet-wallet/consensus"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/logging"
-	"github.com/massnetorg/MassNet-wallet/wallet"
+	"massnet.org/mass-wallet/logging"
 
-	"github.com/massnetorg/MassNet-wallet/api"
-	"github.com/massnetorg/MassNet-wallet/blockchain"
-	"github.com/massnetorg/MassNet-wallet/chain"
-	"github.com/massnetorg/MassNet-wallet/chainindexer"
-	"github.com/massnetorg/MassNet-wallet/database"
-	"github.com/massnetorg/MassNet-wallet/netsync"
-	"github.com/massnetorg/MassNet-wallet/txscript"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/blockchain"
+	"massnet.org/mass-wallet/database"
+	"massnet.org/mass-wallet/netsync"
+	"massnet.org/mass-wallet/wire"
 
-	"github.com/massnetorg/MassNet-wallet/utxo"
+	"massnet.org/mass-wallet/consensus"
 )
 
+// server provides a bitcoin server for handling communications to and from
+// bitcoin peers.
 type server struct {
-	started       int32 // atomic
-	shutdown      int32 // atomic
-	shutdownSched int32 // atomic
-	sigCache      *txscript.SigCache
-	hashCache     *txscript.HashCache
-	apiServer     *api.Server
-	bc            *blockchain.BlockChain
-	syncManager   *netsync.SyncManager
-	Chain         *chain.Chain
-	NewBlockCh    chan *wire.Hash
-	addrIndexer   *chainindexer.AddrIndexer
-	Wallet        *wallet.Wallet
-	wg            sync.WaitGroup
-	quit          chan struct{}
-	db            database.Db
-	timeSource    blockchain.MedianTimeSource
+	started     int32 // atomic
+	shutdown    int32 // atomic
+	db          database.Db
+	chain       *blockchain.Blockchain
+	syncManager *netsync.SyncManager
+	wg          sync.WaitGroup
+	quit        chan struct{}
 }
 
 // Start begins accepting connections from peers.
@@ -59,16 +41,11 @@ func (s *server) Start() {
 
 	logging.CPrint(logging.TRACE, "starting server", logging.LogFormat{})
 
+	// srvrLog.Trace("Starting server")
 	logging.CPrint(logging.INFO, "begin to start any com", logging.LogFormat{})
 
 	// Start SyncManager
 	s.syncManager.Start()
-
-	s.bc.Start()
-
-	s.apiServer.Start()
-
-	s.apiServer.RunGateway()
 
 	s.wg.Add(1)
 
@@ -83,17 +60,7 @@ func (s *server) Stop() error {
 		return nil
 	}
 
-	logging.CPrint(logging.WARN, "server shutting down", logging.LogFormat{})
-
-	// Shutdown apiServer
-	s.apiServer.Stop()
-
-	s.bc.Stop()
-
 	s.syncManager.Stop()
-
-	// Shutdown walletdb for Tx
-	s.Wallet.Close()
 
 	// Signal the remaining goroutines to quit.
 	close(s.quit)
@@ -111,123 +78,119 @@ func (s *server) WaitForShutdown() {
 // ScheduleShutdown schedules a server shutdown after the specified duration.
 // It also dynamically adjusts how often to warn the server is going down based
 // on remaining duration.
-func (s *server) ScheduleShutdown(duration time.Duration) {
-	// Don't schedule shutdown more than once.
-	if atomic.AddInt32(&s.shutdownSched, 1) != 1 {
-		return
-	}
-	logging.CPrint(logging.WARN, "server shutdown on schedule", logging.LogFormat{"duration": duration})
-	go func() {
-		remaining := duration
-		tickDuration := dynamicTickDuration(remaining)
-		done := time.After(remaining)
-		ticker := time.NewTicker(tickDuration)
-	out:
-		for {
-			select {
-			case <-done:
-				ticker.Stop()
-				s.Stop()
-				break out
-			case <-ticker.C:
-				remaining = remaining - tickDuration
-				if remaining < time.Second {
-					continue
-				}
+//func (s *server) ScheduleShutdown(duration time.Duration) {
+//	// Don't schedule shutdown more than once.
+//	if atomic.AddInt32(&s.shutdownSched, 1) != 1 {
+//		return
+//	}
+//	logging.CPrint(logging.WARN, "server shutdown on schedule", logging.LogFormat{"duration": duration})
+//	go func() {
+//		remaining := duration
+//		tickDuration := dynamicTickDuration(remaining)
+//		done := time.After(remaining)
+//		ticker := time.NewTicker(tickDuration)
+//	out:
+//		for {
+//			select {
+//			case <-done:
+//				ticker.Stop()
+//				s.Stop()
+//				break out
+//			case <-ticker.C:
+//				remaining = remaining - tickDuration
+//				if remaining < time.Second {
+//					continue
+//				}
+//
+//				// Change tick duration dynamically based on remaining time.
+//				newDuration := dynamicTickDuration(remaining)
+//				if tickDuration != newDuration {
+//					tickDuration = newDuration
+//					ticker.Stop()
+//					ticker = time.NewTicker(tickDuration)
+//				}
+//				logging.CPrint(logging.WARN, fmt.Sprintf("Server shutdown in %v", remaining), logging.LogFormat{})
+//			}
+//		}
+//	}()
+//}
 
-				// Change tick duration dynamically based on remaining time.
-				newDuration := dynamicTickDuration(remaining)
-				if tickDuration != newDuration {
-					tickDuration = newDuration
-					ticker.Stop()
-					ticker = time.NewTicker(tickDuration)
-				}
-				logging.CPrint(logging.WARN, fmt.Sprintf("Server shutdown in %v", remaining), logging.LogFormat{})
-			}
-		}
-	}()
-}
+//// parseListeners splits the list of listen addresses passed in addrs into
+//// IPv4 and IPv6 slices and returns them.  This allows easy creation of the
+//// listeners on the correct interface "tcp4" and "tcp6".  It also properly
+//// detects addresses which apply to "all interfaces" and adds the address to
+//// both slices.
+//func parseListeners(addrs []string) ([]string, []string, bool, error) {
+//	ipv4ListenAddrs := make([]string, 0, len(addrs)*2)
+//	ipv6ListenAddrs := make([]string, 0, len(addrs)*2)
+//	haveWildcard := false
+//
+//	for _, addr := range addrs {
+//		host, _, err := net.SplitHostPort(addr)
+//		if err != nil {
+//			// Shouldn't happen due to already being normalized.
+//			return nil, nil, false, err
+//		}
+//
+//		// Empty host or host of * on plan9 is both IPv4 and IPv6.
+//		if host == "" || (host == "*" && runtime.GOOS == "plan9") {
+//			ipv4ListenAddrs = append(ipv4ListenAddrs, addr)
+//			ipv6ListenAddrs = append(ipv6ListenAddrs, addr)
+//			haveWildcard = true
+//			continue
+//		}
+//
+//		// Strip IPv6 zone id if present since net.ParseIP does not
+//		// handle it.
+//		zoneIndex := strings.LastIndex(host, "%")
+//		if zoneIndex > 0 {
+//			host = host[:zoneIndex]
+//		}
+//
+//		// Parse the IP.
+//		ip := net.ParseIP(host)
+//		if ip == nil {
+//			return nil, nil, false, fmt.Errorf("'%s' is not a "+
+//				"valid IP address", host)
+//		}
+//
+//		// To4 returns nil when the IP is not an IPv4 address, so use
+//		// this determine the address type.
+//		if ip.To4() == nil {
+//			ipv6ListenAddrs = append(ipv6ListenAddrs, addr)
+//		} else {
+//			ipv4ListenAddrs = append(ipv4ListenAddrs, addr)
+//		}
+//	}
+//	return ipv4ListenAddrs, ipv6ListenAddrs, haveWildcard, nil
+//}
 
+// newServer returns a new mass server configured to listen on addr for the
+// bitcoin network type specified by chainParams.  Use start to begin accepting
+// connections from peers.
 func newServer(db database.Db) (*server, error) {
-	s := server{
-		quit:       make(chan struct{}),
-		db:         db,
-		timeSource: blockchain.NewMedianTime(),
-		sigCache:   txscript.NewSigCache(config.SigCacheMaxSize),
-		hashCache:  txscript.NewHashCache(config.SigCacheMaxSize),
+	s := &server{
+		quit: make(chan struct{}),
+		db:   db,
 	}
 
-	// Create user wallet
-	walletForTx, err := wallet.NewWallet(cfg.Wallet.WalletDir)
+	var err error
+	// Create Blockchain
+	s.chain, err = blockchain.NewBlockchain(db, cfg.Data.DbDir, s)
 	if err != nil {
+		logging.CPrint(logging.ERROR, "fail on new BlockChain", logging.LogFormat{"err": err})
 		return nil, err
 	}
-	s.Wallet = walletForTx
-
-	utxoStrut, err := utxo.NewUtxo(db)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create txMemPool instance.
-	txMemPool := blockchain.NewTxMemPool(s.db, nil, s.sigCache, s.hashCache, s.timeSource)
-
-	// Create addrIndexer instance.
-	if config.AddrIndex {
-		ai, err := chainindexer.NewAddrIndexer(s.db, &s)
-		if err != nil {
-			return nil, err
-		}
-		s.addrIndexer = ai
-	}
-
-	s.bc, err = blockchain.New(s.db, s.sigCache, s.hashCache, txMemPool, s.addrIndexer)
-	if err != nil {
-		return nil, err
-	}
-
-	//bm, err := blockmanager.NewBlockManager(s.spaceKeeper.Wallet, walletForTx, cfg, s.db, s.addrIndexer, s.txMemPool, s.sigCache, s.hashCache, s.timeSource)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//s.blockManager = bm
-
-	// New Chain
-	chainX, err := chain.NewChain(s.bc, s.timeSource)
-	s.Chain = chainX
 
 	// New SyncManager
 	newBlockCh := make(chan *wire.Hash, consensus.MaxNewBlockChSize)
-	s.NewBlockCh = newBlockCh
-	if err != nil {
-		return nil, err
-	}
-	syncManager, err := netsync.NewSyncManager(cfg, chainX, s.bc.TxPool, newBlockCh)
+	syncManager, err := netsync.NewSyncManager(cfg, s.chain, s.chain.GetTxPool(), newBlockCh)
 	if err != nil {
 		return nil, err
 	}
 	s.syncManager = syncManager
-
-	s.apiServer, err = api.NewServer(s.db, s.bc.TxPool, utxoStrut, s.Wallet, s.syncManager, cfg)
-	if err != nil {
-		logging.CPrint(logging.ERROR, "new server", logging.LogFormat{"err": err})
-		return nil, err
-	}
-
-	return &s, nil
+	return s, nil
 }
-
-func (s *server) addTimeSample(id string, timeVal time.Time) {
-	s.timeSource.AddTimeSample(id, timeVal)
-}
-
-//func (s *server) isRpcServerValid() bool {
-//	if s.rpcServer != nil {
-//		return true
-//	} else {
-//		return false
-//	}
-//}
 
 // dynamicTickDuration is a convenience function used to dynamically choose a
 // tick duration based on remaining time.  It is primarily used during
@@ -249,4 +212,20 @@ func dynamicTickDuration(remaining time.Duration) time.Duration {
 		return time.Minute * 15
 	}
 	return time.Hour
+}
+
+func (s *server) Blockchain() *blockchain.Blockchain {
+	return s.chain
+}
+
+func (s *server) ChainDB() database.Db {
+	return s.db
+}
+
+func (s *server) TxMemPool() *blockchain.TxPool {
+	return s.chain.GetTxPool()
+}
+
+func (s *server) SyncManager() *netsync.SyncManager {
+	return s.syncManager
 }

@@ -1,6 +1,3 @@
-// Copyright (c) 2017-2019 The massnet developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
 // Copyright (c) 2013-2014 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -13,9 +10,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/version"
+	"massnet.org/mass-wallet/version"
 
-	"github.com/massnetorg/MassNet-wallet/config"
+	"massnet.org/mass-wallet/config"
 
 	"github.com/btcsuite/winsvc/eventlog"
 	"github.com/btcsuite/winsvc/mgr"
@@ -23,33 +20,51 @@ import (
 )
 
 const (
-	svcName = "masssvc"
+	// svcName is the name of mass service.
+	svcName = "masswalletsvc"
 
-	svcDisplayName = "Mass Service"
+	// svcDisplayName is the service name that will be shown in the windows
+	// services list.  Not the svcName is the "real" name which is used
+	// to control the service.  This is only for display purposes.
+	svcDisplayName = "MassWallet Service"
 
-	svcDesc = "Downloads and stays synchronized with the mass " +
+	// svcDesc is the description of the service.
+	svcDesc = "Downloads and stays synchronized with the bitcoin block " +
 		"chain and provides chain services to applications."
 )
 
+// elog is used to send messages to the Windows event log.
 var elog *eventlog.Log
 
+// logServiceStartOfDay logs information about mass when the main server has
+// been started to the Windows event log.
 func logServiceStartOfDay(srvr *server) {
 	var message string
 	message += fmt.Sprintf("Version %s\n", version.GetVersion())
-	message += fmt.Sprintf("Configuration directory: %s\n", config.MassHomeDir)
+	message += fmt.Sprintf("Configuration directory: %s\n", config.MassWalletHomeDir)
 	message += fmt.Sprintf("Configuration file: %s\n", cfg.ConfigFile)
-	message += fmt.Sprintf("Data directory: %s\n", cfg.Db.DataDir)
+	message += fmt.Sprintf("Chain Data directory: %s\n", cfg.Data.DbDir)
 
 	elog.Info(1, message)
 }
 
+// massService houses the main service handler which handles all service
+// updates and launching massMain.
 type massService struct{}
 
+// Execute is the main entry point the winsvc package calls when receiving
+// information from the Windows service control manager.  It launches the
+// long-running massMain (which is the real meat of mass), handles service
+// change requests, and notifies the service control manager of changes.
 func (s *massService) Execute(args []string, r <-chan svc.ChangeRequest, changes chan<- svc.Status) (bool, uint32) {
 	// Service start is pending.
 	const cmdsAccepted = svc.AcceptStop | svc.AcceptShutdown
 	changes <- svc.Status{State: svc.StartPending}
 
+	// Start massMain in a separate goroutine so the service can start
+	// quickly.  Shutdown (along with a potential error) is reported via
+	// doneChan.  serverChan is notified with the main server instance once
+	// it is started so it can be gracefully stopped.
 	doneChan := make(chan error)
 	serverChan := make(chan *server)
 	go func() {
@@ -70,8 +85,17 @@ loop:
 				changes <- c.CurrentStatus
 
 			case svc.Stop, svc.Shutdown:
+				// Service stop is pending.  Don't accept any
+				// more commands while pending.
 				changes <- svc.Status{State: svc.StopPending}
 
+				// Stop the main server gracefully when it is
+				// already setup or just break out and allow
+				// the service to exit immediately if it's not
+				// setup yet.  Note that calling Stop will cause
+				// massMain to exit in the goroutine above which
+				// will in turn send a signal (and a potential
+				// error) to doneChan.
 				if mainServer != nil {
 					mainServer.Stop()
 				} else {
@@ -95,11 +119,20 @@ loop:
 		}
 	}
 
+	// Service is now stopped.
 	changes <- svc.Status{State: svc.Stopped}
 	return false, 0
 }
 
+// installService attempts to install the mass service.  Typically this should
+// be done by the msi installer, but it is provided here since it can be useful
+// for development.
 func installService() error {
+	// Get the path of the current executable.  This is needed because
+	// os.Args[0] can vary depending on how the application was launched.
+	// For example, under cmd.exe it will only be the name of the app
+	// without the path or extension, but under mingw it will be the full
+	// path including the extension.
 	exePath, err := filepath.Abs(os.Args[0])
 	if err != nil {
 		return err
@@ -108,18 +141,21 @@ func installService() error {
 		exePath += ".exe"
 	}
 
+	// Connect to the windows service manager.
 	serviceManager, err := mgr.Connect()
 	if err != nil {
 		return err
 	}
 	defer serviceManager.Disconnect()
 
+	// Ensure the service doesn't already exist.
 	service, err := serviceManager.OpenService(svcName)
 	if err == nil {
 		service.Close()
 		return fmt.Errorf("service %s already exists", svcName)
 	}
 
+	// Install the service.
 	service, err = serviceManager.CreateService(svcName, exePath, mgr.Config{
 		DisplayName: svcDisplayName,
 		Description: svcDesc,
@@ -129,6 +165,9 @@ func installService() error {
 	}
 	defer service.Close()
 
+	// Support events to the event log using the standard "standard" Windows
+	// EventCreate.exe message file.  This allows easy logging of custom
+	// messges instead of needing to create our own message catalog.
 	eventlog.Remove(svcName)
 	eventsSupported := uint32(eventlog.Error | eventlog.Warning | eventlog.Info)
 	err = eventlog.InstallAsEventCreate(svcName, eventsSupported)
@@ -139,6 +178,10 @@ func installService() error {
 	return nil
 }
 
+// removeService attempts to uninstall the mass service.  Typically this should
+// be done by the msi uninstaller, but it is provided here since it can be
+// useful for development.  Not the eventlog entry is intentionally not removed
+// since it would invalidate any existing event log messages.
 func removeService() error {
 	// Connect to the windows service manager.
 	serviceManager, err := mgr.Connect()
@@ -186,6 +229,9 @@ func startService() error {
 	return nil
 }
 
+// controlService allows commands which change the status of the service.  It
+// also waits for up to 10 seconds for the service to change to the passed
+// state.
 func controlService(c svc.Cmd, to svc.State) error {
 	// Connect to the windows service manager.
 	serviceManager, err := mgr.Connect()
@@ -223,6 +269,9 @@ func controlService(c svc.Cmd, to svc.State) error {
 	return nil
 }
 
+// performServiceCommand attempts to run one of the supported service commands
+// provided on the command line via the service command flag.  An appropriate
+// error is returned if an invalid command is specified.
 func performServiceCommand(command string) error {
 	var err error
 	switch command {
@@ -245,7 +294,13 @@ func performServiceCommand(command string) error {
 	return err
 }
 
+// serviceMain checks whether we're being invoked as a service, and if so uses
+// the service control manager to start the long-running server.  A flag is
+// returned to the caller so the application can determine whether to exit (when
+// running as a service) or launch in normal interactive mode.
 func serviceMain() (bool, error) {
+	// Don't run as a service if we're running interactively (or that can't
+	// be determined due to an error).
 	isInteractive, err := svc.IsAnInteractiveSession()
 	if err != nil {
 		return false, err

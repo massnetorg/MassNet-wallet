@@ -8,54 +8,65 @@ It is generated from these files:
 	api.proto
 
 It has these top-level messages:
-	Vin
-	ToAddressForTx
-	InputsInTx
-	ScriptPubKeyResult
-	Vout
-	TransactionInput
-	GetTransactionFeeRequest
-	CreateRawTransactionRequest
-	CreateRawTransactionAutoRequest
-	Auto
-	CreateRawTransactionResponse
-	GetTransactionFeeResponse
-	SignRawTransactionRequest
-	SignRawTransactionResponse
-	SendRawTransactionRequest
-	SendRawTransactionResponse
-	PubKeyAndAddress
-	CreateAddressRequest
-	CreateAddressResponse
-	GetBalanceRequest
-	AddressAndBalance
-	GetBalanceResponse
-	GetAllBalanceResponse
-	ValidateAddressRequest
-	ValidateAddressResponse
-	GetUtxoRequest
-	Unspent
-	AddressToUnspent
-	GetUtxoResponse
-	TxListReply
-	Utxo
-	UtxosForAddress
-	GetAddressesResponse
-	GetTxStatusRequest
-	GetTxStatusResponse
-	GetUtxoByAmountRequest
-	GetUtxoByAmountResponse
-	DumpWalletRequest
-	DumpWalletResponse
+	GetClientStatusResponse
+	QuitClientResponse
+	WalletsResponse
+	UseWalletRequest
+	UseWalletResponse
+	CreateWalletRequest
+	CreateWalletResponse
 	ImportWalletRequest
 	ImportWalletResponse
-	GetClientStatusRequest
-	GetClientStatusResponse
-	Coinbase
+	ImportWalletWithMnemonicRequest
+	ExportWalletRequest
+	ExportWalletResponse
+	RemoveWalletRequest
+	RemoveWalletResponse
+	GetAddressBalanceRequest
+	AddressAndBalance
+	GetAddressBalanceResponse
+	ValidateAddressRequest
+	ValidateAddressResponse
+	CreateAddressRequest
+	CreateAddressResponse
+	GetAddressesRequest
+	GetAddressesResponse
+	GetWalletBalanceRequest
+	GetWalletBalanceResponse
+	TxHistoryDetails
+	TxHistoryResponse
+	TxHistoryRequest
+	TransactionInput
+	CreateRawTransactionRequest
+	AutoCreateTransactionRequest
+	CreateRawTransactionResponse
+	CreateStakingTransactionRequest
+	GetLatestRewardListResponse
+	GetStakingHistoryResponse
+	SendRawTransactionRequest
+	SendRawTransactionResponse
+	GetTransactionFeeRequest
+	GetTransactionFeeResponse
+	BlockInfoForTx
+	Vin
+	Vout
 	GetRawTransactionRequest
 	GetRawTransactionResponse
-	TxRawResult
-	BlockInfoForTx
+	GetTxStatusRequest
+	GetTxStatusResponse
+	SignRawTransactionRequest
+	SignRawTransactionResponse
+	GetUtxoRequest
+	UTXO
+	AddressUTXO
+	GetUtxoResponse
+	GetAddressBindingRequest
+	GetAddressBindingResponse
+	GetBindingHistoryResponse
+	CreateBindingTransactionRequest
+	GetBestBlockResponse
+	GetWalletMnemonicRequest
+	GetWalletMnemonicResponse
 */
 package rpcprotobuf
 
@@ -80,1014 +91,21 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
 
-type Vin struct {
-	Txid     string   `protobuf:"bytes,1,opt,name=txid,proto3" json:"txid,omitempty"`
-	Vout     uint32   `protobuf:"varint,2,opt,name=vout,proto3" json:"vout,omitempty"`
-	Sequence uint32   `protobuf:"varint,3,opt,name=sequence,proto3" json:"sequence,omitempty"`
-	Witness  []string `protobuf:"bytes,4,rep,name=witness" json:"witness,omitempty"`
-}
-
-func (m *Vin) Reset()                    { *m = Vin{} }
-func (m *Vin) String() string            { return proto.CompactTextString(m) }
-func (*Vin) ProtoMessage()               {}
-func (*Vin) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{0} }
-
-func (m *Vin) GetTxid() string {
-	if m != nil {
-		return m.Txid
-	}
-	return ""
-}
-
-func (m *Vin) GetVout() uint32 {
-	if m != nil {
-		return m.Vout
-	}
-	return 0
-}
-
-func (m *Vin) GetSequence() uint32 {
-	if m != nil {
-		return m.Sequence
-	}
-	return 0
-}
-
-func (m *Vin) GetWitness() []string {
-	if m != nil {
-		return m.Witness
-	}
-	return nil
-}
-
-type ToAddressForTx struct {
-	Address string  `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	Value   float64 `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
-}
-
-func (m *ToAddressForTx) Reset()                    { *m = ToAddressForTx{} }
-func (m *ToAddressForTx) String() string            { return proto.CompactTextString(m) }
-func (*ToAddressForTx) ProtoMessage()               {}
-func (*ToAddressForTx) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{1} }
-
-func (m *ToAddressForTx) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-func (m *ToAddressForTx) GetValue() float64 {
-	if m != nil {
-		return m.Value
-	}
-	return 0
-}
-
-type InputsInTx struct {
-	Txid    string  `protobuf:"bytes,1,opt,name=txid,proto3" json:"txid,omitempty"`
-	Index   uint32  `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
-	Address string  `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
-	Value   float64 `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
-}
-
-func (m *InputsInTx) Reset()                    { *m = InputsInTx{} }
-func (m *InputsInTx) String() string            { return proto.CompactTextString(m) }
-func (*InputsInTx) ProtoMessage()               {}
-func (*InputsInTx) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{2} }
-
-func (m *InputsInTx) GetTxid() string {
-	if m != nil {
-		return m.Txid
-	}
-	return ""
-}
-
-func (m *InputsInTx) GetIndex() uint32 {
-	if m != nil {
-		return m.Index
-	}
-	return 0
-}
-
-func (m *InputsInTx) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-func (m *InputsInTx) GetValue() float64 {
-	if m != nil {
-		return m.Value
-	}
-	return 0
-}
-
-type ScriptPubKeyResult struct {
-	Asm       string   `protobuf:"bytes,1,opt,name=Asm,proto3" json:"Asm,omitempty"`
-	Hex       string   `protobuf:"bytes,2,opt,name=Hex,proto3" json:"Hex,omitempty"`
-	ReqSigs   int32    `protobuf:"varint,3,opt,name=ReqSigs,proto3" json:"ReqSigs,omitempty"`
-	Type      string   `protobuf:"bytes,4,opt,name=Type,proto3" json:"Type,omitempty"`
-	Addresses []string `protobuf:"bytes,5,rep,name=Addresses" json:"Addresses,omitempty"`
-}
-
-func (m *ScriptPubKeyResult) Reset()                    { *m = ScriptPubKeyResult{} }
-func (m *ScriptPubKeyResult) String() string            { return proto.CompactTextString(m) }
-func (*ScriptPubKeyResult) ProtoMessage()               {}
-func (*ScriptPubKeyResult) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{3} }
-
-func (m *ScriptPubKeyResult) GetAsm() string {
-	if m != nil {
-		return m.Asm
-	}
-	return ""
-}
-
-func (m *ScriptPubKeyResult) GetHex() string {
-	if m != nil {
-		return m.Hex
-	}
-	return ""
-}
-
-func (m *ScriptPubKeyResult) GetReqSigs() int32 {
-	if m != nil {
-		return m.ReqSigs
-	}
-	return 0
-}
-
-func (m *ScriptPubKeyResult) GetType() string {
-	if m != nil {
-		return m.Type
-	}
-	return ""
-}
-
-func (m *ScriptPubKeyResult) GetAddresses() []string {
-	if m != nil {
-		return m.Addresses
-	}
-	return nil
-}
-
-type Vout struct {
-	Value        float64             `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
-	N            uint32              `protobuf:"varint,2,opt,name=n,proto3" json:"n,omitempty"`
-	ScriptPubKey *ScriptPubKeyResult `protobuf:"bytes,3,opt,name=ScriptPubKey" json:"ScriptPubKey,omitempty"`
-}
-
-func (m *Vout) Reset()                    { *m = Vout{} }
-func (m *Vout) String() string            { return proto.CompactTextString(m) }
-func (*Vout) ProtoMessage()               {}
-func (*Vout) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{4} }
-
-func (m *Vout) GetValue() float64 {
-	if m != nil {
-		return m.Value
-	}
-	return 0
-}
-
-func (m *Vout) GetN() uint32 {
-	if m != nil {
-		return m.N
-	}
-	return 0
-}
-
-func (m *Vout) GetScriptPubKey() *ScriptPubKeyResult {
-	if m != nil {
-		return m.ScriptPubKey
-	}
-	return nil
-}
-
-type TransactionInput struct {
-	TxId string `protobuf:"bytes,1,opt,name=txId,proto3" json:"txId,omitempty"`
-	Vout uint32 `protobuf:"varint,2,opt,name=vout,proto3" json:"vout,omitempty"`
-}
-
-func (m *TransactionInput) Reset()                    { *m = TransactionInput{} }
-func (m *TransactionInput) String() string            { return proto.CompactTextString(m) }
-func (*TransactionInput) ProtoMessage()               {}
-func (*TransactionInput) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{5} }
-
-func (m *TransactionInput) GetTxId() string {
-	if m != nil {
-		return m.TxId
-	}
-	return ""
-}
-
-func (m *TransactionInput) GetVout() uint32 {
-	if m != nil {
-		return m.Vout
-	}
-	return 0
-}
-
-type GetTransactionFeeRequest struct {
-	Amounts  map[string]float64 `protobuf:"bytes,1,rep,name=amounts" json:"amounts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"fixed64,2,opt,name=value,proto3"`
-	LockTime int64              `protobuf:"varint,2,opt,name=lockTime,proto3" json:"lockTime,omitempty"`
-}
-
-func (m *GetTransactionFeeRequest) Reset()                    { *m = GetTransactionFeeRequest{} }
-func (m *GetTransactionFeeRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetTransactionFeeRequest) ProtoMessage()               {}
-func (*GetTransactionFeeRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{6} }
-
-func (m *GetTransactionFeeRequest) GetAmounts() map[string]float64 {
-	if m != nil {
-		return m.Amounts
-	}
-	return nil
-}
-
-func (m *GetTransactionFeeRequest) GetLockTime() int64 {
-	if m != nil {
-		return m.LockTime
-	}
-	return 0
-}
-
-type CreateRawTransactionRequest struct {
-	Inputs   []*TransactionInput `protobuf:"bytes,1,rep,name=inputs" json:"inputs,omitempty"`
-	Amounts  map[string]float64  `protobuf:"bytes,2,rep,name=amounts" json:"amounts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"fixed64,2,opt,name=value,proto3"`
-	LockTime int64               `protobuf:"varint,3,opt,name=lockTime,proto3" json:"lockTime,omitempty"`
-}
-
-func (m *CreateRawTransactionRequest) Reset()                    { *m = CreateRawTransactionRequest{} }
-func (m *CreateRawTransactionRequest) String() string            { return proto.CompactTextString(m) }
-func (*CreateRawTransactionRequest) ProtoMessage()               {}
-func (*CreateRawTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{7} }
-
-func (m *CreateRawTransactionRequest) GetInputs() []*TransactionInput {
-	if m != nil {
-		return m.Inputs
-	}
-	return nil
-}
-
-func (m *CreateRawTransactionRequest) GetAmounts() map[string]float64 {
-	if m != nil {
-		return m.Amounts
-	}
-	return nil
-}
-
-func (m *CreateRawTransactionRequest) GetLockTime() int64 {
-	if m != nil {
-		return m.LockTime
-	}
-	return 0
-}
-
-type CreateRawTransactionAutoRequest struct {
-	Amounts   map[string]float64 `protobuf:"bytes,1,rep,name=amounts" json:"amounts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"fixed64,2,opt,name=value,proto3"`
-	LockTime  int64              `protobuf:"varint,2,opt,name=lockTime,proto3" json:"lockTime,omitempty"`
-	UserTxFee float64            `protobuf:"fixed64,3,opt,name=userTxFee,proto3" json:"userTxFee,omitempty"`
-}
-
-func (m *CreateRawTransactionAutoRequest) Reset()         { *m = CreateRawTransactionAutoRequest{} }
-func (m *CreateRawTransactionAutoRequest) String() string { return proto.CompactTextString(m) }
-func (*CreateRawTransactionAutoRequest) ProtoMessage()    {}
-func (*CreateRawTransactionAutoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptorApi, []int{8}
-}
-
-func (m *CreateRawTransactionAutoRequest) GetAmounts() map[string]float64 {
-	if m != nil {
-		return m.Amounts
-	}
-	return nil
-}
-
-func (m *CreateRawTransactionAutoRequest) GetLockTime() int64 {
-	if m != nil {
-		return m.LockTime
-	}
-	return 0
-}
-
-func (m *CreateRawTransactionAutoRequest) GetUserTxFee() float64 {
-	if m != nil {
-		return m.UserTxFee
-	}
-	return 0
-}
-
-type Auto struct {
-	Amounts  map[string]float64 `protobuf:"bytes,2,rep,name=amounts" json:"amounts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"fixed64,2,opt,name=value,proto3"`
-	LockTime int64              `protobuf:"varint,3,opt,name=lockTime,proto3" json:"lockTime,omitempty"`
-}
-
-func (m *Auto) Reset()                    { *m = Auto{} }
-func (m *Auto) String() string            { return proto.CompactTextString(m) }
-func (*Auto) ProtoMessage()               {}
-func (*Auto) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{9} }
-
-func (m *Auto) GetAmounts() map[string]float64 {
-	if m != nil {
-		return m.Amounts
-	}
-	return nil
-}
-
-func (m *Auto) GetLockTime() int64 {
-	if m != nil {
-		return m.LockTime
-	}
-	return 0
-}
-
-type CreateRawTransactionResponse struct {
-	Hex string `protobuf:"bytes,1,opt,name=hex,proto3" json:"hex,omitempty"`
-}
-
-func (m *CreateRawTransactionResponse) Reset()                    { *m = CreateRawTransactionResponse{} }
-func (m *CreateRawTransactionResponse) String() string            { return proto.CompactTextString(m) }
-func (*CreateRawTransactionResponse) ProtoMessage()               {}
-func (*CreateRawTransactionResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{10} }
-
-func (m *CreateRawTransactionResponse) GetHex() string {
-	if m != nil {
-		return m.Hex
-	}
-	return ""
-}
-
-type GetTransactionFeeResponse struct {
-	UserTxFee float64 `protobuf:"fixed64,1,opt,name=userTxFee,proto3" json:"userTxFee,omitempty"`
-}
-
-func (m *GetTransactionFeeResponse) Reset()                    { *m = GetTransactionFeeResponse{} }
-func (m *GetTransactionFeeResponse) String() string            { return proto.CompactTextString(m) }
-func (*GetTransactionFeeResponse) ProtoMessage()               {}
-func (*GetTransactionFeeResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{11} }
-
-func (m *GetTransactionFeeResponse) GetUserTxFee() float64 {
-	if m != nil {
-		return m.UserTxFee
-	}
-	return 0
-}
-
-type SignRawTransactionRequest struct {
-	RawTx    string `protobuf:"bytes,1,opt,name=rawTx,proto3" json:"rawTx,omitempty"`
-	Flags    string `protobuf:"bytes,2,opt,name=flags,proto3" json:"flags,omitempty"`
-	Password string `protobuf:"bytes,3,opt,name=password,proto3" json:"password,omitempty"`
-}
-
-func (m *SignRawTransactionRequest) Reset()                    { *m = SignRawTransactionRequest{} }
-func (m *SignRawTransactionRequest) String() string            { return proto.CompactTextString(m) }
-func (*SignRawTransactionRequest) ProtoMessage()               {}
-func (*SignRawTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{12} }
-
-func (m *SignRawTransactionRequest) GetRawTx() string {
-	if m != nil {
-		return m.RawTx
-	}
-	return ""
-}
-
-func (m *SignRawTransactionRequest) GetFlags() string {
-	if m != nil {
-		return m.Flags
-	}
-	return ""
-}
-
-func (m *SignRawTransactionRequest) GetPassword() string {
-	if m != nil {
-		return m.Password
-	}
-	return ""
-}
-
-type SignRawTransactionResponse struct {
-	Hex      string `protobuf:"bytes,1,opt,name=hex,proto3" json:"hex,omitempty"`
-	Complete bool   `protobuf:"varint,2,opt,name=complete,proto3" json:"complete,omitempty"`
-}
-
-func (m *SignRawTransactionResponse) Reset()                    { *m = SignRawTransactionResponse{} }
-func (m *SignRawTransactionResponse) String() string            { return proto.CompactTextString(m) }
-func (*SignRawTransactionResponse) ProtoMessage()               {}
-func (*SignRawTransactionResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{13} }
-
-func (m *SignRawTransactionResponse) GetHex() string {
-	if m != nil {
-		return m.Hex
-	}
-	return ""
-}
-
-func (m *SignRawTransactionResponse) GetComplete() bool {
-	if m != nil {
-		return m.Complete
-	}
-	return false
-}
-
-type SendRawTransactionRequest struct {
-	HexTx         string `protobuf:"bytes,1,opt,name=hexTx,proto3" json:"hexTx,omitempty"`
-	AllowHighFees bool   `protobuf:"varint,2,opt,name=allowHighFees,proto3" json:"allowHighFees,omitempty"`
-}
-
-func (m *SendRawTransactionRequest) Reset()                    { *m = SendRawTransactionRequest{} }
-func (m *SendRawTransactionRequest) String() string            { return proto.CompactTextString(m) }
-func (*SendRawTransactionRequest) ProtoMessage()               {}
-func (*SendRawTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{14} }
-
-func (m *SendRawTransactionRequest) GetHexTx() string {
-	if m != nil {
-		return m.HexTx
-	}
-	return ""
-}
-
-func (m *SendRawTransactionRequest) GetAllowHighFees() bool {
-	if m != nil {
-		return m.AllowHighFees
-	}
-	return false
-}
-
-type SendRawTransactionResponse struct {
-	Hex string `protobuf:"bytes,1,opt,name=hex,proto3" json:"hex,omitempty"`
-}
-
-func (m *SendRawTransactionResponse) Reset()                    { *m = SendRawTransactionResponse{} }
-func (m *SendRawTransactionResponse) String() string            { return proto.CompactTextString(m) }
-func (*SendRawTransactionResponse) ProtoMessage()               {}
-func (*SendRawTransactionResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{15} }
-
-func (m *SendRawTransactionResponse) GetHex() string {
-	if m != nil {
-		return m.Hex
-	}
-	return ""
-}
-
-type PubKeyAndAddress struct {
-	PubKey  string `protobuf:"bytes,1,opt,name=pubKey,proto3" json:"pubKey,omitempty"`
-	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-}
-
-func (m *PubKeyAndAddress) Reset()                    { *m = PubKeyAndAddress{} }
-func (m *PubKeyAndAddress) String() string            { return proto.CompactTextString(m) }
-func (*PubKeyAndAddress) ProtoMessage()               {}
-func (*PubKeyAndAddress) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{16} }
-
-func (m *PubKeyAndAddress) GetPubKey() string {
-	if m != nil {
-		return m.PubKey
-	}
-	return ""
-}
-
-func (m *PubKeyAndAddress) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-type CreateAddressRequest struct {
-	SignRequire  int32 `protobuf:"varint,1,opt,name=signRequire,proto3" json:"signRequire,omitempty"`
-	PubKeyNumber int32 `protobuf:"varint,2,opt,name=pubKeyNumber,proto3" json:"pubKeyNumber,omitempty"`
-	Version      int32 `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
-}
-
-func (m *CreateAddressRequest) Reset()                    { *m = CreateAddressRequest{} }
-func (m *CreateAddressRequest) String() string            { return proto.CompactTextString(m) }
-func (*CreateAddressRequest) ProtoMessage()               {}
-func (*CreateAddressRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{17} }
-
-func (m *CreateAddressRequest) GetSignRequire() int32 {
-	if m != nil {
-		return m.SignRequire
-	}
-	return 0
-}
-
-func (m *CreateAddressRequest) GetPubKeyNumber() int32 {
-	if m != nil {
-		return m.PubKeyNumber
-	}
-	return 0
-}
-
-func (m *CreateAddressRequest) GetVersion() int32 {
-	if m != nil {
-		return m.Version
-	}
-	return 0
-}
-
-type CreateAddressResponse struct {
-	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-}
-
-func (m *CreateAddressResponse) Reset()                    { *m = CreateAddressResponse{} }
-func (m *CreateAddressResponse) String() string            { return proto.CompactTextString(m) }
-func (*CreateAddressResponse) ProtoMessage()               {}
-func (*CreateAddressResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{18} }
-
-func (m *CreateAddressResponse) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-type GetBalanceRequest struct {
-	Addresses []string `protobuf:"bytes,1,rep,name=addresses" json:"addresses,omitempty"`
-}
-
-func (m *GetBalanceRequest) Reset()                    { *m = GetBalanceRequest{} }
-func (m *GetBalanceRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetBalanceRequest) ProtoMessage()               {}
-func (*GetBalanceRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{19} }
-
-func (m *GetBalanceRequest) GetAddresses() []string {
-	if m != nil {
-		return m.Addresses
-	}
-	return nil
-}
-
-type AddressAndBalance struct {
-	Address string  `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	Balance float64 `protobuf:"fixed64,2,opt,name=balance,proto3" json:"balance,omitempty"`
-}
-
-func (m *AddressAndBalance) Reset()                    { *m = AddressAndBalance{} }
-func (m *AddressAndBalance) String() string            { return proto.CompactTextString(m) }
-func (*AddressAndBalance) ProtoMessage()               {}
-func (*AddressAndBalance) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{20} }
-
-func (m *AddressAndBalance) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-func (m *AddressAndBalance) GetBalance() float64 {
-	if m != nil {
-		return m.Balance
-	}
-	return 0
-}
-
-type GetBalanceResponse struct {
-	Balance []*AddressAndBalance `protobuf:"bytes,1,rep,name=balance" json:"balance,omitempty"`
-}
-
-func (m *GetBalanceResponse) Reset()                    { *m = GetBalanceResponse{} }
-func (m *GetBalanceResponse) String() string            { return proto.CompactTextString(m) }
-func (*GetBalanceResponse) ProtoMessage()               {}
-func (*GetBalanceResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{21} }
-
-func (m *GetBalanceResponse) GetBalance() []*AddressAndBalance {
-	if m != nil {
-		return m.Balance
-	}
-	return nil
-}
-
-type GetAllBalanceResponse struct {
-	Balance float64 `protobuf:"fixed64,1,opt,name=balance,proto3" json:"balance,omitempty"`
-}
-
-func (m *GetAllBalanceResponse) Reset()                    { *m = GetAllBalanceResponse{} }
-func (m *GetAllBalanceResponse) String() string            { return proto.CompactTextString(m) }
-func (*GetAllBalanceResponse) ProtoMessage()               {}
-func (*GetAllBalanceResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{22} }
-
-func (m *GetAllBalanceResponse) GetBalance() float64 {
-	if m != nil {
-		return m.Balance
-	}
-	return 0
-}
-
-type ValidateAddressRequest struct {
-	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-}
-
-func (m *ValidateAddressRequest) Reset()                    { *m = ValidateAddressRequest{} }
-func (m *ValidateAddressRequest) String() string            { return proto.CompactTextString(m) }
-func (*ValidateAddressRequest) ProtoMessage()               {}
-func (*ValidateAddressRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{23} }
-
-func (m *ValidateAddressRequest) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-type ValidateAddressResponse struct {
-	IsValid bool   `protobuf:"varint,1,opt,name=isValid,proto3" json:"isValid,omitempty"`
-	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
-}
-
-func (m *ValidateAddressResponse) Reset()                    { *m = ValidateAddressResponse{} }
-func (m *ValidateAddressResponse) String() string            { return proto.CompactTextString(m) }
-func (*ValidateAddressResponse) ProtoMessage()               {}
-func (*ValidateAddressResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{24} }
-
-func (m *ValidateAddressResponse) GetIsValid() bool {
-	if m != nil {
-		return m.IsValid
-	}
-	return false
-}
-
-func (m *ValidateAddressResponse) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-type GetUtxoRequest struct {
-	Addresses []string `protobuf:"bytes,1,rep,name=addresses" json:"addresses,omitempty"`
-}
-
-func (m *GetUtxoRequest) Reset()                    { *m = GetUtxoRequest{} }
-func (m *GetUtxoRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetUtxoRequest) ProtoMessage()               {}
-func (*GetUtxoRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{25} }
-
-func (m *GetUtxoRequest) GetAddresses() []string {
-	if m != nil {
-		return m.Addresses
-	}
-	return nil
-}
-
-type Unspent struct {
-	TxId   string  `protobuf:"bytes,1,opt,name=txId,proto3" json:"txId,omitempty"`
-	Vout   uint32  `protobuf:"varint,2,opt,name=vout,proto3" json:"vout,omitempty"`
-	Amount float64 `protobuf:"fixed64,3,opt,name=amount,proto3" json:"amount,omitempty"`
-}
-
-func (m *Unspent) Reset()                    { *m = Unspent{} }
-func (m *Unspent) String() string            { return proto.CompactTextString(m) }
-func (*Unspent) ProtoMessage()               {}
-func (*Unspent) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{26} }
-
-func (m *Unspent) GetTxId() string {
-	if m != nil {
-		return m.TxId
-	}
-	return ""
-}
-
-func (m *Unspent) GetVout() uint32 {
-	if m != nil {
-		return m.Vout
-	}
-	return 0
-}
-
-func (m *Unspent) GetAmount() float64 {
-	if m != nil {
-		return m.Amount
-	}
-	return 0
-}
-
-type AddressToUnspent struct {
-	Address  string     `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	Unspents []*Unspent `protobuf:"bytes,2,rep,name=unspents" json:"unspents,omitempty"`
-}
-
-func (m *AddressToUnspent) Reset()                    { *m = AddressToUnspent{} }
-func (m *AddressToUnspent) String() string            { return proto.CompactTextString(m) }
-func (*AddressToUnspent) ProtoMessage()               {}
-func (*AddressToUnspent) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{27} }
-
-func (m *AddressToUnspent) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-func (m *AddressToUnspent) GetUnspents() []*Unspent {
-	if m != nil {
-		return m.Unspents
-	}
-	return nil
-}
-
-type GetUtxoResponse struct {
-	AddressToUtxo []*AddressToUnspent `protobuf:"bytes,1,rep,name=addressToUtxo" json:"addressToUtxo,omitempty"`
-}
-
-func (m *GetUtxoResponse) Reset()                    { *m = GetUtxoResponse{} }
-func (m *GetUtxoResponse) String() string            { return proto.CompactTextString(m) }
-func (*GetUtxoResponse) ProtoMessage()               {}
-func (*GetUtxoResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{28} }
-
-func (m *GetUtxoResponse) GetAddressToUtxo() []*AddressToUnspent {
-	if m != nil {
-		return m.AddressToUtxo
-	}
-	return nil
-}
-
-type TxListReply struct {
-	Sha     string `protobuf:"bytes,1,opt,name=sha,proto3" json:"sha,omitempty"`
-	BlkSha  string `protobuf:"bytes,2,opt,name=blkSha,proto3" json:"blkSha,omitempty"`
-	Height  int32  `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
-	TxSpent []bool `protobuf:"varint,4,rep,packed,name=txSpent" json:"txSpent,omitempty"`
-}
-
-func (m *TxListReply) Reset()                    { *m = TxListReply{} }
-func (m *TxListReply) String() string            { return proto.CompactTextString(m) }
-func (*TxListReply) ProtoMessage()               {}
-func (*TxListReply) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{29} }
-
-func (m *TxListReply) GetSha() string {
-	if m != nil {
-		return m.Sha
-	}
-	return ""
-}
-
-func (m *TxListReply) GetBlkSha() string {
-	if m != nil {
-		return m.BlkSha
-	}
-	return ""
-}
-
-func (m *TxListReply) GetHeight() int32 {
-	if m != nil {
-		return m.Height
-	}
-	return 0
-}
-
-func (m *TxListReply) GetTxSpent() []bool {
-	if m != nil {
-		return m.TxSpent
-	}
-	return nil
-}
-
-type Utxo struct {
-	Tx       string  `protobuf:"bytes,1,opt,name=tx,proto3" json:"tx,omitempty"`
-	Height   int32   `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
-	Coinbase bool    `protobuf:"varint,3,opt,name=coinbase,proto3" json:"coinbase,omitempty"`
-	Index    uint32  `protobuf:"varint,4,opt,name=index,proto3" json:"index,omitempty"`
-	Value    float64 `protobuf:"fixed64,5,opt,name=value,proto3" json:"value,omitempty"`
-}
-
-func (m *Utxo) Reset()                    { *m = Utxo{} }
-func (m *Utxo) String() string            { return proto.CompactTextString(m) }
-func (*Utxo) ProtoMessage()               {}
-func (*Utxo) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{30} }
-
-func (m *Utxo) GetTx() string {
-	if m != nil {
-		return m.Tx
-	}
-	return ""
-}
-
-func (m *Utxo) GetHeight() int32 {
-	if m != nil {
-		return m.Height
-	}
-	return 0
-}
-
-func (m *Utxo) GetCoinbase() bool {
-	if m != nil {
-		return m.Coinbase
-	}
-	return false
-}
-
-func (m *Utxo) GetIndex() uint32 {
-	if m != nil {
-		return m.Index
-	}
-	return 0
-}
-
-func (m *Utxo) GetValue() float64 {
-	if m != nil {
-		return m.Value
-	}
-	return 0
-}
-
-type UtxosForAddress struct {
-	Address string  `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-	Utxos   []*Utxo `protobuf:"bytes,2,rep,name=utxos" json:"utxos,omitempty"`
-}
-
-func (m *UtxosForAddress) Reset()                    { *m = UtxosForAddress{} }
-func (m *UtxosForAddress) String() string            { return proto.CompactTextString(m) }
-func (*UtxosForAddress) ProtoMessage()               {}
-func (*UtxosForAddress) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{31} }
-
-func (m *UtxosForAddress) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
-func (m *UtxosForAddress) GetUtxos() []*Utxo {
-	if m != nil {
-		return m.Utxos
-	}
-	return nil
-}
-
-type GetAddressesResponse struct {
-	AddressList []*AddressAndBalance `protobuf:"bytes,1,rep,name=addressList" json:"addressList,omitempty"`
-}
-
-func (m *GetAddressesResponse) Reset()                    { *m = GetAddressesResponse{} }
-func (m *GetAddressesResponse) String() string            { return proto.CompactTextString(m) }
-func (*GetAddressesResponse) ProtoMessage()               {}
-func (*GetAddressesResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{32} }
-
-func (m *GetAddressesResponse) GetAddressList() []*AddressAndBalance {
-	if m != nil {
-		return m.AddressList
-	}
-	return nil
-}
-
-type GetTxStatusRequest struct {
-	TxId string `protobuf:"bytes,1,opt,name=txId,proto3" json:"txId,omitempty"`
-}
-
-func (m *GetTxStatusRequest) Reset()                    { *m = GetTxStatusRequest{} }
-func (m *GetTxStatusRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetTxStatusRequest) ProtoMessage()               {}
-func (*GetTxStatusRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{33} }
-
-func (m *GetTxStatusRequest) GetTxId() string {
-	if m != nil {
-		return m.TxId
-	}
-	return ""
-}
-
-type GetTxStatusResponse struct {
-	Code   string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	Status string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
-}
-
-func (m *GetTxStatusResponse) Reset()                    { *m = GetTxStatusResponse{} }
-func (m *GetTxStatusResponse) String() string            { return proto.CompactTextString(m) }
-func (*GetTxStatusResponse) ProtoMessage()               {}
-func (*GetTxStatusResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{34} }
-
-func (m *GetTxStatusResponse) GetCode() string {
-	if m != nil {
-		return m.Code
-	}
-	return ""
-}
-
-func (m *GetTxStatusResponse) GetStatus() string {
-	if m != nil {
-		return m.Status
-	}
-	return ""
-}
-
-type GetUtxoByAmountRequest struct {
-	Amount float64 `protobuf:"fixed64,1,opt,name=amount,proto3" json:"amount,omitempty"`
-}
-
-func (m *GetUtxoByAmountRequest) Reset()                    { *m = GetUtxoByAmountRequest{} }
-func (m *GetUtxoByAmountRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetUtxoByAmountRequest) ProtoMessage()               {}
-func (*GetUtxoByAmountRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{35} }
-
-func (m *GetUtxoByAmountRequest) GetAmount() float64 {
-	if m != nil {
-		return m.Amount
-	}
-	return 0
-}
-
-type GetUtxoByAmountResponse struct {
-	Utxo []*Unspent `protobuf:"bytes,1,rep,name=utxo" json:"utxo,omitempty"`
-}
-
-func (m *GetUtxoByAmountResponse) Reset()                    { *m = GetUtxoByAmountResponse{} }
-func (m *GetUtxoByAmountResponse) String() string            { return proto.CompactTextString(m) }
-func (*GetUtxoByAmountResponse) ProtoMessage()               {}
-func (*GetUtxoByAmountResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{36} }
-
-func (m *GetUtxoByAmountResponse) GetUtxo() []*Unspent {
-	if m != nil {
-		return m.Utxo
-	}
-	return nil
-}
-
-type DumpWalletRequest struct {
-	DumpDirPath string `protobuf:"bytes,1,opt,name=dumpDirPath,proto3" json:"dumpDirPath,omitempty"`
-}
-
-func (m *DumpWalletRequest) Reset()                    { *m = DumpWalletRequest{} }
-func (m *DumpWalletRequest) String() string            { return proto.CompactTextString(m) }
-func (*DumpWalletRequest) ProtoMessage()               {}
-func (*DumpWalletRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{37} }
-
-func (m *DumpWalletRequest) GetDumpDirPath() string {
-	if m != nil {
-		return m.DumpDirPath
-	}
-	return ""
-}
-
-type DumpWalletResponse struct {
-}
-
-func (m *DumpWalletResponse) Reset()                    { *m = DumpWalletResponse{} }
-func (m *DumpWalletResponse) String() string            { return proto.CompactTextString(m) }
-func (*DumpWalletResponse) ProtoMessage()               {}
-func (*DumpWalletResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{38} }
-
-type ImportWalletRequest struct {
-	ImportDirPath string `protobuf:"bytes,1,opt,name=importDirPath,proto3" json:"importDirPath,omitempty"`
-	OldPassword   string `protobuf:"bytes,2,opt,name=oldPassword,proto3" json:"oldPassword,omitempty"`
-	NewPassword   string `protobuf:"bytes,3,opt,name=newPassword,proto3" json:"newPassword,omitempty"`
-}
-
-func (m *ImportWalletRequest) Reset()                    { *m = ImportWalletRequest{} }
-func (m *ImportWalletRequest) String() string            { return proto.CompactTextString(m) }
-func (*ImportWalletRequest) ProtoMessage()               {}
-func (*ImportWalletRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{39} }
-
-func (m *ImportWalletRequest) GetImportDirPath() string {
-	if m != nil {
-		return m.ImportDirPath
-	}
-	return ""
-}
-
-func (m *ImportWalletRequest) GetOldPassword() string {
-	if m != nil {
-		return m.OldPassword
-	}
-	return ""
-}
-
-func (m *ImportWalletRequest) GetNewPassword() string {
-	if m != nil {
-		return m.NewPassword
-	}
-	return ""
-}
-
-type ImportWalletResponse struct {
-}
-
-func (m *ImportWalletResponse) Reset()                    { *m = ImportWalletResponse{} }
-func (m *ImportWalletResponse) String() string            { return proto.CompactTextString(m) }
-func (*ImportWalletResponse) ProtoMessage()               {}
-func (*ImportWalletResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{40} }
-
-type GetClientStatusRequest struct {
-}
-
-func (m *GetClientStatusRequest) Reset()                    { *m = GetClientStatusRequest{} }
-func (m *GetClientStatusRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetClientStatusRequest) ProtoMessage()               {}
-func (*GetClientStatusRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{41} }
-
 type GetClientStatusResponse struct {
-	PeerListening   bool                                  `protobuf:"varint,1,opt,name=peerListening,proto3" json:"peerListening,omitempty"`
-	Syncing         bool                                  `protobuf:"varint,2,opt,name=syncing,proto3" json:"syncing,omitempty"`
-	ChainID         string                                `protobuf:"bytes,3,opt,name=chainID,proto3" json:"chainID,omitempty"`
-	LocalBestHeight uint64                                `protobuf:"varint,4,opt,name=localBestHeight,proto3" json:"localBestHeight,omitempty"`
-	KnownBestHeight uint64                                `protobuf:"varint,5,opt,name=knownBestHeight,proto3" json:"knownBestHeight,omitempty"`
-	PeerCount       *GetClientStatusResponsePeerCountInfo `protobuf:"bytes,6,opt,name=peerCount" json:"peerCount,omitempty"`
-	Peers           *GetClientStatusResponsePeerList      `protobuf:"bytes,7,opt,name=peers" json:"peers,omitempty"`
+	PeerListening    bool                                  `protobuf:"varint,1,opt,name=peer_listening,json=peerListening,proto3" json:"peer_listening,omitempty"`
+	Syncing          bool                                  `protobuf:"varint,2,opt,name=syncing,proto3" json:"syncing,omitempty"`
+	ChainId          string                                `protobuf:"bytes,3,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	LocalBestHeight  uint64                                `protobuf:"varint,4,opt,name=local_best_height,json=localBestHeight,proto3" json:"local_best_height,omitempty"`
+	KnownBestHeight  uint64                                `protobuf:"varint,5,opt,name=known_best_height,json=knownBestHeight,proto3" json:"known_best_height,omitempty"`
+	WalletSyncHeight uint64                                `protobuf:"varint,6,opt,name=wallet_sync_height,json=walletSyncHeight,proto3" json:"wallet_sync_height,omitempty"`
+	PeerCount        *GetClientStatusResponsePeerCountInfo `protobuf:"bytes,7,opt,name=peer_count,json=peerCount" json:"peer_count,omitempty"`
+	Peers            *GetClientStatusResponsePeerList      `protobuf:"bytes,8,opt,name=peers" json:"peers,omitempty"`
 }
 
 func (m *GetClientStatusResponse) Reset()                    { *m = GetClientStatusResponse{} }
 func (m *GetClientStatusResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetClientStatusResponse) ProtoMessage()               {}
-func (*GetClientStatusResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{42} }
+func (*GetClientStatusResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{0} }
 
 func (m *GetClientStatusResponse) GetPeerListening() bool {
 	if m != nil {
@@ -1103,9 +121,9 @@ func (m *GetClientStatusResponse) GetSyncing() bool {
 	return false
 }
 
-func (m *GetClientStatusResponse) GetChainID() string {
+func (m *GetClientStatusResponse) GetChainId() string {
 	if m != nil {
-		return m.ChainID
+		return m.ChainId
 	}
 	return ""
 }
@@ -1120,6 +138,13 @@ func (m *GetClientStatusResponse) GetLocalBestHeight() uint64 {
 func (m *GetClientStatusResponse) GetKnownBestHeight() uint64 {
 	if m != nil {
 		return m.KnownBestHeight
+	}
+	return 0
+}
+
+func (m *GetClientStatusResponse) GetWalletSyncHeight() uint64 {
+	if m != nil {
+		return m.WalletSyncHeight
 	}
 	return 0
 }
@@ -1148,7 +173,7 @@ func (m *GetClientStatusResponsePeerCountInfo) Reset()         { *m = GetClientS
 func (m *GetClientStatusResponsePeerCountInfo) String() string { return proto.CompactTextString(m) }
 func (*GetClientStatusResponsePeerCountInfo) ProtoMessage()    {}
 func (*GetClientStatusResponsePeerCountInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptorApi, []int{42, 0}
+	return fileDescriptorApi, []int{0, 0}
 }
 
 func (m *GetClientStatusResponsePeerCountInfo) GetTotal() uint32 {
@@ -1182,7 +207,7 @@ func (m *GetClientStatusResponsePeerInfo) Reset()         { *m = GetClientStatus
 func (m *GetClientStatusResponsePeerInfo) String() string { return proto.CompactTextString(m) }
 func (*GetClientStatusResponsePeerInfo) ProtoMessage()    {}
 func (*GetClientStatusResponsePeerInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptorApi, []int{42, 1}
+	return fileDescriptorApi, []int{0, 1}
 }
 
 func (m *GetClientStatusResponsePeerInfo) GetId() string {
@@ -1216,7 +241,7 @@ func (m *GetClientStatusResponsePeerList) Reset()         { *m = GetClientStatus
 func (m *GetClientStatusResponsePeerList) String() string { return proto.CompactTextString(m) }
 func (*GetClientStatusResponsePeerList) ProtoMessage()    {}
 func (*GetClientStatusResponsePeerList) Descriptor() ([]byte, []int) {
-	return fileDescriptorApi, []int{42, 2}
+	return fileDescriptorApi, []int{0, 2}
 }
 
 func (m *GetClientStatusResponsePeerList) GetOutbound() []*GetClientStatusResponsePeerInfo {
@@ -1240,241 +265,1346 @@ func (m *GetClientStatusResponsePeerList) GetOther() []*GetClientStatusResponseP
 	return nil
 }
 
-//
-type Coinbase struct {
-	Hex      string            `protobuf:"bytes,1,opt,name=hex,proto3" json:"hex,omitempty"`
-	TxHash   string            `protobuf:"bytes,2,opt,name=txHash,proto3" json:"txHash,omitempty"`
-	Version  int32             `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
-	LockTime uint32            `protobuf:"varint,4,opt,name=lockTime,proto3" json:"lockTime,omitempty"`
-	To       []*ToAddressForTx `protobuf:"bytes,5,rep,name=to" json:"to,omitempty"`
+type QuitClientResponse struct {
+	Code int64  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg  string `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
 }
 
-func (m *Coinbase) Reset()                    { *m = Coinbase{} }
-func (m *Coinbase) String() string            { return proto.CompactTextString(m) }
-func (*Coinbase) ProtoMessage()               {}
-func (*Coinbase) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{43} }
+func (m *QuitClientResponse) Reset()                    { *m = QuitClientResponse{} }
+func (m *QuitClientResponse) String() string            { return proto.CompactTextString(m) }
+func (*QuitClientResponse) ProtoMessage()               {}
+func (*QuitClientResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{1} }
 
-func (m *Coinbase) GetHex() string {
+func (m *QuitClientResponse) GetCode() int64 {
 	if m != nil {
-		return m.Hex
+		return m.Code
+	}
+	return 0
+}
+
+func (m *QuitClientResponse) GetMsg() string {
+	if m != nil {
+		return m.Msg
 	}
 	return ""
 }
 
-func (m *Coinbase) GetTxHash() string {
+type WalletsResponse struct {
+	Wallets []*WalletsResponse_WalletSummary `protobuf:"bytes,1,rep,name=wallets" json:"wallets,omitempty"`
+}
+
+func (m *WalletsResponse) Reset()                    { *m = WalletsResponse{} }
+func (m *WalletsResponse) String() string            { return proto.CompactTextString(m) }
+func (*WalletsResponse) ProtoMessage()               {}
+func (*WalletsResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{2} }
+
+func (m *WalletsResponse) GetWallets() []*WalletsResponse_WalletSummary {
 	if m != nil {
-		return m.TxHash
+		return m.Wallets
+	}
+	return nil
+}
+
+type WalletsResponse_WalletSummary struct {
+	WalletId     string `protobuf:"bytes,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+	Type         uint32 `protobuf:"varint,2,opt,name=type,proto3" json:"type,omitempty"`
+	Remarks      string `protobuf:"bytes,3,opt,name=remarks,proto3" json:"remarks,omitempty"`
+	Ready        bool   `protobuf:"varint,4,opt,name=ready,proto3" json:"ready,omitempty"`
+	SyncedHeight uint64 `protobuf:"varint,5,opt,name=synced_height,json=syncedHeight,proto3" json:"synced_height,omitempty"`
+}
+
+func (m *WalletsResponse_WalletSummary) Reset()         { *m = WalletsResponse_WalletSummary{} }
+func (m *WalletsResponse_WalletSummary) String() string { return proto.CompactTextString(m) }
+func (*WalletsResponse_WalletSummary) ProtoMessage()    {}
+func (*WalletsResponse_WalletSummary) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{2, 0}
+}
+
+func (m *WalletsResponse_WalletSummary) GetWalletId() string {
+	if m != nil {
+		return m.WalletId
 	}
 	return ""
 }
 
-func (m *Coinbase) GetVersion() int32 {
+func (m *WalletsResponse_WalletSummary) GetType() uint32 {
+	if m != nil {
+		return m.Type
+	}
+	return 0
+}
+
+func (m *WalletsResponse_WalletSummary) GetRemarks() string {
+	if m != nil {
+		return m.Remarks
+	}
+	return ""
+}
+
+func (m *WalletsResponse_WalletSummary) GetReady() bool {
+	if m != nil {
+		return m.Ready
+	}
+	return false
+}
+
+func (m *WalletsResponse_WalletSummary) GetSyncedHeight() uint64 {
+	if m != nil {
+		return m.SyncedHeight
+	}
+	return 0
+}
+
+type UseWalletRequest struct {
+	WalletId string `protobuf:"bytes,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+}
+
+func (m *UseWalletRequest) Reset()                    { *m = UseWalletRequest{} }
+func (m *UseWalletRequest) String() string            { return proto.CompactTextString(m) }
+func (*UseWalletRequest) ProtoMessage()               {}
+func (*UseWalletRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{3} }
+
+func (m *UseWalletRequest) GetWalletId() string {
+	if m != nil {
+		return m.WalletId
+	}
+	return ""
+}
+
+type UseWalletResponse struct {
+	ChainId          string `protobuf:"bytes,1,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	WalletId         string `protobuf:"bytes,2,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+	Type             uint32 `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`
+	TotalBalance     string `protobuf:"bytes,4,opt,name=total_balance,json=totalBalance,proto3" json:"total_balance,omitempty"`
+	ExternalKeyCount int32  `protobuf:"varint,5,opt,name=external_key_count,json=externalKeyCount,proto3" json:"external_key_count,omitempty"`
+	InternalKeyCount int32  `protobuf:"varint,6,opt,name=internal_key_count,json=internalKeyCount,proto3" json:"internal_key_count,omitempty"`
+	Remarks          string `protobuf:"bytes,7,opt,name=remarks,proto3" json:"remarks,omitempty"`
+}
+
+func (m *UseWalletResponse) Reset()                    { *m = UseWalletResponse{} }
+func (m *UseWalletResponse) String() string            { return proto.CompactTextString(m) }
+func (*UseWalletResponse) ProtoMessage()               {}
+func (*UseWalletResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{4} }
+
+func (m *UseWalletResponse) GetChainId() string {
+	if m != nil {
+		return m.ChainId
+	}
+	return ""
+}
+
+func (m *UseWalletResponse) GetWalletId() string {
+	if m != nil {
+		return m.WalletId
+	}
+	return ""
+}
+
+func (m *UseWalletResponse) GetType() uint32 {
+	if m != nil {
+		return m.Type
+	}
+	return 0
+}
+
+func (m *UseWalletResponse) GetTotalBalance() string {
+	if m != nil {
+		return m.TotalBalance
+	}
+	return ""
+}
+
+func (m *UseWalletResponse) GetExternalKeyCount() int32 {
+	if m != nil {
+		return m.ExternalKeyCount
+	}
+	return 0
+}
+
+func (m *UseWalletResponse) GetInternalKeyCount() int32 {
+	if m != nil {
+		return m.InternalKeyCount
+	}
+	return 0
+}
+
+func (m *UseWalletResponse) GetRemarks() string {
+	if m != nil {
+		return m.Remarks
+	}
+	return ""
+}
+
+type CreateWalletRequest struct {
+	Passphrase string `protobuf:"bytes,1,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
+	Remarks    string `protobuf:"bytes,2,opt,name=remarks,proto3" json:"remarks,omitempty"`
+	BitSize    int32  `protobuf:"varint,3,opt,name=bit_size,json=bitSize,proto3" json:"bit_size,omitempty"`
+}
+
+func (m *CreateWalletRequest) Reset()                    { *m = CreateWalletRequest{} }
+func (m *CreateWalletRequest) String() string            { return proto.CompactTextString(m) }
+func (*CreateWalletRequest) ProtoMessage()               {}
+func (*CreateWalletRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{5} }
+
+func (m *CreateWalletRequest) GetPassphrase() string {
+	if m != nil {
+		return m.Passphrase
+	}
+	return ""
+}
+
+func (m *CreateWalletRequest) GetRemarks() string {
+	if m != nil {
+		return m.Remarks
+	}
+	return ""
+}
+
+func (m *CreateWalletRequest) GetBitSize() int32 {
+	if m != nil {
+		return m.BitSize
+	}
+	return 0
+}
+
+type CreateWalletResponse struct {
+	WalletId string `protobuf:"bytes,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+	Mnemonic string `protobuf:"bytes,2,opt,name=mnemonic,proto3" json:"mnemonic,omitempty"`
+}
+
+func (m *CreateWalletResponse) Reset()                    { *m = CreateWalletResponse{} }
+func (m *CreateWalletResponse) String() string            { return proto.CompactTextString(m) }
+func (*CreateWalletResponse) ProtoMessage()               {}
+func (*CreateWalletResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{6} }
+
+func (m *CreateWalletResponse) GetWalletId() string {
+	if m != nil {
+		return m.WalletId
+	}
+	return ""
+}
+
+func (m *CreateWalletResponse) GetMnemonic() string {
+	if m != nil {
+		return m.Mnemonic
+	}
+	return ""
+}
+
+type ImportWalletRequest struct {
+	Keystore   string `protobuf:"bytes,1,opt,name=keystore,proto3" json:"keystore,omitempty"`
+	Passphrase string `protobuf:"bytes,2,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
+}
+
+func (m *ImportWalletRequest) Reset()                    { *m = ImportWalletRequest{} }
+func (m *ImportWalletRequest) String() string            { return proto.CompactTextString(m) }
+func (*ImportWalletRequest) ProtoMessage()               {}
+func (*ImportWalletRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{7} }
+
+func (m *ImportWalletRequest) GetKeystore() string {
+	if m != nil {
+		return m.Keystore
+	}
+	return ""
+}
+
+func (m *ImportWalletRequest) GetPassphrase() string {
+	if m != nil {
+		return m.Passphrase
+	}
+	return ""
+}
+
+type ImportWalletResponse struct {
+	Ok       bool   `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+	WalletId string `protobuf:"bytes,2,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+	Type     uint32 `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`
+	Remarks  string `protobuf:"bytes,4,opt,name=remarks,proto3" json:"remarks,omitempty"`
+}
+
+func (m *ImportWalletResponse) Reset()                    { *m = ImportWalletResponse{} }
+func (m *ImportWalletResponse) String() string            { return proto.CompactTextString(m) }
+func (*ImportWalletResponse) ProtoMessage()               {}
+func (*ImportWalletResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{8} }
+
+func (m *ImportWalletResponse) GetOk() bool {
+	if m != nil {
+		return m.Ok
+	}
+	return false
+}
+
+func (m *ImportWalletResponse) GetWalletId() string {
+	if m != nil {
+		return m.WalletId
+	}
+	return ""
+}
+
+func (m *ImportWalletResponse) GetType() uint32 {
+	if m != nil {
+		return m.Type
+	}
+	return 0
+}
+
+func (m *ImportWalletResponse) GetRemarks() string {
+	if m != nil {
+		return m.Remarks
+	}
+	return ""
+}
+
+type ImportWalletWithMnemonicRequest struct {
+	Mnemonic      string `protobuf:"bytes,1,opt,name=mnemonic,proto3" json:"mnemonic,omitempty"`
+	Passphrase    string `protobuf:"bytes,2,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
+	Remarks       string `protobuf:"bytes,3,opt,name=remarks,proto3" json:"remarks,omitempty"`
+	ExternalIndex uint32 `protobuf:"varint,4,opt,name=external_index,json=externalIndex,proto3" json:"external_index,omitempty"`
+	InternalIndex uint32 `protobuf:"varint,5,opt,name=internal_index,json=internalIndex,proto3" json:"internal_index,omitempty"`
+}
+
+func (m *ImportWalletWithMnemonicRequest) Reset()         { *m = ImportWalletWithMnemonicRequest{} }
+func (m *ImportWalletWithMnemonicRequest) String() string { return proto.CompactTextString(m) }
+func (*ImportWalletWithMnemonicRequest) ProtoMessage()    {}
+func (*ImportWalletWithMnemonicRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{9}
+}
+
+func (m *ImportWalletWithMnemonicRequest) GetMnemonic() string {
+	if m != nil {
+		return m.Mnemonic
+	}
+	return ""
+}
+
+func (m *ImportWalletWithMnemonicRequest) GetPassphrase() string {
+	if m != nil {
+		return m.Passphrase
+	}
+	return ""
+}
+
+func (m *ImportWalletWithMnemonicRequest) GetRemarks() string {
+	if m != nil {
+		return m.Remarks
+	}
+	return ""
+}
+
+func (m *ImportWalletWithMnemonicRequest) GetExternalIndex() uint32 {
+	if m != nil {
+		return m.ExternalIndex
+	}
+	return 0
+}
+
+func (m *ImportWalletWithMnemonicRequest) GetInternalIndex() uint32 {
+	if m != nil {
+		return m.InternalIndex
+	}
+	return 0
+}
+
+type ExportWalletRequest struct {
+	WalletId   string `protobuf:"bytes,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+	Passphrase string `protobuf:"bytes,2,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
+}
+
+func (m *ExportWalletRequest) Reset()                    { *m = ExportWalletRequest{} }
+func (m *ExportWalletRequest) String() string            { return proto.CompactTextString(m) }
+func (*ExportWalletRequest) ProtoMessage()               {}
+func (*ExportWalletRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{10} }
+
+func (m *ExportWalletRequest) GetWalletId() string {
+	if m != nil {
+		return m.WalletId
+	}
+	return ""
+}
+
+func (m *ExportWalletRequest) GetPassphrase() string {
+	if m != nil {
+		return m.Passphrase
+	}
+	return ""
+}
+
+type ExportWalletResponse struct {
+	Keystore string `protobuf:"bytes,1,opt,name=keystore,proto3" json:"keystore,omitempty"`
+}
+
+func (m *ExportWalletResponse) Reset()                    { *m = ExportWalletResponse{} }
+func (m *ExportWalletResponse) String() string            { return proto.CompactTextString(m) }
+func (*ExportWalletResponse) ProtoMessage()               {}
+func (*ExportWalletResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{11} }
+
+func (m *ExportWalletResponse) GetKeystore() string {
+	if m != nil {
+		return m.Keystore
+	}
+	return ""
+}
+
+type RemoveWalletRequest struct {
+	WalletId   string `protobuf:"bytes,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+	Passphrase string `protobuf:"bytes,2,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
+}
+
+func (m *RemoveWalletRequest) Reset()                    { *m = RemoveWalletRequest{} }
+func (m *RemoveWalletRequest) String() string            { return proto.CompactTextString(m) }
+func (*RemoveWalletRequest) ProtoMessage()               {}
+func (*RemoveWalletRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{12} }
+
+func (m *RemoveWalletRequest) GetWalletId() string {
+	if m != nil {
+		return m.WalletId
+	}
+	return ""
+}
+
+func (m *RemoveWalletRequest) GetPassphrase() string {
+	if m != nil {
+		return m.Passphrase
+	}
+	return ""
+}
+
+type RemoveWalletResponse struct {
+	Ok bool `protobuf:"varint,1,opt,name=ok,proto3" json:"ok,omitempty"`
+}
+
+func (m *RemoveWalletResponse) Reset()                    { *m = RemoveWalletResponse{} }
+func (m *RemoveWalletResponse) String() string            { return proto.CompactTextString(m) }
+func (*RemoveWalletResponse) ProtoMessage()               {}
+func (*RemoveWalletResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{13} }
+
+func (m *RemoveWalletResponse) GetOk() bool {
+	if m != nil {
+		return m.Ok
+	}
+	return false
+}
+
+type GetAddressBalanceRequest struct {
+	RequiredConfirmations int32    `protobuf:"varint,1,opt,name=required_confirmations,json=requiredConfirmations,proto3" json:"required_confirmations,omitempty"`
+	Addresses             []string `protobuf:"bytes,2,rep,name=addresses" json:"addresses,omitempty"`
+}
+
+func (m *GetAddressBalanceRequest) Reset()                    { *m = GetAddressBalanceRequest{} }
+func (m *GetAddressBalanceRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetAddressBalanceRequest) ProtoMessage()               {}
+func (*GetAddressBalanceRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{14} }
+
+func (m *GetAddressBalanceRequest) GetRequiredConfirmations() int32 {
+	if m != nil {
+		return m.RequiredConfirmations
+	}
+	return 0
+}
+
+func (m *GetAddressBalanceRequest) GetAddresses() []string {
+	if m != nil {
+		return m.Addresses
+	}
+	return nil
+}
+
+type AddressAndBalance struct {
+	Address             string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Total               string `protobuf:"bytes,2,opt,name=total,proto3" json:"total,omitempty"`
+	Spendable           string `protobuf:"bytes,3,opt,name=spendable,proto3" json:"spendable,omitempty"`
+	WithdrawableStaking string `protobuf:"bytes,4,opt,name=withdrawable_staking,json=withdrawableStaking,proto3" json:"withdrawable_staking,omitempty"`
+	WithdrawableBinding string `protobuf:"bytes,5,opt,name=withdrawable_binding,json=withdrawableBinding,proto3" json:"withdrawable_binding,omitempty"`
+}
+
+func (m *AddressAndBalance) Reset()                    { *m = AddressAndBalance{} }
+func (m *AddressAndBalance) String() string            { return proto.CompactTextString(m) }
+func (*AddressAndBalance) ProtoMessage()               {}
+func (*AddressAndBalance) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{15} }
+
+func (m *AddressAndBalance) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+func (m *AddressAndBalance) GetTotal() string {
+	if m != nil {
+		return m.Total
+	}
+	return ""
+}
+
+func (m *AddressAndBalance) GetSpendable() string {
+	if m != nil {
+		return m.Spendable
+	}
+	return ""
+}
+
+func (m *AddressAndBalance) GetWithdrawableStaking() string {
+	if m != nil {
+		return m.WithdrawableStaking
+	}
+	return ""
+}
+
+func (m *AddressAndBalance) GetWithdrawableBinding() string {
+	if m != nil {
+		return m.WithdrawableBinding
+	}
+	return ""
+}
+
+type GetAddressBalanceResponse struct {
+	Balances []*AddressAndBalance `protobuf:"bytes,1,rep,name=balances" json:"balances,omitempty"`
+}
+
+func (m *GetAddressBalanceResponse) Reset()                    { *m = GetAddressBalanceResponse{} }
+func (m *GetAddressBalanceResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetAddressBalanceResponse) ProtoMessage()               {}
+func (*GetAddressBalanceResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{16} }
+
+func (m *GetAddressBalanceResponse) GetBalances() []*AddressAndBalance {
+	if m != nil {
+		return m.Balances
+	}
+	return nil
+}
+
+type ValidateAddressRequest struct {
+	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *ValidateAddressRequest) Reset()                    { *m = ValidateAddressRequest{} }
+func (m *ValidateAddressRequest) String() string            { return proto.CompactTextString(m) }
+func (*ValidateAddressRequest) ProtoMessage()               {}
+func (*ValidateAddressRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{17} }
+
+func (m *ValidateAddressRequest) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+type ValidateAddressResponse struct {
+	IsValid bool   `protobuf:"varint,1,opt,name=is_valid,json=isValid,proto3" json:"is_valid,omitempty"`
+	IsMine  bool   `protobuf:"varint,2,opt,name=is_mine,json=isMine,proto3" json:"is_mine,omitempty"`
+	Address string `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	Version int32  `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (m *ValidateAddressResponse) Reset()                    { *m = ValidateAddressResponse{} }
+func (m *ValidateAddressResponse) String() string            { return proto.CompactTextString(m) }
+func (*ValidateAddressResponse) ProtoMessage()               {}
+func (*ValidateAddressResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{18} }
+
+func (m *ValidateAddressResponse) GetIsValid() bool {
+	if m != nil {
+		return m.IsValid
+	}
+	return false
+}
+
+func (m *ValidateAddressResponse) GetIsMine() bool {
+	if m != nil {
+		return m.IsMine
+	}
+	return false
+}
+
+func (m *ValidateAddressResponse) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+func (m *ValidateAddressResponse) GetVersion() int32 {
 	if m != nil {
 		return m.Version
 	}
 	return 0
 }
 
-func (m *Coinbase) GetLockTime() uint32 {
+type CreateAddressRequest struct {
+	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (m *CreateAddressRequest) Reset()                    { *m = CreateAddressRequest{} }
+func (m *CreateAddressRequest) String() string            { return proto.CompactTextString(m) }
+func (*CreateAddressRequest) ProtoMessage()               {}
+func (*CreateAddressRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{19} }
+
+func (m *CreateAddressRequest) GetVersion() int32 {
 	if m != nil {
-		return m.LockTime
+		return m.Version
 	}
 	return 0
 }
 
-func (m *Coinbase) GetTo() []*ToAddressForTx {
+type CreateAddressResponse struct {
+	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *CreateAddressResponse) Reset()                    { *m = CreateAddressResponse{} }
+func (m *CreateAddressResponse) String() string            { return proto.CompactTextString(m) }
+func (*CreateAddressResponse) ProtoMessage()               {}
+func (*CreateAddressResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{20} }
+
+func (m *CreateAddressResponse) GetAddress() string {
 	if m != nil {
-		return m.To
+		return m.Address
+	}
+	return ""
+}
+
+type GetAddressesRequest struct {
+	Version int32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (m *GetAddressesRequest) Reset()                    { *m = GetAddressesRequest{} }
+func (m *GetAddressesRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetAddressesRequest) ProtoMessage()               {}
+func (*GetAddressesRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{21} }
+
+func (m *GetAddressesRequest) GetVersion() int32 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
+type GetAddressesResponse struct {
+	Details []*GetAddressesResponse_AddressDetail `protobuf:"bytes,1,rep,name=details" json:"details,omitempty"`
+}
+
+func (m *GetAddressesResponse) Reset()                    { *m = GetAddressesResponse{} }
+func (m *GetAddressesResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetAddressesResponse) ProtoMessage()               {}
+func (*GetAddressesResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{22} }
+
+func (m *GetAddressesResponse) GetDetails() []*GetAddressesResponse_AddressDetail {
+	if m != nil {
+		return m.Details
 	}
 	return nil
 }
 
-type GetRawTransactionRequest struct {
-	TxId    string `protobuf:"bytes,1,opt,name=txId,proto3" json:"txId,omitempty"`
-	Verbose bool   `protobuf:"varint,2,opt,name=verbose,proto3" json:"verbose,omitempty"`
+type GetAddressesResponse_AddressDetail struct {
+	Address    string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Version    int32  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	Used       bool   `protobuf:"varint,3,opt,name=used,proto3" json:"used,omitempty"`
+	StdAddress string `protobuf:"bytes,4,opt,name=std_address,json=stdAddress,proto3" json:"std_address,omitempty"`
 }
 
-func (m *GetRawTransactionRequest) Reset()                    { *m = GetRawTransactionRequest{} }
-func (m *GetRawTransactionRequest) String() string            { return proto.CompactTextString(m) }
-func (*GetRawTransactionRequest) ProtoMessage()               {}
-func (*GetRawTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{44} }
+func (m *GetAddressesResponse_AddressDetail) Reset()         { *m = GetAddressesResponse_AddressDetail{} }
+func (m *GetAddressesResponse_AddressDetail) String() string { return proto.CompactTextString(m) }
+func (*GetAddressesResponse_AddressDetail) ProtoMessage()    {}
+func (*GetAddressesResponse_AddressDetail) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{22, 0}
+}
 
-func (m *GetRawTransactionRequest) GetTxId() string {
+func (m *GetAddressesResponse_AddressDetail) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+func (m *GetAddressesResponse_AddressDetail) GetVersion() int32 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
+func (m *GetAddressesResponse_AddressDetail) GetUsed() bool {
+	if m != nil {
+		return m.Used
+	}
+	return false
+}
+
+func (m *GetAddressesResponse_AddressDetail) GetStdAddress() string {
+	if m != nil {
+		return m.StdAddress
+	}
+	return ""
+}
+
+type GetWalletBalanceRequest struct {
+	RequiredConfirmations int32 `protobuf:"varint,1,opt,name=required_confirmations,json=requiredConfirmations,proto3" json:"required_confirmations,omitempty"`
+	Detail                bool  `protobuf:"varint,2,opt,name=detail,proto3" json:"detail,omitempty"`
+}
+
+func (m *GetWalletBalanceRequest) Reset()                    { *m = GetWalletBalanceRequest{} }
+func (m *GetWalletBalanceRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetWalletBalanceRequest) ProtoMessage()               {}
+func (*GetWalletBalanceRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{23} }
+
+func (m *GetWalletBalanceRequest) GetRequiredConfirmations() int32 {
+	if m != nil {
+		return m.RequiredConfirmations
+	}
+	return 0
+}
+
+func (m *GetWalletBalanceRequest) GetDetail() bool {
+	if m != nil {
+		return m.Detail
+	}
+	return false
+}
+
+type GetWalletBalanceResponse struct {
+	WalletId string                           `protobuf:"bytes,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+	Total    string                           `protobuf:"bytes,2,opt,name=total,proto3" json:"total,omitempty"`
+	Detail   *GetWalletBalanceResponse_Detail `protobuf:"bytes,3,opt,name=detail" json:"detail,omitempty"`
+}
+
+func (m *GetWalletBalanceResponse) Reset()                    { *m = GetWalletBalanceResponse{} }
+func (m *GetWalletBalanceResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetWalletBalanceResponse) ProtoMessage()               {}
+func (*GetWalletBalanceResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{24} }
+
+func (m *GetWalletBalanceResponse) GetWalletId() string {
+	if m != nil {
+		return m.WalletId
+	}
+	return ""
+}
+
+func (m *GetWalletBalanceResponse) GetTotal() string {
+	if m != nil {
+		return m.Total
+	}
+	return ""
+}
+
+func (m *GetWalletBalanceResponse) GetDetail() *GetWalletBalanceResponse_Detail {
+	if m != nil {
+		return m.Detail
+	}
+	return nil
+}
+
+type GetWalletBalanceResponse_Detail struct {
+	Spendable           string `protobuf:"bytes,1,opt,name=spendable,proto3" json:"spendable,omitempty"`
+	WithdrawableStaking string `protobuf:"bytes,2,opt,name=withdrawable_staking,json=withdrawableStaking,proto3" json:"withdrawable_staking,omitempty"`
+	WithdrawableBinding string `protobuf:"bytes,3,opt,name=withdrawable_binding,json=withdrawableBinding,proto3" json:"withdrawable_binding,omitempty"`
+}
+
+func (m *GetWalletBalanceResponse_Detail) Reset()         { *m = GetWalletBalanceResponse_Detail{} }
+func (m *GetWalletBalanceResponse_Detail) String() string { return proto.CompactTextString(m) }
+func (*GetWalletBalanceResponse_Detail) ProtoMessage()    {}
+func (*GetWalletBalanceResponse_Detail) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{24, 0}
+}
+
+func (m *GetWalletBalanceResponse_Detail) GetSpendable() string {
+	if m != nil {
+		return m.Spendable
+	}
+	return ""
+}
+
+func (m *GetWalletBalanceResponse_Detail) GetWithdrawableStaking() string {
+	if m != nil {
+		return m.WithdrawableStaking
+	}
+	return ""
+}
+
+func (m *GetWalletBalanceResponse_Detail) GetWithdrawableBinding() string {
+	if m != nil {
+		return m.WithdrawableBinding
+	}
+	return ""
+}
+
+type TxHistoryDetails struct {
+	TxId          string                     `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	BlockHeight   uint64                     `protobuf:"varint,2,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
+	Inputs        []*TxHistoryDetails_Input  `protobuf:"bytes,3,rep,name=inputs" json:"inputs,omitempty"`
+	Outputs       []*TxHistoryDetails_Output `protobuf:"bytes,4,rep,name=outputs" json:"outputs,omitempty"`
+	FromAddresses []string                   `protobuf:"bytes,5,rep,name=from_addresses,json=fromAddresses" json:"from_addresses,omitempty"`
+}
+
+func (m *TxHistoryDetails) Reset()                    { *m = TxHistoryDetails{} }
+func (m *TxHistoryDetails) String() string            { return proto.CompactTextString(m) }
+func (*TxHistoryDetails) ProtoMessage()               {}
+func (*TxHistoryDetails) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{25} }
+
+func (m *TxHistoryDetails) GetTxId() string {
 	if m != nil {
 		return m.TxId
 	}
 	return ""
 }
 
-func (m *GetRawTransactionRequest) GetVerbose() bool {
+func (m *TxHistoryDetails) GetBlockHeight() uint64 {
 	if m != nil {
-		return m.Verbose
-	}
-	return false
-}
-
-type GetRawTransactionResponse struct {
-	MtxHex string       `protobuf:"bytes,1,opt,name=mtxHex,proto3" json:"mtxHex,omitempty"`
-	RawTxn *TxRawResult `protobuf:"bytes,2,opt,name=rawTxn" json:"rawTxn,omitempty"`
-}
-
-func (m *GetRawTransactionResponse) Reset()                    { *m = GetRawTransactionResponse{} }
-func (m *GetRawTransactionResponse) String() string            { return proto.CompactTextString(m) }
-func (*GetRawTransactionResponse) ProtoMessage()               {}
-func (*GetRawTransactionResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{45} }
-
-func (m *GetRawTransactionResponse) GetMtxHex() string {
-	if m != nil {
-		return m.MtxHex
-	}
-	return ""
-}
-
-func (m *GetRawTransactionResponse) GetRawTxn() *TxRawResult {
-	if m != nil {
-		return m.RawTxn
-	}
-	return nil
-}
-
-type TxRawResult struct {
-	Hex           string            `protobuf:"bytes,1,opt,name=hex,proto3" json:"hex,omitempty"`
-	Txid          string            `protobuf:"bytes,2,opt,name=txid,proto3" json:"txid,omitempty"`
-	Version       int32             `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
-	LockTime      uint32            `protobuf:"varint,4,opt,name=lockTime,proto3" json:"lockTime,omitempty"`
-	Block         *BlockInfoForTx   `protobuf:"bytes,5,opt,name=block" json:"block,omitempty"`
-	Vin           []*Vin            `protobuf:"bytes,6,rep,name=vin" json:"vin,omitempty"`
-	Vout          []*Vout           `protobuf:"bytes,7,rep,name=vout" json:"vout,omitempty"`
-	FromAddress   []string          `protobuf:"bytes,8,rep,name=fromAddress" json:"fromAddress,omitempty"`
-	To            []*ToAddressForTx `protobuf:"bytes,9,rep,name=to" json:"to,omitempty"`
-	Inputs        []*InputsInTx     `protobuf:"bytes,10,rep,name=inputs" json:"inputs,omitempty"`
-	Payload       string            `protobuf:"bytes,11,opt,name=payload,proto3" json:"payload,omitempty"`
-	Confirmations uint64            `protobuf:"varint,12,opt,name=confirmations,proto3" json:"confirmations,omitempty"`
-	Size         int32             `protobuf:"varint,13,opt,name=size,proto3" json:"size,omitempty"`
-	Fee           float64           `protobuf:"fixed64,14,opt,name=fee,proto3" json:"fee,omitempty"`
-	Status        int32             `protobuf:"varint,15,opt,name=status,proto3" json:"status,omitempty"`
-}
-
-func (m *TxRawResult) Reset()                    { *m = TxRawResult{} }
-func (m *TxRawResult) String() string            { return proto.CompactTextString(m) }
-func (*TxRawResult) ProtoMessage()               {}
-func (*TxRawResult) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{46} }
-
-func (m *TxRawResult) GetHex() string {
-	if m != nil {
-		return m.Hex
-	}
-	return ""
-}
-
-func (m *TxRawResult) GetTxid() string {
-	if m != nil {
-		return m.Txid
-	}
-	return ""
-}
-
-func (m *TxRawResult) GetVersion() int32 {
-	if m != nil {
-		return m.Version
+		return m.BlockHeight
 	}
 	return 0
 }
 
-func (m *TxRawResult) GetLockTime() uint32 {
-	if m != nil {
-		return m.LockTime
-	}
-	return 0
-}
-
-func (m *TxRawResult) GetBlock() *BlockInfoForTx {
-	if m != nil {
-		return m.Block
-	}
-	return nil
-}
-
-func (m *TxRawResult) GetVin() []*Vin {
-	if m != nil {
-		return m.Vin
-	}
-	return nil
-}
-
-func (m *TxRawResult) GetVout() []*Vout {
-	if m != nil {
-		return m.Vout
-	}
-	return nil
-}
-
-func (m *TxRawResult) GetFromAddress() []string {
-	if m != nil {
-		return m.FromAddress
-	}
-	return nil
-}
-
-func (m *TxRawResult) GetTo() []*ToAddressForTx {
-	if m != nil {
-		return m.To
-	}
-	return nil
-}
-
-func (m *TxRawResult) GetInputs() []*InputsInTx {
+func (m *TxHistoryDetails) GetInputs() []*TxHistoryDetails_Input {
 	if m != nil {
 		return m.Inputs
 	}
 	return nil
 }
 
-func (m *TxRawResult) GetPayload() string {
+func (m *TxHistoryDetails) GetOutputs() []*TxHistoryDetails_Output {
 	if m != nil {
-		return m.Payload
+		return m.Outputs
+	}
+	return nil
+}
+
+func (m *TxHistoryDetails) GetFromAddresses() []string {
+	if m != nil {
+		return m.FromAddresses
+	}
+	return nil
+}
+
+type TxHistoryDetails_Input struct {
+	TxId  string `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	Index int64  `protobuf:"varint,2,opt,name=index,proto3" json:"index,omitempty"`
+}
+
+func (m *TxHistoryDetails_Input) Reset()                    { *m = TxHistoryDetails_Input{} }
+func (m *TxHistoryDetails_Input) String() string            { return proto.CompactTextString(m) }
+func (*TxHistoryDetails_Input) ProtoMessage()               {}
+func (*TxHistoryDetails_Input) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{25, 0} }
+
+func (m *TxHistoryDetails_Input) GetTxId() string {
+	if m != nil {
+		return m.TxId
 	}
 	return ""
 }
 
-func (m *TxRawResult) GetConfirmations() uint64 {
+func (m *TxHistoryDetails_Input) GetIndex() int64 {
 	if m != nil {
-		return m.Confirmations
+		return m.Index
 	}
 	return 0
 }
 
-func (m *TxRawResult) GetSize() int32 {
+type TxHistoryDetails_Output struct {
+	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Amount  string `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`
+}
+
+func (m *TxHistoryDetails_Output) Reset()                    { *m = TxHistoryDetails_Output{} }
+func (m *TxHistoryDetails_Output) String() string            { return proto.CompactTextString(m) }
+func (*TxHistoryDetails_Output) ProtoMessage()               {}
+func (*TxHistoryDetails_Output) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{25, 1} }
+
+func (m *TxHistoryDetails_Output) GetAddress() string {
 	if m != nil {
-		return m.Size
+		return m.Address
+	}
+	return ""
+}
+
+func (m *TxHistoryDetails_Output) GetAmount() string {
+	if m != nil {
+		return m.Amount
+	}
+	return ""
+}
+
+type TxHistoryResponse struct {
+	Histories []*TxHistoryDetails `protobuf:"bytes,1,rep,name=histories" json:"histories,omitempty"`
+}
+
+func (m *TxHistoryResponse) Reset()                    { *m = TxHistoryResponse{} }
+func (m *TxHistoryResponse) String() string            { return proto.CompactTextString(m) }
+func (*TxHistoryResponse) ProtoMessage()               {}
+func (*TxHistoryResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{26} }
+
+func (m *TxHistoryResponse) GetHistories() []*TxHistoryDetails {
+	if m != nil {
+		return m.Histories
+	}
+	return nil
+}
+
+type TxHistoryRequest struct {
+	Count   uint32 `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
+	Address string `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+}
+
+func (m *TxHistoryRequest) Reset()                    { *m = TxHistoryRequest{} }
+func (m *TxHistoryRequest) String() string            { return proto.CompactTextString(m) }
+func (*TxHistoryRequest) ProtoMessage()               {}
+func (*TxHistoryRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{27} }
+
+func (m *TxHistoryRequest) GetCount() uint32 {
+	if m != nil {
+		return m.Count
 	}
 	return 0
 }
 
-func (m *TxRawResult) GetFee() float64 {
+func (m *TxHistoryRequest) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+type TransactionInput struct {
+	TxId string `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	Vout uint32 `protobuf:"varint,2,opt,name=vout,proto3" json:"vout,omitempty"`
+}
+
+func (m *TransactionInput) Reset()                    { *m = TransactionInput{} }
+func (m *TransactionInput) String() string            { return proto.CompactTextString(m) }
+func (*TransactionInput) ProtoMessage()               {}
+func (*TransactionInput) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{28} }
+
+func (m *TransactionInput) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+func (m *TransactionInput) GetVout() uint32 {
+	if m != nil {
+		return m.Vout
+	}
+	return 0
+}
+
+type CreateRawTransactionRequest struct {
+	Inputs   []*TransactionInput `protobuf:"bytes,1,rep,name=inputs" json:"inputs,omitempty"`
+	Amounts  map[string]string   `protobuf:"bytes,2,rep,name=amounts" json:"amounts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	LockTime uint64              `protobuf:"varint,3,opt,name=lock_time,json=lockTime,proto3" json:"lock_time,omitempty"`
+}
+
+func (m *CreateRawTransactionRequest) Reset()                    { *m = CreateRawTransactionRequest{} }
+func (m *CreateRawTransactionRequest) String() string            { return proto.CompactTextString(m) }
+func (*CreateRawTransactionRequest) ProtoMessage()               {}
+func (*CreateRawTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{29} }
+
+func (m *CreateRawTransactionRequest) GetInputs() []*TransactionInput {
+	if m != nil {
+		return m.Inputs
+	}
+	return nil
+}
+
+func (m *CreateRawTransactionRequest) GetAmounts() map[string]string {
+	if m != nil {
+		return m.Amounts
+	}
+	return nil
+}
+
+func (m *CreateRawTransactionRequest) GetLockTime() uint64 {
+	if m != nil {
+		return m.LockTime
+	}
+	return 0
+}
+
+type AutoCreateTransactionRequest struct {
+	Amounts     map[string]string `protobuf:"bytes,1,rep,name=amounts" json:"amounts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	LockTime    uint64            `protobuf:"varint,2,opt,name=lock_time,json=lockTime,proto3" json:"lock_time,omitempty"`
+	Fee         string            `protobuf:"bytes,3,opt,name=fee,proto3" json:"fee,omitempty"`
+	FromAddress string            `protobuf:"bytes,4,opt,name=from_address,json=fromAddress,proto3" json:"from_address,omitempty"`
+}
+
+func (m *AutoCreateTransactionRequest) Reset()                    { *m = AutoCreateTransactionRequest{} }
+func (m *AutoCreateTransactionRequest) String() string            { return proto.CompactTextString(m) }
+func (*AutoCreateTransactionRequest) ProtoMessage()               {}
+func (*AutoCreateTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{30} }
+
+func (m *AutoCreateTransactionRequest) GetAmounts() map[string]string {
+	if m != nil {
+		return m.Amounts
+	}
+	return nil
+}
+
+func (m *AutoCreateTransactionRequest) GetLockTime() uint64 {
+	if m != nil {
+		return m.LockTime
+	}
+	return 0
+}
+
+func (m *AutoCreateTransactionRequest) GetFee() string {
 	if m != nil {
 		return m.Fee
 	}
+	return ""
+}
+
+func (m *AutoCreateTransactionRequest) GetFromAddress() string {
+	if m != nil {
+		return m.FromAddress
+	}
+	return ""
+}
+
+type CreateRawTransactionResponse struct {
+	Hex string `protobuf:"bytes,1,opt,name=hex,proto3" json:"hex,omitempty"`
+}
+
+func (m *CreateRawTransactionResponse) Reset()                    { *m = CreateRawTransactionResponse{} }
+func (m *CreateRawTransactionResponse) String() string            { return proto.CompactTextString(m) }
+func (*CreateRawTransactionResponse) ProtoMessage()               {}
+func (*CreateRawTransactionResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{31} }
+
+func (m *CreateRawTransactionResponse) GetHex() string {
+	if m != nil {
+		return m.Hex
+	}
+	return ""
+}
+
+type CreateStakingTransactionRequest struct {
+	FromAddress    string `protobuf:"bytes,1,opt,name=from_address,json=fromAddress,proto3" json:"from_address,omitempty"`
+	StakingAddress string `protobuf:"bytes,2,opt,name=staking_address,json=stakingAddress,proto3" json:"staking_address,omitempty"`
+	Amount         string `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	FrozenPeriod   uint32 `protobuf:"varint,4,opt,name=frozen_period,json=frozenPeriod,proto3" json:"frozen_period,omitempty"`
+	Fee            string `protobuf:"bytes,5,opt,name=fee,proto3" json:"fee,omitempty"`
+}
+
+func (m *CreateStakingTransactionRequest) Reset()         { *m = CreateStakingTransactionRequest{} }
+func (m *CreateStakingTransactionRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateStakingTransactionRequest) ProtoMessage()    {}
+func (*CreateStakingTransactionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{32}
+}
+
+func (m *CreateStakingTransactionRequest) GetFromAddress() string {
+	if m != nil {
+		return m.FromAddress
+	}
+	return ""
+}
+
+func (m *CreateStakingTransactionRequest) GetStakingAddress() string {
+	if m != nil {
+		return m.StakingAddress
+	}
+	return ""
+}
+
+func (m *CreateStakingTransactionRequest) GetAmount() string {
+	if m != nil {
+		return m.Amount
+	}
+	return ""
+}
+
+func (m *CreateStakingTransactionRequest) GetFrozenPeriod() uint32 {
+	if m != nil {
+		return m.FrozenPeriod
+	}
 	return 0
 }
 
-func (m *TxRawResult) GetStatus() int32 {
+func (m *CreateStakingTransactionRequest) GetFee() string {
+	if m != nil {
+		return m.Fee
+	}
+	return ""
+}
+
+type GetLatestRewardListResponse struct {
+	Details []*GetLatestRewardListResponse_RewardDetail `protobuf:"bytes,1,rep,name=details" json:"details,omitempty"`
+}
+
+func (m *GetLatestRewardListResponse) Reset()                    { *m = GetLatestRewardListResponse{} }
+func (m *GetLatestRewardListResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetLatestRewardListResponse) ProtoMessage()               {}
+func (*GetLatestRewardListResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{33} }
+
+func (m *GetLatestRewardListResponse) GetDetails() []*GetLatestRewardListResponse_RewardDetail {
+	if m != nil {
+		return m.Details
+	}
+	return nil
+}
+
+type GetLatestRewardListResponse_RewardDetail struct {
+	Rank    int32   `protobuf:"varint,1,opt,name=rank,proto3" json:"rank,omitempty"`
+	Amount  string  `protobuf:"bytes,2,opt,name=amount,proto3" json:"amount,omitempty"`
+	Weight  float64 `protobuf:"fixed64,3,opt,name=weight,proto3" json:"weight,omitempty"`
+	Address string  `protobuf:"bytes,4,opt,name=address,proto3" json:"address,omitempty"`
+	Profit  string  `protobuf:"bytes,5,opt,name=profit,proto3" json:"profit,omitempty"`
+}
+
+func (m *GetLatestRewardListResponse_RewardDetail) Reset() {
+	*m = GetLatestRewardListResponse_RewardDetail{}
+}
+func (m *GetLatestRewardListResponse_RewardDetail) String() string { return proto.CompactTextString(m) }
+func (*GetLatestRewardListResponse_RewardDetail) ProtoMessage()    {}
+func (*GetLatestRewardListResponse_RewardDetail) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{33, 0}
+}
+
+func (m *GetLatestRewardListResponse_RewardDetail) GetRank() int32 {
+	if m != nil {
+		return m.Rank
+	}
+	return 0
+}
+
+func (m *GetLatestRewardListResponse_RewardDetail) GetAmount() string {
+	if m != nil {
+		return m.Amount
+	}
+	return ""
+}
+
+func (m *GetLatestRewardListResponse_RewardDetail) GetWeight() float64 {
+	if m != nil {
+		return m.Weight
+	}
+	return 0
+}
+
+func (m *GetLatestRewardListResponse_RewardDetail) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+func (m *GetLatestRewardListResponse_RewardDetail) GetProfit() string {
+	if m != nil {
+		return m.Profit
+	}
+	return ""
+}
+
+type GetStakingHistoryResponse struct {
+	Txs     []*GetStakingHistoryResponse_Tx `protobuf:"bytes,1,rep,name=txs" json:"txs,omitempty"`
+	Weights map[string]float64              `protobuf:"bytes,2,rep,name=weights" json:"weights,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"fixed64,2,opt,name=value,proto3"`
+}
+
+func (m *GetStakingHistoryResponse) Reset()                    { *m = GetStakingHistoryResponse{} }
+func (m *GetStakingHistoryResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetStakingHistoryResponse) ProtoMessage()               {}
+func (*GetStakingHistoryResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{34} }
+
+func (m *GetStakingHistoryResponse) GetTxs() []*GetStakingHistoryResponse_Tx {
+	if m != nil {
+		return m.Txs
+	}
+	return nil
+}
+
+func (m *GetStakingHistoryResponse) GetWeights() map[string]float64 {
+	if m != nil {
+		return m.Weights
+	}
+	return nil
+}
+
+type GetStakingHistoryResponse_StakingUTXO struct {
+	TxId         string `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	Vout         uint32 `protobuf:"varint,2,opt,name=vout,proto3" json:"vout,omitempty"`
+	Address      string `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
+	Amount       string `protobuf:"bytes,4,opt,name=amount,proto3" json:"amount,omitempty"`
+	FrozenPeriod uint32 `protobuf:"varint,5,opt,name=frozen_period,json=frozenPeriod,proto3" json:"frozen_period,omitempty"`
+}
+
+func (m *GetStakingHistoryResponse_StakingUTXO) Reset()         { *m = GetStakingHistoryResponse_StakingUTXO{} }
+func (m *GetStakingHistoryResponse_StakingUTXO) String() string { return proto.CompactTextString(m) }
+func (*GetStakingHistoryResponse_StakingUTXO) ProtoMessage()    {}
+func (*GetStakingHistoryResponse_StakingUTXO) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{34, 0}
+}
+
+func (m *GetStakingHistoryResponse_StakingUTXO) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+func (m *GetStakingHistoryResponse_StakingUTXO) GetVout() uint32 {
+	if m != nil {
+		return m.Vout
+	}
+	return 0
+}
+
+func (m *GetStakingHistoryResponse_StakingUTXO) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+func (m *GetStakingHistoryResponse_StakingUTXO) GetAmount() string {
+	if m != nil {
+		return m.Amount
+	}
+	return ""
+}
+
+func (m *GetStakingHistoryResponse_StakingUTXO) GetFrozenPeriod() uint32 {
+	if m != nil {
+		return m.FrozenPeriod
+	}
+	return 0
+}
+
+type GetStakingHistoryResponse_Tx struct {
+	TxId        string                                 `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	Status      uint32                                 `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	BlockHeight uint64                                 `protobuf:"varint,3,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
+	Utxo        *GetStakingHistoryResponse_StakingUTXO `protobuf:"bytes,4,opt,name=utxo" json:"utxo,omitempty"`
+}
+
+func (m *GetStakingHistoryResponse_Tx) Reset()         { *m = GetStakingHistoryResponse_Tx{} }
+func (m *GetStakingHistoryResponse_Tx) String() string { return proto.CompactTextString(m) }
+func (*GetStakingHistoryResponse_Tx) ProtoMessage()    {}
+func (*GetStakingHistoryResponse_Tx) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{34, 1}
+}
+
+func (m *GetStakingHistoryResponse_Tx) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+func (m *GetStakingHistoryResponse_Tx) GetStatus() uint32 {
 	if m != nil {
 		return m.Status
 	}
 	return 0
 }
 
+func (m *GetStakingHistoryResponse_Tx) GetBlockHeight() uint64 {
+	if m != nil {
+		return m.BlockHeight
+	}
+	return 0
+}
+
+func (m *GetStakingHistoryResponse_Tx) GetUtxo() *GetStakingHistoryResponse_StakingUTXO {
+	if m != nil {
+		return m.Utxo
+	}
+	return nil
+}
+
+type SendRawTransactionRequest struct {
+	Hex string `protobuf:"bytes,1,opt,name=hex,proto3" json:"hex,omitempty"`
+}
+
+func (m *SendRawTransactionRequest) Reset()                    { *m = SendRawTransactionRequest{} }
+func (m *SendRawTransactionRequest) String() string            { return proto.CompactTextString(m) }
+func (*SendRawTransactionRequest) ProtoMessage()               {}
+func (*SendRawTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{35} }
+
+func (m *SendRawTransactionRequest) GetHex() string {
+	if m != nil {
+		return m.Hex
+	}
+	return ""
+}
+
+type SendRawTransactionResponse struct {
+	TxId string `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+}
+
+func (m *SendRawTransactionResponse) Reset()                    { *m = SendRawTransactionResponse{} }
+func (m *SendRawTransactionResponse) String() string            { return proto.CompactTextString(m) }
+func (*SendRawTransactionResponse) ProtoMessage()               {}
+func (*SendRawTransactionResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{36} }
+
+func (m *SendRawTransactionResponse) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+type GetTransactionFeeRequest struct {
+	Amounts    map[string]string   `protobuf:"bytes,1,rep,name=amounts" json:"amounts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	LockTime   uint64              `protobuf:"varint,2,opt,name=lock_time,json=lockTime,proto3" json:"lock_time,omitempty"`
+	Inputs     []*TransactionInput `protobuf:"bytes,3,rep,name=inputs" json:"inputs,omitempty"`
+	HasBinding bool                `protobuf:"varint,4,opt,name=has_binding,json=hasBinding,proto3" json:"has_binding,omitempty"`
+}
+
+func (m *GetTransactionFeeRequest) Reset()                    { *m = GetTransactionFeeRequest{} }
+func (m *GetTransactionFeeRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetTransactionFeeRequest) ProtoMessage()               {}
+func (*GetTransactionFeeRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{37} }
+
+func (m *GetTransactionFeeRequest) GetAmounts() map[string]string {
+	if m != nil {
+		return m.Amounts
+	}
+	return nil
+}
+
+func (m *GetTransactionFeeRequest) GetLockTime() uint64 {
+	if m != nil {
+		return m.LockTime
+	}
+	return 0
+}
+
+func (m *GetTransactionFeeRequest) GetInputs() []*TransactionInput {
+	if m != nil {
+		return m.Inputs
+	}
+	return nil
+}
+
+func (m *GetTransactionFeeRequest) GetHasBinding() bool {
+	if m != nil {
+		return m.HasBinding
+	}
+	return false
+}
+
+type GetTransactionFeeResponse struct {
+	Fee string `protobuf:"bytes,1,opt,name=fee,proto3" json:"fee,omitempty"`
+}
+
+func (m *GetTransactionFeeResponse) Reset()                    { *m = GetTransactionFeeResponse{} }
+func (m *GetTransactionFeeResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetTransactionFeeResponse) ProtoMessage()               {}
+func (*GetTransactionFeeResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{38} }
+
+func (m *GetTransactionFeeResponse) GetFee() string {
+	if m != nil {
+		return m.Fee
+	}
+	return ""
+}
+
 type BlockInfoForTx struct {
 	Height    uint64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
-	BlockHash string `protobuf:"bytes,2,opt,name=blockHash,proto3" json:"blockHash,omitempty"`
+	BlockHash string `protobuf:"bytes,2,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"`
 	Timestamp int64  `protobuf:"varint,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 }
 
 func (m *BlockInfoForTx) Reset()                    { *m = BlockInfoForTx{} }
 func (m *BlockInfoForTx) String() string            { return proto.CompactTextString(m) }
 func (*BlockInfoForTx) ProtoMessage()               {}
-func (*BlockInfoForTx) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{47} }
+func (*BlockInfoForTx) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{39} }
 
 func (m *BlockInfoForTx) GetHeight() uint64 {
 	if m != nil {
@@ -1497,58 +1627,876 @@ func (m *BlockInfoForTx) GetTimestamp() int64 {
 	return 0
 }
 
+type Vin struct {
+	Value        string            `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	N            uint32            `protobuf:"varint,2,opt,name=n,proto3" json:"n,omitempty"`
+	Type         uint32            `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`
+	RedeemDetail *Vin_RedeemDetail `protobuf:"bytes,4,opt,name=redeem_detail,json=redeemDetail" json:"redeem_detail,omitempty"`
+}
+
+func (m *Vin) Reset()                    { *m = Vin{} }
+func (m *Vin) String() string            { return proto.CompactTextString(m) }
+func (*Vin) ProtoMessage()               {}
+func (*Vin) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{40} }
+
+func (m *Vin) GetValue() string {
+	if m != nil {
+		return m.Value
+	}
+	return ""
+}
+
+func (m *Vin) GetN() uint32 {
+	if m != nil {
+		return m.N
+	}
+	return 0
+}
+
+func (m *Vin) GetType() uint32 {
+	if m != nil {
+		return m.Type
+	}
+	return 0
+}
+
+func (m *Vin) GetRedeemDetail() *Vin_RedeemDetail {
+	if m != nil {
+		return m.RedeemDetail
+	}
+	return nil
+}
+
+type Vin_RedeemDetail struct {
+	TxId      string   `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	Vout      uint32   `protobuf:"varint,2,opt,name=vout,proto3" json:"vout,omitempty"`
+	Sequence  uint64   `protobuf:"varint,3,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	Witness   []string `protobuf:"bytes,4,rep,name=witness" json:"witness,omitempty"`
+	Addresses []string `protobuf:"bytes,5,rep,name=addresses" json:"addresses,omitempty"`
+}
+
+func (m *Vin_RedeemDetail) Reset()                    { *m = Vin_RedeemDetail{} }
+func (m *Vin_RedeemDetail) String() string            { return proto.CompactTextString(m) }
+func (*Vin_RedeemDetail) ProtoMessage()               {}
+func (*Vin_RedeemDetail) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{40, 0} }
+
+func (m *Vin_RedeemDetail) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+func (m *Vin_RedeemDetail) GetVout() uint32 {
+	if m != nil {
+		return m.Vout
+	}
+	return 0
+}
+
+func (m *Vin_RedeemDetail) GetSequence() uint64 {
+	if m != nil {
+		return m.Sequence
+	}
+	return 0
+}
+
+func (m *Vin_RedeemDetail) GetWitness() []string {
+	if m != nil {
+		return m.Witness
+	}
+	return nil
+}
+
+func (m *Vin_RedeemDetail) GetAddresses() []string {
+	if m != nil {
+		return m.Addresses
+	}
+	return nil
+}
+
+type Vout struct {
+	Value        string             `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	N            uint32             `protobuf:"varint,2,opt,name=n,proto3" json:"n,omitempty"`
+	Type         uint32             `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`
+	ScriptDetail *Vout_ScriptDetail `protobuf:"bytes,4,opt,name=script_detail,json=scriptDetail" json:"script_detail,omitempty"`
+}
+
+func (m *Vout) Reset()                    { *m = Vout{} }
+func (m *Vout) String() string            { return proto.CompactTextString(m) }
+func (*Vout) ProtoMessage()               {}
+func (*Vout) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{41} }
+
+func (m *Vout) GetValue() string {
+	if m != nil {
+		return m.Value
+	}
+	return ""
+}
+
+func (m *Vout) GetN() uint32 {
+	if m != nil {
+		return m.N
+	}
+	return 0
+}
+
+func (m *Vout) GetType() uint32 {
+	if m != nil {
+		return m.Type
+	}
+	return 0
+}
+
+func (m *Vout) GetScriptDetail() *Vout_ScriptDetail {
+	if m != nil {
+		return m.ScriptDetail
+	}
+	return nil
+}
+
+type Vout_ScriptDetail struct {
+	Asm       string   `protobuf:"bytes,1,opt,name=asm,proto3" json:"asm,omitempty"`
+	Hex       string   `protobuf:"bytes,2,opt,name=hex,proto3" json:"hex,omitempty"`
+	ReqSigs   int32    `protobuf:"varint,3,opt,name=req_sigs,json=reqSigs,proto3" json:"req_sigs,omitempty"`
+	Addresses []string `protobuf:"bytes,4,rep,name=addresses" json:"addresses,omitempty"`
+}
+
+func (m *Vout_ScriptDetail) Reset()                    { *m = Vout_ScriptDetail{} }
+func (m *Vout_ScriptDetail) String() string            { return proto.CompactTextString(m) }
+func (*Vout_ScriptDetail) ProtoMessage()               {}
+func (*Vout_ScriptDetail) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{41, 0} }
+
+func (m *Vout_ScriptDetail) GetAsm() string {
+	if m != nil {
+		return m.Asm
+	}
+	return ""
+}
+
+func (m *Vout_ScriptDetail) GetHex() string {
+	if m != nil {
+		return m.Hex
+	}
+	return ""
+}
+
+func (m *Vout_ScriptDetail) GetReqSigs() int32 {
+	if m != nil {
+		return m.ReqSigs
+	}
+	return 0
+}
+
+func (m *Vout_ScriptDetail) GetAddresses() []string {
+	if m != nil {
+		return m.Addresses
+	}
+	return nil
+}
+
+type GetRawTransactionRequest struct {
+	TxId string `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+}
+
+func (m *GetRawTransactionRequest) Reset()                    { *m = GetRawTransactionRequest{} }
+func (m *GetRawTransactionRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetRawTransactionRequest) ProtoMessage()               {}
+func (*GetRawTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{42} }
+
+func (m *GetRawTransactionRequest) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+type GetRawTransactionResponse struct {
+	Hex           string          `protobuf:"bytes,1,opt,name=hex,proto3" json:"hex,omitempty"`
+	TxId          string          `protobuf:"bytes,2,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	Version       int32           `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
+	LockTime      int64           `protobuf:"varint,4,opt,name=lock_time,json=lockTime,proto3" json:"lock_time,omitempty"`
+	Block         *BlockInfoForTx `protobuf:"bytes,5,opt,name=block" json:"block,omitempty"`
+	Vin           []*Vin          `protobuf:"bytes,6,rep,name=vin" json:"vin,omitempty"`
+	Vout          []*Vout         `protobuf:"bytes,7,rep,name=vout" json:"vout,omitempty"`
+	Payload       string          `protobuf:"bytes,8,opt,name=payload,proto3" json:"payload,omitempty"`
+	Confirmations uint64          `protobuf:"varint,9,opt,name=confirmations,proto3" json:"confirmations,omitempty"`
+	Size         int32           `protobuf:"varint,10,opt,name=size,proto3" json:"size,omitempty"`
+	Fee           string          `protobuf:"bytes,11,opt,name=fee,proto3" json:"fee,omitempty"`
+	Status        int32           `protobuf:"varint,12,opt,name=status,proto3" json:"status,omitempty"`
+	Coinbase      bool            `protobuf:"varint,13,opt,name=coinbase,proto3" json:"coinbase,omitempty"`
+}
+
+func (m *GetRawTransactionResponse) Reset()                    { *m = GetRawTransactionResponse{} }
+func (m *GetRawTransactionResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetRawTransactionResponse) ProtoMessage()               {}
+func (*GetRawTransactionResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{43} }
+
+func (m *GetRawTransactionResponse) GetHex() string {
+	if m != nil {
+		return m.Hex
+	}
+	return ""
+}
+
+func (m *GetRawTransactionResponse) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+func (m *GetRawTransactionResponse) GetVersion() int32 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
+func (m *GetRawTransactionResponse) GetLockTime() int64 {
+	if m != nil {
+		return m.LockTime
+	}
+	return 0
+}
+
+func (m *GetRawTransactionResponse) GetBlock() *BlockInfoForTx {
+	if m != nil {
+		return m.Block
+	}
+	return nil
+}
+
+func (m *GetRawTransactionResponse) GetVin() []*Vin {
+	if m != nil {
+		return m.Vin
+	}
+	return nil
+}
+
+func (m *GetRawTransactionResponse) GetVout() []*Vout {
+	if m != nil {
+		return m.Vout
+	}
+	return nil
+}
+
+func (m *GetRawTransactionResponse) GetPayload() string {
+	if m != nil {
+		return m.Payload
+	}
+	return ""
+}
+
+func (m *GetRawTransactionResponse) GetConfirmations() uint64 {
+	if m != nil {
+		return m.Confirmations
+	}
+	return 0
+}
+
+func (m *GetRawTransactionResponse) GetSize() int32 {
+	if m != nil {
+		return m.Size
+	}
+	return 0
+}
+
+func (m *GetRawTransactionResponse) GetFee() string {
+	if m != nil {
+		return m.Fee
+	}
+	return ""
+}
+
+func (m *GetRawTransactionResponse) GetStatus() int32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+func (m *GetRawTransactionResponse) GetCoinbase() bool {
+	if m != nil {
+		return m.Coinbase
+	}
+	return false
+}
+
+type GetTxStatusRequest struct {
+	TxId string `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+}
+
+func (m *GetTxStatusRequest) Reset()                    { *m = GetTxStatusRequest{} }
+func (m *GetTxStatusRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetTxStatusRequest) ProtoMessage()               {}
+func (*GetTxStatusRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{44} }
+
+func (m *GetTxStatusRequest) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+type GetTxStatusResponse struct {
+	Code   int32  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Status string `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+}
+
+func (m *GetTxStatusResponse) Reset()                    { *m = GetTxStatusResponse{} }
+func (m *GetTxStatusResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetTxStatusResponse) ProtoMessage()               {}
+func (*GetTxStatusResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{45} }
+
+func (m *GetTxStatusResponse) GetCode() int32 {
+	if m != nil {
+		return m.Code
+	}
+	return 0
+}
+
+func (m *GetTxStatusResponse) GetStatus() string {
+	if m != nil {
+		return m.Status
+	}
+	return ""
+}
+
+type SignRawTransactionRequest struct {
+	RawTx      string `protobuf:"bytes,1,opt,name=raw_tx,json=rawTx,proto3" json:"raw_tx,omitempty"`
+	Flags      string `protobuf:"bytes,2,opt,name=flags,proto3" json:"flags,omitempty"`
+	Passphrase string `protobuf:"bytes,3,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
+}
+
+func (m *SignRawTransactionRequest) Reset()                    { *m = SignRawTransactionRequest{} }
+func (m *SignRawTransactionRequest) String() string            { return proto.CompactTextString(m) }
+func (*SignRawTransactionRequest) ProtoMessage()               {}
+func (*SignRawTransactionRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{46} }
+
+func (m *SignRawTransactionRequest) GetRawTx() string {
+	if m != nil {
+		return m.RawTx
+	}
+	return ""
+}
+
+func (m *SignRawTransactionRequest) GetFlags() string {
+	if m != nil {
+		return m.Flags
+	}
+	return ""
+}
+
+func (m *SignRawTransactionRequest) GetPassphrase() string {
+	if m != nil {
+		return m.Passphrase
+	}
+	return ""
+}
+
+type SignRawTransactionResponse struct {
+	Hex      string `protobuf:"bytes,1,opt,name=hex,proto3" json:"hex,omitempty"`
+	Complete bool   `protobuf:"varint,2,opt,name=complete,proto3" json:"complete,omitempty"`
+}
+
+func (m *SignRawTransactionResponse) Reset()                    { *m = SignRawTransactionResponse{} }
+func (m *SignRawTransactionResponse) String() string            { return proto.CompactTextString(m) }
+func (*SignRawTransactionResponse) ProtoMessage()               {}
+func (*SignRawTransactionResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{47} }
+
+func (m *SignRawTransactionResponse) GetHex() string {
+	if m != nil {
+		return m.Hex
+	}
+	return ""
+}
+
+func (m *SignRawTransactionResponse) GetComplete() bool {
+	if m != nil {
+		return m.Complete
+	}
+	return false
+}
+
+type GetUtxoRequest struct {
+	Addresses []string `protobuf:"bytes,1,rep,name=addresses" json:"addresses,omitempty"`
+}
+
+func (m *GetUtxoRequest) Reset()                    { *m = GetUtxoRequest{} }
+func (m *GetUtxoRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetUtxoRequest) ProtoMessage()               {}
+func (*GetUtxoRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{48} }
+
+func (m *GetUtxoRequest) GetAddresses() []string {
+	if m != nil {
+		return m.Addresses
+	}
+	return nil
+}
+
+type UTXO struct {
+	TxId           string `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	Vout           uint32 `protobuf:"varint,2,opt,name=vout,proto3" json:"vout,omitempty"`
+	Amount         string `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`
+	BlockHeight    uint64 `protobuf:"varint,4,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
+	Maturity       uint32 `protobuf:"varint,5,opt,name=maturity,proto3" json:"maturity,omitempty"`
+	Confirmations  uint32 `protobuf:"varint,6,opt,name=confirmations,proto3" json:"confirmations,omitempty"`
+	SpentByUnmined bool   `protobuf:"varint,7,opt,name=spent_by_unmined,json=spentByUnmined,proto3" json:"spent_by_unmined,omitempty"`
+}
+
+func (m *UTXO) Reset()                    { *m = UTXO{} }
+func (m *UTXO) String() string            { return proto.CompactTextString(m) }
+func (*UTXO) ProtoMessage()               {}
+func (*UTXO) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{49} }
+
+func (m *UTXO) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+func (m *UTXO) GetVout() uint32 {
+	if m != nil {
+		return m.Vout
+	}
+	return 0
+}
+
+func (m *UTXO) GetAmount() string {
+	if m != nil {
+		return m.Amount
+	}
+	return ""
+}
+
+func (m *UTXO) GetBlockHeight() uint64 {
+	if m != nil {
+		return m.BlockHeight
+	}
+	return 0
+}
+
+func (m *UTXO) GetMaturity() uint32 {
+	if m != nil {
+		return m.Maturity
+	}
+	return 0
+}
+
+func (m *UTXO) GetConfirmations() uint32 {
+	if m != nil {
+		return m.Confirmations
+	}
+	return 0
+}
+
+func (m *UTXO) GetSpentByUnmined() bool {
+	if m != nil {
+		return m.SpentByUnmined
+	}
+	return false
+}
+
+type AddressUTXO struct {
+	Address string  `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
+	Utxos   []*UTXO `protobuf:"bytes,2,rep,name=utxos" json:"utxos,omitempty"`
+}
+
+func (m *AddressUTXO) Reset()                    { *m = AddressUTXO{} }
+func (m *AddressUTXO) String() string            { return proto.CompactTextString(m) }
+func (*AddressUTXO) ProtoMessage()               {}
+func (*AddressUTXO) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{50} }
+
+func (m *AddressUTXO) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
+func (m *AddressUTXO) GetUtxos() []*UTXO {
+	if m != nil {
+		return m.Utxos
+	}
+	return nil
+}
+
+type GetUtxoResponse struct {
+	AddressUtxos []*AddressUTXO `protobuf:"bytes,1,rep,name=address_utxos,json=addressUtxos" json:"address_utxos,omitempty"`
+}
+
+func (m *GetUtxoResponse) Reset()                    { *m = GetUtxoResponse{} }
+func (m *GetUtxoResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetUtxoResponse) ProtoMessage()               {}
+func (*GetUtxoResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{51} }
+
+func (m *GetUtxoResponse) GetAddressUtxos() []*AddressUTXO {
+	if m != nil {
+		return m.AddressUtxos
+	}
+	return nil
+}
+
+type GetAddressBindingRequest struct {
+	Addresses []string `protobuf:"bytes,1,rep,name=addresses" json:"addresses,omitempty"`
+}
+
+func (m *GetAddressBindingRequest) Reset()                    { *m = GetAddressBindingRequest{} }
+func (m *GetAddressBindingRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetAddressBindingRequest) ProtoMessage()               {}
+func (*GetAddressBindingRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{52} }
+
+func (m *GetAddressBindingRequest) GetAddresses() []string {
+	if m != nil {
+		return m.Addresses
+	}
+	return nil
+}
+
+type GetAddressBindingResponse struct {
+	Amounts map[string]string `protobuf:"bytes,1,rep,name=amounts" json:"amounts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+}
+
+func (m *GetAddressBindingResponse) Reset()                    { *m = GetAddressBindingResponse{} }
+func (m *GetAddressBindingResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetAddressBindingResponse) ProtoMessage()               {}
+func (*GetAddressBindingResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{53} }
+
+func (m *GetAddressBindingResponse) GetAmounts() map[string]string {
+	if m != nil {
+		return m.Amounts
+	}
+	return nil
+}
+
+type GetBindingHistoryResponse struct {
+	Histories []*GetBindingHistoryResponse_History `protobuf:"bytes,1,rep,name=histories" json:"histories,omitempty"`
+}
+
+func (m *GetBindingHistoryResponse) Reset()                    { *m = GetBindingHistoryResponse{} }
+func (m *GetBindingHistoryResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetBindingHistoryResponse) ProtoMessage()               {}
+func (*GetBindingHistoryResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{54} }
+
+func (m *GetBindingHistoryResponse) GetHistories() []*GetBindingHistoryResponse_History {
+	if m != nil {
+		return m.Histories
+	}
+	return nil
+}
+
+type GetBindingHistoryResponse_BindingUTXO struct {
+	TxId           string `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	Vout           uint32 `protobuf:"varint,2,opt,name=vout,proto3" json:"vout,omitempty"`
+	HolderAddress  string `protobuf:"bytes,3,opt,name=holder_address,json=holderAddress,proto3" json:"holder_address,omitempty"`
+	BindingAddress string `protobuf:"bytes,4,opt,name=binding_address,json=bindingAddress,proto3" json:"binding_address,omitempty"`
+	Amount         string `protobuf:"bytes,5,opt,name=amount,proto3" json:"amount,omitempty"`
+}
+
+func (m *GetBindingHistoryResponse_BindingUTXO) Reset()         { *m = GetBindingHistoryResponse_BindingUTXO{} }
+func (m *GetBindingHistoryResponse_BindingUTXO) String() string { return proto.CompactTextString(m) }
+func (*GetBindingHistoryResponse_BindingUTXO) ProtoMessage()    {}
+func (*GetBindingHistoryResponse_BindingUTXO) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{54, 0}
+}
+
+func (m *GetBindingHistoryResponse_BindingUTXO) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+func (m *GetBindingHistoryResponse_BindingUTXO) GetVout() uint32 {
+	if m != nil {
+		return m.Vout
+	}
+	return 0
+}
+
+func (m *GetBindingHistoryResponse_BindingUTXO) GetHolderAddress() string {
+	if m != nil {
+		return m.HolderAddress
+	}
+	return ""
+}
+
+func (m *GetBindingHistoryResponse_BindingUTXO) GetBindingAddress() string {
+	if m != nil {
+		return m.BindingAddress
+	}
+	return ""
+}
+
+func (m *GetBindingHistoryResponse_BindingUTXO) GetAmount() string {
+	if m != nil {
+		return m.Amount
+	}
+	return ""
+}
+
+type GetBindingHistoryResponse_History struct {
+	TxId          string                                 `protobuf:"bytes,1,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
+	Status        uint32                                 `protobuf:"varint,2,opt,name=status,proto3" json:"status,omitempty"`
+	BlockHeight   uint64                                 `protobuf:"varint,3,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
+	Utxo          *GetBindingHistoryResponse_BindingUTXO `protobuf:"bytes,4,opt,name=utxo" json:"utxo,omitempty"`
+	FromAddresses []string                               `protobuf:"bytes,5,rep,name=from_addresses,json=fromAddresses" json:"from_addresses,omitempty"`
+}
+
+func (m *GetBindingHistoryResponse_History) Reset()         { *m = GetBindingHistoryResponse_History{} }
+func (m *GetBindingHistoryResponse_History) String() string { return proto.CompactTextString(m) }
+func (*GetBindingHistoryResponse_History) ProtoMessage()    {}
+func (*GetBindingHistoryResponse_History) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{54, 1}
+}
+
+func (m *GetBindingHistoryResponse_History) GetTxId() string {
+	if m != nil {
+		return m.TxId
+	}
+	return ""
+}
+
+func (m *GetBindingHistoryResponse_History) GetStatus() uint32 {
+	if m != nil {
+		return m.Status
+	}
+	return 0
+}
+
+func (m *GetBindingHistoryResponse_History) GetBlockHeight() uint64 {
+	if m != nil {
+		return m.BlockHeight
+	}
+	return 0
+}
+
+func (m *GetBindingHistoryResponse_History) GetUtxo() *GetBindingHistoryResponse_BindingUTXO {
+	if m != nil {
+		return m.Utxo
+	}
+	return nil
+}
+
+func (m *GetBindingHistoryResponse_History) GetFromAddresses() []string {
+	if m != nil {
+		return m.FromAddresses
+	}
+	return nil
+}
+
+type CreateBindingTransactionRequest struct {
+	Outputs     []*CreateBindingTransactionRequest_Output `protobuf:"bytes,1,rep,name=outputs" json:"outputs,omitempty"`
+	FromAddress string                                    `protobuf:"bytes,2,opt,name=from_address,json=fromAddress,proto3" json:"from_address,omitempty"`
+	Fee         string                                    `protobuf:"bytes,3,opt,name=fee,proto3" json:"fee,omitempty"`
+}
+
+func (m *CreateBindingTransactionRequest) Reset()         { *m = CreateBindingTransactionRequest{} }
+func (m *CreateBindingTransactionRequest) String() string { return proto.CompactTextString(m) }
+func (*CreateBindingTransactionRequest) ProtoMessage()    {}
+func (*CreateBindingTransactionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{55}
+}
+
+func (m *CreateBindingTransactionRequest) GetOutputs() []*CreateBindingTransactionRequest_Output {
+	if m != nil {
+		return m.Outputs
+	}
+	return nil
+}
+
+func (m *CreateBindingTransactionRequest) GetFromAddress() string {
+	if m != nil {
+		return m.FromAddress
+	}
+	return ""
+}
+
+func (m *CreateBindingTransactionRequest) GetFee() string {
+	if m != nil {
+		return m.Fee
+	}
+	return ""
+}
+
+type CreateBindingTransactionRequest_Output struct {
+	HolderAddress  string `protobuf:"bytes,1,opt,name=holder_address,json=holderAddress,proto3" json:"holder_address,omitempty"`
+	BindingAddress string `protobuf:"bytes,2,opt,name=binding_address,json=bindingAddress,proto3" json:"binding_address,omitempty"`
+	Amount         string `protobuf:"bytes,3,opt,name=amount,proto3" json:"amount,omitempty"`
+}
+
+func (m *CreateBindingTransactionRequest_Output) Reset() {
+	*m = CreateBindingTransactionRequest_Output{}
+}
+func (m *CreateBindingTransactionRequest_Output) String() string { return proto.CompactTextString(m) }
+func (*CreateBindingTransactionRequest_Output) ProtoMessage()    {}
+func (*CreateBindingTransactionRequest_Output) Descriptor() ([]byte, []int) {
+	return fileDescriptorApi, []int{55, 0}
+}
+
+func (m *CreateBindingTransactionRequest_Output) GetHolderAddress() string {
+	if m != nil {
+		return m.HolderAddress
+	}
+	return ""
+}
+
+func (m *CreateBindingTransactionRequest_Output) GetBindingAddress() string {
+	if m != nil {
+		return m.BindingAddress
+	}
+	return ""
+}
+
+func (m *CreateBindingTransactionRequest_Output) GetAmount() string {
+	if m != nil {
+		return m.Amount
+	}
+	return ""
+}
+
+type GetBestBlockResponse struct {
+	Height uint64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+}
+
+func (m *GetBestBlockResponse) Reset()                    { *m = GetBestBlockResponse{} }
+func (m *GetBestBlockResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetBestBlockResponse) ProtoMessage()               {}
+func (*GetBestBlockResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{56} }
+
+func (m *GetBestBlockResponse) GetHeight() uint64 {
+	if m != nil {
+		return m.Height
+	}
+	return 0
+}
+
+func (m *GetBestBlockResponse) GetTarget() string {
+	if m != nil {
+		return m.Target
+	}
+	return ""
+}
+
+type GetWalletMnemonicRequest struct {
+	WalletId   string `protobuf:"bytes,1,opt,name=wallet_id,json=walletId,proto3" json:"wallet_id,omitempty"`
+	Passphrase string `protobuf:"bytes,2,opt,name=passphrase,proto3" json:"passphrase,omitempty"`
+}
+
+func (m *GetWalletMnemonicRequest) Reset()                    { *m = GetWalletMnemonicRequest{} }
+func (m *GetWalletMnemonicRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetWalletMnemonicRequest) ProtoMessage()               {}
+func (*GetWalletMnemonicRequest) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{57} }
+
+func (m *GetWalletMnemonicRequest) GetWalletId() string {
+	if m != nil {
+		return m.WalletId
+	}
+	return ""
+}
+
+func (m *GetWalletMnemonicRequest) GetPassphrase() string {
+	if m != nil {
+		return m.Passphrase
+	}
+	return ""
+}
+
+type GetWalletMnemonicResponse struct {
+	Mnemonic string `protobuf:"bytes,1,opt,name=mnemonic,proto3" json:"mnemonic,omitempty"`
+}
+
+func (m *GetWalletMnemonicResponse) Reset()                    { *m = GetWalletMnemonicResponse{} }
+func (m *GetWalletMnemonicResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetWalletMnemonicResponse) ProtoMessage()               {}
+func (*GetWalletMnemonicResponse) Descriptor() ([]byte, []int) { return fileDescriptorApi, []int{58} }
+
+func (m *GetWalletMnemonicResponse) GetMnemonic() string {
+	if m != nil {
+		return m.Mnemonic
+	}
+	return ""
+}
+
 func init() {
-	proto.RegisterType((*Vin)(nil), "rpcprotobuf.Vin")
-	proto.RegisterType((*ToAddressForTx)(nil), "rpcprotobuf.ToAddressForTx")
-	proto.RegisterType((*InputsInTx)(nil), "rpcprotobuf.InputsInTx")
-	proto.RegisterType((*ScriptPubKeyResult)(nil), "rpcprotobuf.ScriptPubKeyResult")
-	proto.RegisterType((*Vout)(nil), "rpcprotobuf.Vout")
-	proto.RegisterType((*TransactionInput)(nil), "rpcprotobuf.TransactionInput")
-	proto.RegisterType((*GetTransactionFeeRequest)(nil), "rpcprotobuf.GetTransactionFeeRequest")
-	proto.RegisterType((*CreateRawTransactionRequest)(nil), "rpcprotobuf.CreateRawTransactionRequest")
-	proto.RegisterType((*CreateRawTransactionAutoRequest)(nil), "rpcprotobuf.CreateRawTransactionAutoRequest")
-	proto.RegisterType((*Auto)(nil), "rpcprotobuf.auto")
-	proto.RegisterType((*CreateRawTransactionResponse)(nil), "rpcprotobuf.CreateRawTransactionResponse")
-	proto.RegisterType((*GetTransactionFeeResponse)(nil), "rpcprotobuf.GetTransactionFeeResponse")
-	proto.RegisterType((*SignRawTransactionRequest)(nil), "rpcprotobuf.SignRawTransactionRequest")
-	proto.RegisterType((*SignRawTransactionResponse)(nil), "rpcprotobuf.SignRawTransactionResponse")
-	proto.RegisterType((*SendRawTransactionRequest)(nil), "rpcprotobuf.SendRawTransactionRequest")
-	proto.RegisterType((*SendRawTransactionResponse)(nil), "rpcprotobuf.SendRawTransactionResponse")
-	proto.RegisterType((*PubKeyAndAddress)(nil), "rpcprotobuf.PubKeyAndAddress")
-	proto.RegisterType((*CreateAddressRequest)(nil), "rpcprotobuf.CreateAddressRequest")
-	proto.RegisterType((*CreateAddressResponse)(nil), "rpcprotobuf.CreateAddressResponse")
-	proto.RegisterType((*GetBalanceRequest)(nil), "rpcprotobuf.GetBalanceRequest")
-	proto.RegisterType((*AddressAndBalance)(nil), "rpcprotobuf.AddressAndBalance")
-	proto.RegisterType((*GetBalanceResponse)(nil), "rpcprotobuf.GetBalanceResponse")
-	proto.RegisterType((*GetAllBalanceResponse)(nil), "rpcprotobuf.GetAllBalanceResponse")
-	proto.RegisterType((*ValidateAddressRequest)(nil), "rpcprotobuf.ValidateAddressRequest")
-	proto.RegisterType((*ValidateAddressResponse)(nil), "rpcprotobuf.ValidateAddressResponse")
-	proto.RegisterType((*GetUtxoRequest)(nil), "rpcprotobuf.GetUtxoRequest")
-	proto.RegisterType((*Unspent)(nil), "rpcprotobuf.Unspent")
-	proto.RegisterType((*AddressToUnspent)(nil), "rpcprotobuf.AddressToUnspent")
-	proto.RegisterType((*GetUtxoResponse)(nil), "rpcprotobuf.GetUtxoResponse")
-	proto.RegisterType((*TxListReply)(nil), "rpcprotobuf.TxListReply")
-	proto.RegisterType((*Utxo)(nil), "rpcprotobuf.Utxo")
-	proto.RegisterType((*UtxosForAddress)(nil), "rpcprotobuf.UtxosForAddress")
-	proto.RegisterType((*GetAddressesResponse)(nil), "rpcprotobuf.GetAddressesResponse")
-	proto.RegisterType((*GetTxStatusRequest)(nil), "rpcprotobuf.GetTxStatusRequest")
-	proto.RegisterType((*GetTxStatusResponse)(nil), "rpcprotobuf.GetTxStatusResponse")
-	proto.RegisterType((*GetUtxoByAmountRequest)(nil), "rpcprotobuf.GetUtxoByAmountRequest")
-	proto.RegisterType((*GetUtxoByAmountResponse)(nil), "rpcprotobuf.GetUtxoByAmountResponse")
-	proto.RegisterType((*DumpWalletRequest)(nil), "rpcprotobuf.DumpWalletRequest")
-	proto.RegisterType((*DumpWalletResponse)(nil), "rpcprotobuf.DumpWalletResponse")
-	proto.RegisterType((*ImportWalletRequest)(nil), "rpcprotobuf.ImportWalletRequest")
-	proto.RegisterType((*ImportWalletResponse)(nil), "rpcprotobuf.ImportWalletResponse")
-	proto.RegisterType((*GetClientStatusRequest)(nil), "rpcprotobuf.GetClientStatusRequest")
 	proto.RegisterType((*GetClientStatusResponse)(nil), "rpcprotobuf.GetClientStatusResponse")
 	proto.RegisterType((*GetClientStatusResponsePeerCountInfo)(nil), "rpcprotobuf.GetClientStatusResponse.peerCountInfo")
 	proto.RegisterType((*GetClientStatusResponsePeerInfo)(nil), "rpcprotobuf.GetClientStatusResponse.peerInfo")
 	proto.RegisterType((*GetClientStatusResponsePeerList)(nil), "rpcprotobuf.GetClientStatusResponse.peerList")
-	proto.RegisterType((*Coinbase)(nil), "rpcprotobuf.Coinbase")
+	proto.RegisterType((*QuitClientResponse)(nil), "rpcprotobuf.QuitClientResponse")
+	proto.RegisterType((*WalletsResponse)(nil), "rpcprotobuf.WalletsResponse")
+	proto.RegisterType((*WalletsResponse_WalletSummary)(nil), "rpcprotobuf.WalletsResponse.WalletSummary")
+	proto.RegisterType((*UseWalletRequest)(nil), "rpcprotobuf.UseWalletRequest")
+	proto.RegisterType((*UseWalletResponse)(nil), "rpcprotobuf.UseWalletResponse")
+	proto.RegisterType((*CreateWalletRequest)(nil), "rpcprotobuf.CreateWalletRequest")
+	proto.RegisterType((*CreateWalletResponse)(nil), "rpcprotobuf.CreateWalletResponse")
+	proto.RegisterType((*ImportWalletRequest)(nil), "rpcprotobuf.ImportWalletRequest")
+	proto.RegisterType((*ImportWalletResponse)(nil), "rpcprotobuf.ImportWalletResponse")
+	proto.RegisterType((*ImportWalletWithMnemonicRequest)(nil), "rpcprotobuf.ImportWalletWithMnemonicRequest")
+	proto.RegisterType((*ExportWalletRequest)(nil), "rpcprotobuf.ExportWalletRequest")
+	proto.RegisterType((*ExportWalletResponse)(nil), "rpcprotobuf.ExportWalletResponse")
+	proto.RegisterType((*RemoveWalletRequest)(nil), "rpcprotobuf.RemoveWalletRequest")
+	proto.RegisterType((*RemoveWalletResponse)(nil), "rpcprotobuf.RemoveWalletResponse")
+	proto.RegisterType((*GetAddressBalanceRequest)(nil), "rpcprotobuf.GetAddressBalanceRequest")
+	proto.RegisterType((*AddressAndBalance)(nil), "rpcprotobuf.AddressAndBalance")
+	proto.RegisterType((*GetAddressBalanceResponse)(nil), "rpcprotobuf.GetAddressBalanceResponse")
+	proto.RegisterType((*ValidateAddressRequest)(nil), "rpcprotobuf.ValidateAddressRequest")
+	proto.RegisterType((*ValidateAddressResponse)(nil), "rpcprotobuf.ValidateAddressResponse")
+	proto.RegisterType((*CreateAddressRequest)(nil), "rpcprotobuf.CreateAddressRequest")
+	proto.RegisterType((*CreateAddressResponse)(nil), "rpcprotobuf.CreateAddressResponse")
+	proto.RegisterType((*GetAddressesRequest)(nil), "rpcprotobuf.GetAddressesRequest")
+	proto.RegisterType((*GetAddressesResponse)(nil), "rpcprotobuf.GetAddressesResponse")
+	proto.RegisterType((*GetAddressesResponse_AddressDetail)(nil), "rpcprotobuf.GetAddressesResponse.AddressDetail")
+	proto.RegisterType((*GetWalletBalanceRequest)(nil), "rpcprotobuf.GetWalletBalanceRequest")
+	proto.RegisterType((*GetWalletBalanceResponse)(nil), "rpcprotobuf.GetWalletBalanceResponse")
+	proto.RegisterType((*GetWalletBalanceResponse_Detail)(nil), "rpcprotobuf.GetWalletBalanceResponse.Detail")
+	proto.RegisterType((*TxHistoryDetails)(nil), "rpcprotobuf.TxHistoryDetails")
+	proto.RegisterType((*TxHistoryDetails_Input)(nil), "rpcprotobuf.TxHistoryDetails.Input")
+	proto.RegisterType((*TxHistoryDetails_Output)(nil), "rpcprotobuf.TxHistoryDetails.Output")
+	proto.RegisterType((*TxHistoryResponse)(nil), "rpcprotobuf.TxHistoryResponse")
+	proto.RegisterType((*TxHistoryRequest)(nil), "rpcprotobuf.TxHistoryRequest")
+	proto.RegisterType((*TransactionInput)(nil), "rpcprotobuf.TransactionInput")
+	proto.RegisterType((*CreateRawTransactionRequest)(nil), "rpcprotobuf.CreateRawTransactionRequest")
+	proto.RegisterType((*AutoCreateTransactionRequest)(nil), "rpcprotobuf.AutoCreateTransactionRequest")
+	proto.RegisterType((*CreateRawTransactionResponse)(nil), "rpcprotobuf.CreateRawTransactionResponse")
+	proto.RegisterType((*CreateStakingTransactionRequest)(nil), "rpcprotobuf.CreateStakingTransactionRequest")
+	proto.RegisterType((*GetLatestRewardListResponse)(nil), "rpcprotobuf.GetLatestRewardListResponse")
+	proto.RegisterType((*GetLatestRewardListResponse_RewardDetail)(nil), "rpcprotobuf.GetLatestRewardListResponse.RewardDetail")
+	proto.RegisterType((*GetStakingHistoryResponse)(nil), "rpcprotobuf.GetStakingHistoryResponse")
+	proto.RegisterType((*GetStakingHistoryResponse_StakingUTXO)(nil), "rpcprotobuf.GetStakingHistoryResponse.StakingUTXO")
+	proto.RegisterType((*GetStakingHistoryResponse_Tx)(nil), "rpcprotobuf.GetStakingHistoryResponse.Tx")
+	proto.RegisterType((*SendRawTransactionRequest)(nil), "rpcprotobuf.SendRawTransactionRequest")
+	proto.RegisterType((*SendRawTransactionResponse)(nil), "rpcprotobuf.SendRawTransactionResponse")
+	proto.RegisterType((*GetTransactionFeeRequest)(nil), "rpcprotobuf.GetTransactionFeeRequest")
+	proto.RegisterType((*GetTransactionFeeResponse)(nil), "rpcprotobuf.GetTransactionFeeResponse")
+	proto.RegisterType((*BlockInfoForTx)(nil), "rpcprotobuf.BlockInfoForTx")
+	proto.RegisterType((*Vin)(nil), "rpcprotobuf.Vin")
+	proto.RegisterType((*Vin_RedeemDetail)(nil), "rpcprotobuf.Vin.RedeemDetail")
+	proto.RegisterType((*Vout)(nil), "rpcprotobuf.Vout")
+	proto.RegisterType((*Vout_ScriptDetail)(nil), "rpcprotobuf.Vout.ScriptDetail")
 	proto.RegisterType((*GetRawTransactionRequest)(nil), "rpcprotobuf.GetRawTransactionRequest")
 	proto.RegisterType((*GetRawTransactionResponse)(nil), "rpcprotobuf.GetRawTransactionResponse")
-	proto.RegisterType((*TxRawResult)(nil), "rpcprotobuf.TxRawResult")
-	proto.RegisterType((*BlockInfoForTx)(nil), "rpcprotobuf.BlockInfoForTx")
+	proto.RegisterType((*GetTxStatusRequest)(nil), "rpcprotobuf.GetTxStatusRequest")
+	proto.RegisterType((*GetTxStatusResponse)(nil), "rpcprotobuf.GetTxStatusResponse")
+	proto.RegisterType((*SignRawTransactionRequest)(nil), "rpcprotobuf.SignRawTransactionRequest")
+	proto.RegisterType((*SignRawTransactionResponse)(nil), "rpcprotobuf.SignRawTransactionResponse")
+	proto.RegisterType((*GetUtxoRequest)(nil), "rpcprotobuf.GetUtxoRequest")
+	proto.RegisterType((*UTXO)(nil), "rpcprotobuf.UTXO")
+	proto.RegisterType((*AddressUTXO)(nil), "rpcprotobuf.AddressUTXO")
+	proto.RegisterType((*GetUtxoResponse)(nil), "rpcprotobuf.GetUtxoResponse")
+	proto.RegisterType((*GetAddressBindingRequest)(nil), "rpcprotobuf.GetAddressBindingRequest")
+	proto.RegisterType((*GetAddressBindingResponse)(nil), "rpcprotobuf.GetAddressBindingResponse")
+	proto.RegisterType((*GetBindingHistoryResponse)(nil), "rpcprotobuf.GetBindingHistoryResponse")
+	proto.RegisterType((*GetBindingHistoryResponse_BindingUTXO)(nil), "rpcprotobuf.GetBindingHistoryResponse.BindingUTXO")
+	proto.RegisterType((*GetBindingHistoryResponse_History)(nil), "rpcprotobuf.GetBindingHistoryResponse.History")
+	proto.RegisterType((*CreateBindingTransactionRequest)(nil), "rpcprotobuf.CreateBindingTransactionRequest")
+	proto.RegisterType((*CreateBindingTransactionRequest_Output)(nil), "rpcprotobuf.CreateBindingTransactionRequest.Output")
+	proto.RegisterType((*GetBestBlockResponse)(nil), "rpcprotobuf.GetBestBlockResponse")
+	proto.RegisterType((*GetWalletMnemonicRequest)(nil), "rpcprotobuf.GetWalletMnemonicRequest")
+	proto.RegisterType((*GetWalletMnemonicResponse)(nil), "rpcprotobuf.GetWalletMnemonicResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1562,22 +2510,44 @@ const _ = grpc.SupportPackageIsVersion4
 // Client API for ApiService service
 
 type ApiServiceClient interface {
+	GetBestBlock(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetBestBlockResponse, error)
+	GetClientStatus(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetClientStatusResponse, error)
+	QuitClient(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*QuitClientResponse, error)
+	// commands act on a wallet
+	Wallets(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*WalletsResponse, error)
+	// just create non-poc wallet
+	CreateWallet(ctx context.Context, in *CreateWalletRequest, opts ...grpc.CallOption) (*CreateWalletResponse, error)
+	UseWallet(ctx context.Context, in *UseWalletRequest, opts ...grpc.CallOption) (*UseWalletResponse, error)
+	ImportWallet(ctx context.Context, in *ImportWalletRequest, opts ...grpc.CallOption) (*ImportWalletResponse, error)
+	ImportWalletWithMnemonic(ctx context.Context, in *ImportWalletWithMnemonicRequest, opts ...grpc.CallOption) (*ImportWalletResponse, error)
+	ExportWallet(ctx context.Context, in *ExportWalletRequest, opts ...grpc.CallOption) (*ExportWalletResponse, error)
+	RemoveWallet(ctx context.Context, in *RemoveWalletRequest, opts ...grpc.CallOption) (*RemoveWalletResponse, error)
+	GetWalletMnemonic(ctx context.Context, in *GetWalletMnemonicRequest, opts ...grpc.CallOption) (*GetWalletMnemonicResponse, error)
+	GetWalletBalance(ctx context.Context, in *GetWalletBalanceRequest, opts ...grpc.CallOption) (*GetWalletBalanceResponse, error)
 	CreateAddress(ctx context.Context, in *CreateAddressRequest, opts ...grpc.CallOption) (*CreateAddressResponse, error)
-	GetAddresses(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetAddressesResponse, error)
-	GetBalance(ctx context.Context, in *GetBalanceRequest, opts ...grpc.CallOption) (*GetBalanceResponse, error)
-	GetAllBalance(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetAllBalanceResponse, error)
-	GetUtxo(ctx context.Context, in *GetUtxoRequest, opts ...grpc.CallOption) (*GetUtxoResponse, error)
-	GetAllUtxo(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetUtxoResponse, error)
+	GetAddresses(ctx context.Context, in *GetAddressesRequest, opts ...grpc.CallOption) (*GetAddressesResponse, error)
+	// if addresses not provided, return balances of all addresses
+	GetAddressBalance(ctx context.Context, in *GetAddressBalanceRequest, opts ...grpc.CallOption) (*GetAddressBalanceResponse, error)
 	ValidateAddress(ctx context.Context, in *ValidateAddressRequest, opts ...grpc.CallOption) (*ValidateAddressResponse, error)
-	GetUtxoByAmount(ctx context.Context, in *GetUtxoByAmountRequest, opts ...grpc.CallOption) (*GetUtxoByAmountResponse, error)
+	// if addresses not provided, return utxos of all addresses
+	GetUtxo(ctx context.Context, in *GetUtxoRequest, opts ...grpc.CallOption) (*GetUtxoResponse, error)
 	CreateRawTransaction(ctx context.Context, in *CreateRawTransactionRequest, opts ...grpc.CallOption) (*CreateRawTransactionResponse, error)
-	GetTransactionFee(ctx context.Context, in *GetTransactionFeeRequest, opts ...grpc.CallOption) (*GetTransactionFeeResponse, error)
-	AutoCreateTransaction(ctx context.Context, in *CreateRawTransactionAutoRequest, opts ...grpc.CallOption) (*CreateRawTransactionResponse, error)
+	AutoCreateTransaction(ctx context.Context, in *AutoCreateTransactionRequest, opts ...grpc.CallOption) (*CreateRawTransactionResponse, error)
 	SignRawTransaction(ctx context.Context, in *SignRawTransactionRequest, opts ...grpc.CallOption) (*SignRawTransactionResponse, error)
+	GetTransactionFee(ctx context.Context, in *GetTransactionFeeRequest, opts ...grpc.CallOption) (*GetTransactionFeeResponse, error)
 	SendRawTransaction(ctx context.Context, in *SendRawTransactionRequest, opts ...grpc.CallOption) (*SendRawTransactionResponse, error)
+	// get tx from chaindb
 	GetRawTransaction(ctx context.Context, in *GetRawTransactionRequest, opts ...grpc.CallOption) (*GetRawTransactionResponse, error)
 	GetTxStatus(ctx context.Context, in *GetTxStatusRequest, opts ...grpc.CallOption) (*GetTxStatusResponse, error)
-	GetClientStatus(ctx context.Context, in *GetClientStatusRequest, opts ...grpc.CallOption) (*GetClientStatusResponse, error)
+	CreateStakingTransaction(ctx context.Context, in *CreateStakingTransactionRequest, opts ...grpc.CallOption) (*CreateRawTransactionResponse, error)
+	GetStakingHistory(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetStakingHistoryResponse, error)
+	// returns staking rewards in latest block
+	GetLatestRewardList(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetLatestRewardListResponse, error)
+	TxHistory(ctx context.Context, in *TxHistoryRequest, opts ...grpc.CallOption) (*TxHistoryResponse, error)
+	// query by poc addresses
+	GetAddressBinding(ctx context.Context, in *GetAddressBindingRequest, opts ...grpc.CallOption) (*GetAddressBindingResponse, error)
+	GetBindingHistory(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetBindingHistoryResponse, error)
+	CreateBindingTransaction(ctx context.Context, in *CreateBindingTransactionRequest, opts ...grpc.CallOption) (*CreateRawTransactionResponse, error)
 }
 
 type apiServiceClient struct {
@@ -1586,6 +2556,114 @@ type apiServiceClient struct {
 
 func NewApiServiceClient(cc *grpc.ClientConn) ApiServiceClient {
 	return &apiServiceClient{cc}
+}
+
+func (c *apiServiceClient) GetBestBlock(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetBestBlockResponse, error) {
+	out := new(GetBestBlockResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetBestBlock", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) GetClientStatus(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetClientStatusResponse, error) {
+	out := new(GetClientStatusResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetClientStatus", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) QuitClient(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*QuitClientResponse, error) {
+	out := new(QuitClientResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/QuitClient", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) Wallets(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*WalletsResponse, error) {
+	out := new(WalletsResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/Wallets", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) CreateWallet(ctx context.Context, in *CreateWalletRequest, opts ...grpc.CallOption) (*CreateWalletResponse, error) {
+	out := new(CreateWalletResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/CreateWallet", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) UseWallet(ctx context.Context, in *UseWalletRequest, opts ...grpc.CallOption) (*UseWalletResponse, error) {
+	out := new(UseWalletResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/UseWallet", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) ImportWallet(ctx context.Context, in *ImportWalletRequest, opts ...grpc.CallOption) (*ImportWalletResponse, error) {
+	out := new(ImportWalletResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/ImportWallet", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) ImportWalletWithMnemonic(ctx context.Context, in *ImportWalletWithMnemonicRequest, opts ...grpc.CallOption) (*ImportWalletResponse, error) {
+	out := new(ImportWalletResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/ImportWalletWithMnemonic", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) ExportWallet(ctx context.Context, in *ExportWalletRequest, opts ...grpc.CallOption) (*ExportWalletResponse, error) {
+	out := new(ExportWalletResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/ExportWallet", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) RemoveWallet(ctx context.Context, in *RemoveWalletRequest, opts ...grpc.CallOption) (*RemoveWalletResponse, error) {
+	out := new(RemoveWalletResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/RemoveWallet", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) GetWalletMnemonic(ctx context.Context, in *GetWalletMnemonicRequest, opts ...grpc.CallOption) (*GetWalletMnemonicResponse, error) {
+	out := new(GetWalletMnemonicResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetWalletMnemonic", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) GetWalletBalance(ctx context.Context, in *GetWalletBalanceRequest, opts ...grpc.CallOption) (*GetWalletBalanceResponse, error) {
+	out := new(GetWalletBalanceResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetWalletBalance", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *apiServiceClient) CreateAddress(ctx context.Context, in *CreateAddressRequest, opts ...grpc.CallOption) (*CreateAddressResponse, error) {
@@ -1597,7 +2675,7 @@ func (c *apiServiceClient) CreateAddress(ctx context.Context, in *CreateAddressR
 	return out, nil
 }
 
-func (c *apiServiceClient) GetAddresses(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetAddressesResponse, error) {
+func (c *apiServiceClient) GetAddresses(ctx context.Context, in *GetAddressesRequest, opts ...grpc.CallOption) (*GetAddressesResponse, error) {
 	out := new(GetAddressesResponse)
 	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetAddresses", in, out, c.cc, opts...)
 	if err != nil {
@@ -1606,36 +2684,9 @@ func (c *apiServiceClient) GetAddresses(ctx context.Context, in *google_protobuf
 	return out, nil
 }
 
-func (c *apiServiceClient) GetBalance(ctx context.Context, in *GetBalanceRequest, opts ...grpc.CallOption) (*GetBalanceResponse, error) {
-	out := new(GetBalanceResponse)
-	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetBalance", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *apiServiceClient) GetAllBalance(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetAllBalanceResponse, error) {
-	out := new(GetAllBalanceResponse)
-	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetAllBalance", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *apiServiceClient) GetUtxo(ctx context.Context, in *GetUtxoRequest, opts ...grpc.CallOption) (*GetUtxoResponse, error) {
-	out := new(GetUtxoResponse)
-	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetUtxo", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *apiServiceClient) GetAllUtxo(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetUtxoResponse, error) {
-	out := new(GetUtxoResponse)
-	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetAllUtxo", in, out, c.cc, opts...)
+func (c *apiServiceClient) GetAddressBalance(ctx context.Context, in *GetAddressBalanceRequest, opts ...grpc.CallOption) (*GetAddressBalanceResponse, error) {
+	out := new(GetAddressBalanceResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetAddressBalance", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1651,9 +2702,9 @@ func (c *apiServiceClient) ValidateAddress(ctx context.Context, in *ValidateAddr
 	return out, nil
 }
 
-func (c *apiServiceClient) GetUtxoByAmount(ctx context.Context, in *GetUtxoByAmountRequest, opts ...grpc.CallOption) (*GetUtxoByAmountResponse, error) {
-	out := new(GetUtxoByAmountResponse)
-	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetUtxoByAmount", in, out, c.cc, opts...)
+func (c *apiServiceClient) GetUtxo(ctx context.Context, in *GetUtxoRequest, opts ...grpc.CallOption) (*GetUtxoResponse, error) {
+	out := new(GetUtxoResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetUtxo", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1669,16 +2720,7 @@ func (c *apiServiceClient) CreateRawTransaction(ctx context.Context, in *CreateR
 	return out, nil
 }
 
-func (c *apiServiceClient) GetTransactionFee(ctx context.Context, in *GetTransactionFeeRequest, opts ...grpc.CallOption) (*GetTransactionFeeResponse, error) {
-	out := new(GetTransactionFeeResponse)
-	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetTransactionFee", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *apiServiceClient) AutoCreateTransaction(ctx context.Context, in *CreateRawTransactionAutoRequest, opts ...grpc.CallOption) (*CreateRawTransactionResponse, error) {
+func (c *apiServiceClient) AutoCreateTransaction(ctx context.Context, in *AutoCreateTransactionRequest, opts ...grpc.CallOption) (*CreateRawTransactionResponse, error) {
 	out := new(CreateRawTransactionResponse)
 	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/AutoCreateTransaction", in, out, c.cc, opts...)
 	if err != nil {
@@ -1690,6 +2732,15 @@ func (c *apiServiceClient) AutoCreateTransaction(ctx context.Context, in *Create
 func (c *apiServiceClient) SignRawTransaction(ctx context.Context, in *SignRawTransactionRequest, opts ...grpc.CallOption) (*SignRawTransactionResponse, error) {
 	out := new(SignRawTransactionResponse)
 	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/SignRawTransaction", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) GetTransactionFee(ctx context.Context, in *GetTransactionFeeRequest, opts ...grpc.CallOption) (*GetTransactionFeeResponse, error) {
+	out := new(GetTransactionFeeResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetTransactionFee", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1723,9 +2774,63 @@ func (c *apiServiceClient) GetTxStatus(ctx context.Context, in *GetTxStatusReque
 	return out, nil
 }
 
-func (c *apiServiceClient) GetClientStatus(ctx context.Context, in *GetClientStatusRequest, opts ...grpc.CallOption) (*GetClientStatusResponse, error) {
-	out := new(GetClientStatusResponse)
-	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetClientStatus", in, out, c.cc, opts...)
+func (c *apiServiceClient) CreateStakingTransaction(ctx context.Context, in *CreateStakingTransactionRequest, opts ...grpc.CallOption) (*CreateRawTransactionResponse, error) {
+	out := new(CreateRawTransactionResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/CreateStakingTransaction", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) GetStakingHistory(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetStakingHistoryResponse, error) {
+	out := new(GetStakingHistoryResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetStakingHistory", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) GetLatestRewardList(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetLatestRewardListResponse, error) {
+	out := new(GetLatestRewardListResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetLatestRewardList", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) TxHistory(ctx context.Context, in *TxHistoryRequest, opts ...grpc.CallOption) (*TxHistoryResponse, error) {
+	out := new(TxHistoryResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/TxHistory", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) GetAddressBinding(ctx context.Context, in *GetAddressBindingRequest, opts ...grpc.CallOption) (*GetAddressBindingResponse, error) {
+	out := new(GetAddressBindingResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetAddressBinding", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) GetBindingHistory(ctx context.Context, in *google_protobuf2.Empty, opts ...grpc.CallOption) (*GetBindingHistoryResponse, error) {
+	out := new(GetBindingHistoryResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/GetBindingHistory", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *apiServiceClient) CreateBindingTransaction(ctx context.Context, in *CreateBindingTransactionRequest, opts ...grpc.CallOption) (*CreateRawTransactionResponse, error) {
+	out := new(CreateRawTransactionResponse)
+	err := grpc.Invoke(ctx, "/rpcprotobuf.ApiService/CreateBindingTransaction", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1735,26 +2840,264 @@ func (c *apiServiceClient) GetClientStatus(ctx context.Context, in *GetClientSta
 // Server API for ApiService service
 
 type ApiServiceServer interface {
+	GetBestBlock(context.Context, *google_protobuf2.Empty) (*GetBestBlockResponse, error)
+	GetClientStatus(context.Context, *google_protobuf2.Empty) (*GetClientStatusResponse, error)
+	QuitClient(context.Context, *google_protobuf2.Empty) (*QuitClientResponse, error)
+	// commands act on a wallet
+	Wallets(context.Context, *google_protobuf2.Empty) (*WalletsResponse, error)
+	// just create non-poc wallet
+	CreateWallet(context.Context, *CreateWalletRequest) (*CreateWalletResponse, error)
+	UseWallet(context.Context, *UseWalletRequest) (*UseWalletResponse, error)
+	ImportWallet(context.Context, *ImportWalletRequest) (*ImportWalletResponse, error)
+	ImportWalletWithMnemonic(context.Context, *ImportWalletWithMnemonicRequest) (*ImportWalletResponse, error)
+	ExportWallet(context.Context, *ExportWalletRequest) (*ExportWalletResponse, error)
+	RemoveWallet(context.Context, *RemoveWalletRequest) (*RemoveWalletResponse, error)
+	GetWalletMnemonic(context.Context, *GetWalletMnemonicRequest) (*GetWalletMnemonicResponse, error)
+	GetWalletBalance(context.Context, *GetWalletBalanceRequest) (*GetWalletBalanceResponse, error)
 	CreateAddress(context.Context, *CreateAddressRequest) (*CreateAddressResponse, error)
-	GetAddresses(context.Context, *google_protobuf2.Empty) (*GetAddressesResponse, error)
-	GetBalance(context.Context, *GetBalanceRequest) (*GetBalanceResponse, error)
-	GetAllBalance(context.Context, *google_protobuf2.Empty) (*GetAllBalanceResponse, error)
-	GetUtxo(context.Context, *GetUtxoRequest) (*GetUtxoResponse, error)
-	GetAllUtxo(context.Context, *google_protobuf2.Empty) (*GetUtxoResponse, error)
+	GetAddresses(context.Context, *GetAddressesRequest) (*GetAddressesResponse, error)
+	// if addresses not provided, return balances of all addresses
+	GetAddressBalance(context.Context, *GetAddressBalanceRequest) (*GetAddressBalanceResponse, error)
 	ValidateAddress(context.Context, *ValidateAddressRequest) (*ValidateAddressResponse, error)
-	GetUtxoByAmount(context.Context, *GetUtxoByAmountRequest) (*GetUtxoByAmountResponse, error)
+	// if addresses not provided, return utxos of all addresses
+	GetUtxo(context.Context, *GetUtxoRequest) (*GetUtxoResponse, error)
 	CreateRawTransaction(context.Context, *CreateRawTransactionRequest) (*CreateRawTransactionResponse, error)
-	GetTransactionFee(context.Context, *GetTransactionFeeRequest) (*GetTransactionFeeResponse, error)
-	AutoCreateTransaction(context.Context, *CreateRawTransactionAutoRequest) (*CreateRawTransactionResponse, error)
+	AutoCreateTransaction(context.Context, *AutoCreateTransactionRequest) (*CreateRawTransactionResponse, error)
 	SignRawTransaction(context.Context, *SignRawTransactionRequest) (*SignRawTransactionResponse, error)
+	GetTransactionFee(context.Context, *GetTransactionFeeRequest) (*GetTransactionFeeResponse, error)
 	SendRawTransaction(context.Context, *SendRawTransactionRequest) (*SendRawTransactionResponse, error)
+	// get tx from chaindb
 	GetRawTransaction(context.Context, *GetRawTransactionRequest) (*GetRawTransactionResponse, error)
 	GetTxStatus(context.Context, *GetTxStatusRequest) (*GetTxStatusResponse, error)
-	GetClientStatus(context.Context, *GetClientStatusRequest) (*GetClientStatusResponse, error)
+	CreateStakingTransaction(context.Context, *CreateStakingTransactionRequest) (*CreateRawTransactionResponse, error)
+	GetStakingHistory(context.Context, *google_protobuf2.Empty) (*GetStakingHistoryResponse, error)
+	// returns staking rewards in latest block
+	GetLatestRewardList(context.Context, *google_protobuf2.Empty) (*GetLatestRewardListResponse, error)
+	TxHistory(context.Context, *TxHistoryRequest) (*TxHistoryResponse, error)
+	// query by poc addresses
+	GetAddressBinding(context.Context, *GetAddressBindingRequest) (*GetAddressBindingResponse, error)
+	GetBindingHistory(context.Context, *google_protobuf2.Empty) (*GetBindingHistoryResponse, error)
+	CreateBindingTransaction(context.Context, *CreateBindingTransactionRequest) (*CreateRawTransactionResponse, error)
 }
 
 func RegisterApiServiceServer(s *grpc.Server, srv ApiServiceServer) {
 	s.RegisterService(&_ApiService_serviceDesc, srv)
+}
+
+func _ApiService_GetBestBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf2.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).GetBestBlock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/GetBestBlock",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).GetBestBlock(ctx, req.(*google_protobuf2.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_GetClientStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf2.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).GetClientStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/GetClientStatus",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).GetClientStatus(ctx, req.(*google_protobuf2.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_QuitClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf2.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).QuitClient(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/QuitClient",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).QuitClient(ctx, req.(*google_protobuf2.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_Wallets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf2.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).Wallets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/Wallets",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).Wallets(ctx, req.(*google_protobuf2.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_CreateWallet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateWalletRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).CreateWallet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/CreateWallet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).CreateWallet(ctx, req.(*CreateWalletRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_UseWallet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UseWalletRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).UseWallet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/UseWallet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).UseWallet(ctx, req.(*UseWalletRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_ImportWallet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportWalletRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).ImportWallet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/ImportWallet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).ImportWallet(ctx, req.(*ImportWalletRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_ImportWalletWithMnemonic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ImportWalletWithMnemonicRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).ImportWalletWithMnemonic(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/ImportWalletWithMnemonic",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).ImportWalletWithMnemonic(ctx, req.(*ImportWalletWithMnemonicRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_ExportWallet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExportWalletRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).ExportWallet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/ExportWallet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).ExportWallet(ctx, req.(*ExportWalletRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_RemoveWallet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveWalletRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).RemoveWallet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/RemoveWallet",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).RemoveWallet(ctx, req.(*RemoveWalletRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_GetWalletMnemonic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWalletMnemonicRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).GetWalletMnemonic(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/GetWalletMnemonic",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).GetWalletMnemonic(ctx, req.(*GetWalletMnemonicRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_GetWalletBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWalletBalanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).GetWalletBalance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/GetWalletBalance",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).GetWalletBalance(ctx, req.(*GetWalletBalanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _ApiService_CreateAddress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1776,7 +3119,7 @@ func _ApiService_CreateAddress_Handler(srv interface{}, ctx context.Context, dec
 }
 
 func _ApiService_GetAddresses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(google_protobuf2.Empty)
+	in := new(GetAddressesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1788,79 +3131,25 @@ func _ApiService_GetAddresses_Handler(srv interface{}, ctx context.Context, dec 
 		FullMethod: "/rpcprotobuf.ApiService/GetAddresses",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServiceServer).GetAddresses(ctx, req.(*google_protobuf2.Empty))
+		return srv.(ApiServiceServer).GetAddresses(ctx, req.(*GetAddressesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ApiService_GetBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetBalanceRequest)
+func _ApiService_GetAddressBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAddressBalanceRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServiceServer).GetBalance(ctx, in)
+		return srv.(ApiServiceServer).GetAddressBalance(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcprotobuf.ApiService/GetBalance",
+		FullMethod: "/rpcprotobuf.ApiService/GetAddressBalance",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServiceServer).GetBalance(ctx, req.(*GetBalanceRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ApiService_GetAllBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(google_protobuf2.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ApiServiceServer).GetAllBalance(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/rpcprotobuf.ApiService/GetAllBalance",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServiceServer).GetAllBalance(ctx, req.(*google_protobuf2.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ApiService_GetUtxo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetUtxoRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ApiServiceServer).GetUtxo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/rpcprotobuf.ApiService/GetUtxo",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServiceServer).GetUtxo(ctx, req.(*GetUtxoRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ApiService_GetAllUtxo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(google_protobuf2.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ApiServiceServer).GetAllUtxo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/rpcprotobuf.ApiService/GetAllUtxo",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServiceServer).GetAllUtxo(ctx, req.(*google_protobuf2.Empty))
+		return srv.(ApiServiceServer).GetAddressBalance(ctx, req.(*GetAddressBalanceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1883,20 +3172,20 @@ func _ApiService_ValidateAddress_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ApiService_GetUtxoByAmount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetUtxoByAmountRequest)
+func _ApiService_GetUtxo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUtxoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServiceServer).GetUtxoByAmount(ctx, in)
+		return srv.(ApiServiceServer).GetUtxo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcprotobuf.ApiService/GetUtxoByAmount",
+		FullMethod: "/rpcprotobuf.ApiService/GetUtxo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServiceServer).GetUtxoByAmount(ctx, req.(*GetUtxoByAmountRequest))
+		return srv.(ApiServiceServer).GetUtxo(ctx, req.(*GetUtxoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1919,26 +3208,8 @@ func _ApiService_CreateRawTransaction_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ApiService_GetTransactionFee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetTransactionFeeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ApiServiceServer).GetTransactionFee(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/rpcprotobuf.ApiService/GetTransactionFee",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServiceServer).GetTransactionFee(ctx, req.(*GetTransactionFeeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ApiService_AutoCreateTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CreateRawTransactionAutoRequest)
+	in := new(AutoCreateTransactionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -1950,7 +3221,7 @@ func _ApiService_AutoCreateTransaction_Handler(srv interface{}, ctx context.Cont
 		FullMethod: "/rpcprotobuf.ApiService/AutoCreateTransaction",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServiceServer).AutoCreateTransaction(ctx, req.(*CreateRawTransactionAutoRequest))
+		return srv.(ApiServiceServer).AutoCreateTransaction(ctx, req.(*AutoCreateTransactionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1969,6 +3240,24 @@ func _ApiService_SignRawTransaction_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ApiServiceServer).SignRawTransaction(ctx, req.(*SignRawTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_GetTransactionFee_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTransactionFeeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).GetTransactionFee(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/GetTransactionFee",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).GetTransactionFee(ctx, req.(*GetTransactionFeeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2027,20 +3316,128 @@ func _ApiService_GetTxStatus_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ApiService_GetClientStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetClientStatusRequest)
+func _ApiService_CreateStakingTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateStakingTransactionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ApiServiceServer).GetClientStatus(ctx, in)
+		return srv.(ApiServiceServer).CreateStakingTransaction(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpcprotobuf.ApiService/GetClientStatus",
+		FullMethod: "/rpcprotobuf.ApiService/CreateStakingTransaction",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ApiServiceServer).GetClientStatus(ctx, req.(*GetClientStatusRequest))
+		return srv.(ApiServiceServer).CreateStakingTransaction(ctx, req.(*CreateStakingTransactionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_GetStakingHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf2.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).GetStakingHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/GetStakingHistory",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).GetStakingHistory(ctx, req.(*google_protobuf2.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_GetLatestRewardList_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf2.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).GetLatestRewardList(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/GetLatestRewardList",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).GetLatestRewardList(ctx, req.(*google_protobuf2.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_TxHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TxHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).TxHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/TxHistory",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).TxHistory(ctx, req.(*TxHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_GetAddressBinding_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAddressBindingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).GetAddressBinding(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/GetAddressBinding",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).GetAddressBinding(ctx, req.(*GetAddressBindingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_GetBindingHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(google_protobuf2.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).GetBindingHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/GetBindingHistory",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).GetBindingHistory(ctx, req.(*google_protobuf2.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ApiService_CreateBindingTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBindingTransactionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApiServiceServer).CreateBindingTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpcprotobuf.ApiService/CreateBindingTransaction",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApiServiceServer).CreateBindingTransaction(ctx, req.(*CreateBindingTransactionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2050,6 +3447,54 @@ var _ApiService_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*ApiServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "GetBestBlock",
+			Handler:    _ApiService_GetBestBlock_Handler,
+		},
+		{
+			MethodName: "GetClientStatus",
+			Handler:    _ApiService_GetClientStatus_Handler,
+		},
+		{
+			MethodName: "QuitClient",
+			Handler:    _ApiService_QuitClient_Handler,
+		},
+		{
+			MethodName: "Wallets",
+			Handler:    _ApiService_Wallets_Handler,
+		},
+		{
+			MethodName: "CreateWallet",
+			Handler:    _ApiService_CreateWallet_Handler,
+		},
+		{
+			MethodName: "UseWallet",
+			Handler:    _ApiService_UseWallet_Handler,
+		},
+		{
+			MethodName: "ImportWallet",
+			Handler:    _ApiService_ImportWallet_Handler,
+		},
+		{
+			MethodName: "ImportWalletWithMnemonic",
+			Handler:    _ApiService_ImportWalletWithMnemonic_Handler,
+		},
+		{
+			MethodName: "ExportWallet",
+			Handler:    _ApiService_ExportWallet_Handler,
+		},
+		{
+			MethodName: "RemoveWallet",
+			Handler:    _ApiService_RemoveWallet_Handler,
+		},
+		{
+			MethodName: "GetWalletMnemonic",
+			Handler:    _ApiService_GetWalletMnemonic_Handler,
+		},
+		{
+			MethodName: "GetWalletBalance",
+			Handler:    _ApiService_GetWalletBalance_Handler,
+		},
+		{
 			MethodName: "CreateAddress",
 			Handler:    _ApiService_CreateAddress_Handler,
 		},
@@ -2058,36 +3503,20 @@ var _ApiService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ApiService_GetAddresses_Handler,
 		},
 		{
-			MethodName: "GetBalance",
-			Handler:    _ApiService_GetBalance_Handler,
-		},
-		{
-			MethodName: "GetAllBalance",
-			Handler:    _ApiService_GetAllBalance_Handler,
-		},
-		{
-			MethodName: "GetUtxo",
-			Handler:    _ApiService_GetUtxo_Handler,
-		},
-		{
-			MethodName: "GetAllUtxo",
-			Handler:    _ApiService_GetAllUtxo_Handler,
+			MethodName: "GetAddressBalance",
+			Handler:    _ApiService_GetAddressBalance_Handler,
 		},
 		{
 			MethodName: "ValidateAddress",
 			Handler:    _ApiService_ValidateAddress_Handler,
 		},
 		{
-			MethodName: "GetUtxoByAmount",
-			Handler:    _ApiService_GetUtxoByAmount_Handler,
+			MethodName: "GetUtxo",
+			Handler:    _ApiService_GetUtxo_Handler,
 		},
 		{
 			MethodName: "CreateRawTransaction",
 			Handler:    _ApiService_CreateRawTransaction_Handler,
-		},
-		{
-			MethodName: "GetTransactionFee",
-			Handler:    _ApiService_GetTransactionFee_Handler,
 		},
 		{
 			MethodName: "AutoCreateTransaction",
@@ -2096,6 +3525,10 @@ var _ApiService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SignRawTransaction",
 			Handler:    _ApiService_SignRawTransaction_Handler,
+		},
+		{
+			MethodName: "GetTransactionFee",
+			Handler:    _ApiService_GetTransactionFee_Handler,
 		},
 		{
 			MethodName: "SendRawTransaction",
@@ -2110,8 +3543,32 @@ var _ApiService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ApiService_GetTxStatus_Handler,
 		},
 		{
-			MethodName: "GetClientStatus",
-			Handler:    _ApiService_GetClientStatus_Handler,
+			MethodName: "CreateStakingTransaction",
+			Handler:    _ApiService_CreateStakingTransaction_Handler,
+		},
+		{
+			MethodName: "GetStakingHistory",
+			Handler:    _ApiService_GetStakingHistory_Handler,
+		},
+		{
+			MethodName: "GetLatestRewardList",
+			Handler:    _ApiService_GetLatestRewardList_Handler,
+		},
+		{
+			MethodName: "TxHistory",
+			Handler:    _ApiService_TxHistory_Handler,
+		},
+		{
+			MethodName: "GetAddressBinding",
+			Handler:    _ApiService_GetAddressBinding_Handler,
+		},
+		{
+			MethodName: "GetBindingHistory",
+			Handler:    _ApiService_GetBindingHistory_Handler,
+		},
+		{
+			MethodName: "CreateBindingTransaction",
+			Handler:    _ApiService_CreateBindingTransaction_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -2121,163 +3578,241 @@ var _ApiService_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("api.proto", fileDescriptorApi) }
 
 var fileDescriptorApi = []byte{
-	// 2523 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x59, 0xdd, 0x6f, 0x1c, 0x49,
-	0x11, 0xd7, 0xec, 0x7a, 0xfd, 0x51, 0xfe, 0x4c, 0xc7, 0x76, 0xd6, 0x1b, 0x27, 0xde, 0xf4, 0xe5,
-	0xee, 0x7c, 0x1f, 0xd9, 0xb5, 0x7d, 0x77, 0xd2, 0x9d, 0x79, 0xc9, 0xc6, 0xb9, 0xd8, 0x86, 0xbb,
-	0xc3, 0x1a, 0xef, 0xf9, 0x90, 0x90, 0x80, 0xf1, 0x6c, 0x7b, 0x77, 0x2e, 0xb3, 0xdd, 0x93, 0xe9,
-	0x1e, 0x7b, 0x4d, 0x14, 0x21, 0x1d, 0x88, 0x07, 0x78, 0x02, 0x1e, 0x40, 0xf0, 0xcf, 0xf0, 0x27,
-	0x20, 0xc1, 0x7f, 0x00, 0xbc, 0xf1, 0x8a, 0x78, 0x42, 0x42, 0xfd, 0x31, 0xb3, 0x33, 0xbb, 0x33,
-	0x8e, 0x13, 0x10, 0x4f, 0xde, 0xaa, 0xa9, 0xae, 0x5f, 0x7d, 0x74, 0x57, 0x55, 0xb7, 0x61, 0xc6,
-	0x09, 0xbc, 0x46, 0x10, 0x32, 0xc1, 0xd0, 0x6c, 0x18, 0xb8, 0xea, 0xd7, 0x69, 0x74, 0x56, 0x5b,
-	0xef, 0x32, 0xd6, 0xf5, 0x49, 0xd3, 0x09, 0xbc, 0xa6, 0x43, 0x29, 0x13, 0x8e, 0xf0, 0x18, 0xe5,
-	0x5a, 0xb4, 0xf6, 0xbe, 0xfa, 0xe3, 0x3e, 0xe8, 0x12, 0xfa, 0x80, 0x5f, 0x38, 0xdd, 0x2e, 0x09,
-	0x9b, 0x2c, 0x50, 0x12, 0x39, 0xd2, 0xb7, 0x8d, 0xae, 0x58, 0x79, 0x93, 0xf4, 0x03, 0x71, 0xa9,
-	0x3f, 0x62, 0x17, 0xca, 0x27, 0x1e, 0x45, 0x08, 0x26, 0xc4, 0xc0, 0xeb, 0x54, 0xad, 0xba, 0xb5,
-	0x39, 0x63, 0xab, 0xdf, 0x92, 0x77, 0xce, 0x22, 0x51, 0x2d, 0xd5, 0xad, 0xcd, 0x79, 0x5b, 0xfd,
-	0x46, 0x35, 0x98, 0xe6, 0xe4, 0x59, 0x44, 0xa8, 0x4b, 0xaa, 0x65, 0xc5, 0x4f, 0x68, 0x54, 0x85,
-	0xa9, 0x0b, 0x4f, 0x50, 0xc2, 0x79, 0x75, 0xa2, 0x5e, 0xde, 0x9c, 0xb1, 0x63, 0x12, 0x3f, 0x84,
-	0x85, 0x36, 0x6b, 0x75, 0x3a, 0x21, 0xe1, 0xfc, 0x09, 0x0b, 0xdb, 0x03, 0x29, 0xeb, 0x68, 0xda,
-	0x40, 0xc6, 0x24, 0x5a, 0x86, 0xca, 0xb9, 0xe3, 0x47, 0x44, 0xc1, 0x5a, 0xb6, 0x26, 0xf0, 0x19,
-	0xc0, 0x21, 0x0d, 0x22, 0xc1, 0x0f, 0x69, 0x7b, 0x90, 0x6b, 0xed, 0x32, 0x54, 0x3c, 0xda, 0x21,
-	0x03, 0x63, 0xae, 0x26, 0xd2, 0x38, 0xe5, 0x02, 0x9c, 0x89, 0x34, 0xce, 0xcf, 0x2c, 0x40, 0xc7,
-	0x6e, 0xe8, 0x05, 0xe2, 0x28, 0x3a, 0xfd, 0x0e, 0xb9, 0xb4, 0x09, 0x8f, 0x7c, 0x81, 0x96, 0xa0,
-	0xdc, 0xe2, 0x7d, 0x83, 0x27, 0x7f, 0x4a, 0xce, 0x81, 0x01, 0x9b, 0xb1, 0xe5, 0x4f, 0x09, 0x65,
-	0x93, 0x67, 0xc7, 0x5e, 0x57, 0x43, 0x55, 0xec, 0x98, 0x94, 0xe6, 0xb6, 0x2f, 0x03, 0x8d, 0x34,
-	0x63, 0xab, 0xdf, 0x68, 0x1d, 0x66, 0x4c, 0x40, 0x08, 0xaf, 0x56, 0x54, 0xb8, 0x86, 0x0c, 0xcc,
-	0x60, 0xe2, 0x44, 0x86, 0x3b, 0x31, 0xd2, 0x4a, 0x19, 0x89, 0xe6, 0xc0, 0xa2, 0xc6, 0x4d, 0x8b,
-	0xa2, 0x3d, 0x98, 0x4b, 0x5b, 0xac, 0xc0, 0x67, 0x77, 0x36, 0x1a, 0xa9, 0xed, 0xd4, 0x18, 0x77,
-	0xc9, 0xce, 0x2c, 0xc2, 0xbb, 0xb0, 0xd4, 0x0e, 0x1d, 0xca, 0x1d, 0x57, 0xee, 0x1c, 0x15, 0x6a,
-	0x1d, 0xe5, 0xc3, 0x54, 0x94, 0x0f, 0x73, 0xf7, 0x04, 0xfe, 0xa3, 0x05, 0xd5, 0x7d, 0x22, 0x52,
-	0xeb, 0x9f, 0x10, 0x62, 0xcb, 0x5d, 0xc1, 0x05, 0xfa, 0x0c, 0xa6, 0x9c, 0x3e, 0x8b, 0xa8, 0x90,
-	0x89, 0x2e, 0x6f, 0xce, 0xee, 0xec, 0x64, 0x0c, 0x2b, 0x5a, 0xd7, 0x68, 0xe9, 0x45, 0x9f, 0x52,
-	0x11, 0x5e, 0xda, 0xb1, 0x0a, 0xb9, 0xfd, 0x7c, 0xe6, 0x3e, 0x6d, 0x7b, 0x7d, 0xbd, 0x3f, 0xca,
-	0x76, 0x42, 0xd7, 0x76, 0x61, 0x2e, 0xbd, 0x48, 0x66, 0xe8, 0x29, 0xb9, 0x8c, 0x73, 0xf6, 0x94,
-	0x5c, 0xe6, 0x6f, 0xad, 0xdd, 0xd2, 0xc7, 0x16, 0xfe, 0xb7, 0x05, 0xb7, 0xf7, 0x42, 0xe2, 0x08,
-	0x62, 0x3b, 0x17, 0x29, 0x83, 0x62, 0x2f, 0x3e, 0x82, 0x49, 0x4f, 0x6d, 0x3f, 0xe3, 0xc4, 0x9d,
-	0x8c, 0x13, 0xa3, 0x91, 0xb3, 0x8d, 0x30, 0xfa, 0xee, 0xd0, 0xf9, 0x92, 0x5a, 0xf7, 0x51, 0x66,
-	0xdd, 0x15, 0x88, 0xd7, 0xf0, 0xbf, 0xfc, 0x3f, 0xf4, 0xff, 0x1f, 0x16, 0x6c, 0xe4, 0x59, 0xd3,
-	0x8a, 0x04, 0x8b, 0x63, 0x70, 0x3c, 0x9a, 0xc9, 0x4f, 0x5e, 0xea, 0x4c, 0x6a, 0xf9, 0xab, 0x27,
-	0x54, 0x1e, 0x91, 0x88, 0x93, 0xb0, 0x3d, 0x78, 0x42, 0xb4, 0xb7, 0x96, 0x3d, 0x64, 0xfc, 0x57,
-	0xee, 0xfe, 0xce, 0x82, 0x09, 0x27, 0x12, 0x0c, 0x7d, 0x3c, 0x9a, 0xa0, 0xbb, 0x19, 0x9f, 0xa4,
-	0xcc, 0xff, 0x39, 0x13, 0x5b, 0xb0, 0x9e, 0xbf, 0x2d, 0x78, 0xc0, 0x28, 0x27, 0x52, 0x57, 0x8f,
-	0x0c, 0x62, 0x5d, 0x3d, 0x32, 0xc0, 0x9f, 0xc0, 0x5a, 0xce, 0x29, 0x32, 0xe2, 0x99, 0x18, 0x5a,
-	0x23, 0x31, 0xc4, 0x2e, 0xac, 0x1d, 0x7b, 0x5d, 0x9a, 0xbf, 0xe7, 0x97, 0xa1, 0x12, 0x3a, 0x17,
-	0xed, 0x18, 0x4b, 0x13, 0x92, 0x7b, 0xe6, 0x3b, 0x5d, 0x6e, 0x2a, 0x9f, 0x26, 0x64, 0x34, 0x02,
-	0x87, 0xf3, 0x0b, 0x16, 0x76, 0x4c, 0x9d, 0x4d, 0x68, 0xfc, 0x6d, 0xa8, 0xe5, 0x81, 0x14, 0xf9,
-	0x23, 0x75, 0xb9, 0xac, 0x1f, 0xf8, 0x44, 0xe8, 0xf0, 0x4c, 0xdb, 0x09, 0x8d, 0xbf, 0x82, 0xb5,
-	0x63, 0x42, 0x3b, 0x85, 0x06, 0xf7, 0xc8, 0x60, 0x68, 0xb0, 0x22, 0xd0, 0x7d, 0x98, 0x77, 0x7c,
-	0x9f, 0x5d, 0x1c, 0x78, 0xdd, 0xde, 0x13, 0x42, 0xb8, 0xd1, 0x99, 0x65, 0xe2, 0x06, 0xd4, 0xf2,
-	0x14, 0x17, 0x06, 0xfd, 0x31, 0x2c, 0xe9, 0xca, 0xd9, 0xa2, 0x1d, 0x53, 0xb6, 0xd1, 0x2a, 0x4c,
-	0x06, 0xba, 0x04, 0x6b, 0x41, 0x43, 0xa5, 0x7b, 0x50, 0x29, 0xd3, 0x83, 0xf0, 0x39, 0x2c, 0xeb,
-	0x64, 0x1b, 0x15, 0xb1, 0x27, 0x75, 0x98, 0xe5, 0x32, 0x64, 0xe4, 0x59, 0xe4, 0x85, 0x3a, 0x6f,
-	0x15, 0x3b, 0xcd, 0x42, 0x18, 0xe6, 0xb4, 0xf6, 0x2f, 0xa2, 0xfe, 0x29, 0x09, 0x95, 0xe2, 0x8a,
-	0x9d, 0xe1, 0x49, 0xdc, 0x73, 0x12, 0x72, 0x8f, 0xd1, 0xb8, 0x21, 0x19, 0x12, 0x6f, 0xc3, 0xca,
-	0x08, 0xae, 0x71, 0xb4, 0xb0, 0x2d, 0xe3, 0x6d, 0xb8, 0xb1, 0x4f, 0xc4, 0x23, 0xc7, 0x77, 0xa8,
-	0x9b, 0x14, 0xf7, 0x75, 0x98, 0x71, 0x92, 0x26, 0x66, 0xe9, 0x26, 0x96, 0x30, 0xf0, 0x3e, 0xdc,
-	0x30, 0xfa, 0x5b, 0xb4, 0x63, 0x56, 0x5e, 0xd1, 0xf8, 0xab, 0x30, 0x75, 0xaa, 0x85, 0xcc, 0xa9,
-	0x88, 0x49, 0xfc, 0x05, 0xa0, 0x34, 0xb6, 0xb1, 0xf5, 0xe3, 0xa1, 0xbc, 0x95, 0x73, 0x76, 0xc7,
-	0xa0, 0x87, 0xfa, 0xb6, 0x61, 0x65, 0x9f, 0x88, 0x96, 0xef, 0x8f, 0xaa, 0xac, 0xa6, 0x55, 0x66,
-	0x4c, 0xd8, 0x81, 0xd5, 0x13, 0xc7, 0xf7, 0x3a, 0xe3, 0xb9, 0x2a, 0x0e, 0xd9, 0xe7, 0x70, 0x6b,
-	0x6c, 0xcd, 0x10, 0xc8, 0xe3, 0xea, 0xa3, 0x5a, 0x34, 0x6d, 0xc7, 0xe4, 0x15, 0x9b, 0xa5, 0x01,
-	0x0b, 0xfb, 0x44, 0x7c, 0x29, 0x06, 0xec, 0x7a, 0xe1, 0x3f, 0x84, 0xa9, 0x2f, 0x29, 0x0f, 0x08,
-	0xbd, 0x76, 0x27, 0x97, 0x3b, 0x58, 0xd7, 0x37, 0x53, 0x6e, 0x0d, 0x85, 0x7f, 0x00, 0x4b, 0xc6,
-	0x83, 0x36, 0x8b, 0x75, 0x16, 0x27, 0x72, 0x0b, 0xa6, 0x23, 0x2d, 0x14, 0x57, 0xd5, 0xe5, 0x4c,
-	0x66, 0x8c, 0x06, 0x3b, 0x91, 0xc2, 0x27, 0xb0, 0x98, 0xb8, 0x66, 0x22, 0xb4, 0x07, 0xf3, 0x4e,
-	0x02, 0x29, 0x06, 0x2c, 0xb7, 0xf1, 0x8e, 0x1a, 0x65, 0x67, 0xd7, 0x60, 0x0f, 0x66, 0xdb, 0x83,
-	0xcf, 0x3c, 0x2e, 0x6c, 0x12, 0xf8, 0xaa, 0x0e, 0xf3, 0x9e, 0x13, 0x1f, 0x63, 0xde, 0x73, 0xa4,
-	0xc3, 0xa7, 0xfe, 0xd3, 0xe3, 0x9e, 0x63, 0x82, 0x6d, 0x28, 0xc9, 0xef, 0x11, 0xaf, 0xdb, 0x13,
-	0xe6, 0xe4, 0x18, 0x4a, 0x3a, 0x2d, 0x06, 0xc7, 0x12, 0x4a, 0x8d, 0xb8, 0xd3, 0x76, 0x4c, 0xe2,
-	0x73, 0x98, 0x90, 0x90, 0x68, 0x01, 0x4a, 0x22, 0xae, 0x14, 0x25, 0x31, 0x48, 0x69, 0x2a, 0x65,
-	0x34, 0xa9, 0x2a, 0xe7, 0xd1, 0x53, 0x87, 0xeb, 0xfe, 0xa1, 0xaa, 0x9c, 0xa6, 0x87, 0xa3, 0xec,
-	0x44, 0x7a, 0x94, 0x4d, 0x7a, 0x46, 0x25, 0x3d, 0xb0, 0xb6, 0x61, 0x51, 0xe2, 0xca, 0xb1, 0xba,
-	0x35, 0x3c, 0x48, 0x05, 0x99, 0x79, 0x1b, 0x2a, 0x91, 0x14, 0x36, 0x69, 0xb9, 0x91, 0x4d, 0x8b,
-	0x0c, 0xbf, 0xfe, 0x8e, 0xbf, 0x07, 0xcb, 0xf2, 0x84, 0xc4, 0x7b, 0x29, 0xc9, 0xca, 0x43, 0x98,
-	0x35, 0xba, 0x64, 0x54, 0xaf, 0x79, 0xee, 0xd2, 0x4b, 0xf0, 0xa6, 0x3a, 0xcb, 0xed, 0xc1, 0xb1,
-	0x70, 0x44, 0x94, 0x1c, 0xa2, 0x9c, 0x0d, 0x8a, 0x5b, 0x70, 0x33, 0x23, 0x69, 0x4c, 0x40, 0x30,
-	0xe1, 0xb2, 0x0e, 0x89, 0x45, 0xe5, 0x6f, 0x19, 0x64, 0xae, 0xa4, 0xe2, 0x34, 0x6a, 0x0a, 0x6f,
-	0xc1, 0xaa, 0xd9, 0x57, 0x8f, 0x2e, 0x75, 0x47, 0x8e, 0x01, 0x87, 0x3b, 0xdd, 0xca, 0xec, 0xf4,
-	0x3d, 0xb8, 0x35, 0xb6, 0xc2, 0x00, 0x6f, 0xc2, 0x44, 0x34, 0xdc, 0x88, 0xf9, 0x5b, 0x5a, 0x49,
-	0xe0, 0x8f, 0xe0, 0xc6, 0xe3, 0xa8, 0x1f, 0x7c, 0xe5, 0xf8, 0x3e, 0x11, 0xa9, 0x9a, 0xde, 0x89,
-	0xfa, 0xc1, 0x63, 0x2f, 0x3c, 0x72, 0x44, 0xcf, 0x98, 0x9f, 0x66, 0xe1, 0x65, 0x40, 0xe9, 0x65,
-	0x1a, 0x16, 0xff, 0x04, 0x6e, 0x1e, 0xf6, 0x03, 0x16, 0x8a, 0xac, 0xba, 0xfb, 0x30, 0xef, 0x29,
-	0x76, 0x56, 0x61, 0x96, 0x29, 0x41, 0x99, 0xdf, 0x39, 0x8a, 0x5b, 0xb3, 0x8e, 0x4e, 0x9a, 0x25,
-	0x25, 0x28, 0xb9, 0x38, 0xca, 0x36, 0xef, 0x34, 0x0b, 0xaf, 0xc2, 0x72, 0xd6, 0x00, 0x63, 0x58,
-	0x55, 0x05, 0x77, 0xcf, 0xf7, 0x08, 0x15, 0x99, 0x6c, 0xe2, 0x7f, 0x56, 0x54, 0x14, 0xb3, 0x9f,
-	0x4c, 0x14, 0xef, 0xc3, 0x7c, 0x40, 0x48, 0x28, 0xf7, 0x02, 0xa1, 0x1e, 0xed, 0x9a, 0xfa, 0x97,
-	0x65, 0xca, 0x2d, 0xcc, 0x2f, 0xa9, 0x2b, 0xbf, 0xeb, 0x76, 0x1d, 0x93, 0xf2, 0x8b, 0xdb, 0x73,
-	0x3c, 0x7a, 0xf8, 0x38, 0xbe, 0xd0, 0x19, 0x12, 0x6d, 0xc2, 0xa2, 0xcf, 0x5c, 0xc7, 0x7f, 0x44,
-	0xb8, 0x38, 0xd0, 0x47, 0x4e, 0x9e, 0x9f, 0x09, 0x7b, 0x94, 0x2d, 0x25, 0x9f, 0x52, 0x76, 0x41,
-	0x53, 0x92, 0x15, 0x2d, 0x39, 0xc2, 0x46, 0x47, 0x30, 0x23, 0x0d, 0xdb, 0x53, 0x3b, 0x65, 0x52,
-	0x5d, 0xac, 0xc6, 0xee, 0x2f, 0x79, 0x6e, 0x36, 0x92, 0x55, 0x87, 0xf4, 0x8c, 0xd9, 0x43, 0x25,
-	0x68, 0x0f, 0x2a, 0x92, 0xe0, 0xd5, 0x29, 0xa5, 0xed, 0xc1, 0xb5, 0xb5, 0xa9, 0x32, 0xa6, 0xd7,
-	0xd6, 0xbe, 0xaf, 0x83, 0x98, 0x00, 0xc8, 0xda, 0x20, 0x98, 0x70, 0x7c, 0x15, 0xcd, 0x79, 0x5b,
-	0x13, 0xb2, 0xc6, 0xb0, 0x48, 0x9c, 0xb2, 0x88, 0x76, 0x4c, 0x99, 0x4f, 0x68, 0xd5, 0x81, 0xa8,
-	0xfe, 0xa4, 0xef, 0xf1, 0x31, 0x59, 0xb3, 0x61, 0x5a, 0x2a, 0x57, 0x7a, 0x17, 0xa0, 0x94, 0x5c,
-	0xb3, 0x4b, 0x57, 0x75, 0x27, 0xd9, 0x8b, 0x3a, 0x5e, 0x48, 0xd4, 0xdc, 0x64, 0x32, 0x33, 0x64,
-	0xd4, 0xfe, 0x6a, 0x69, 0xa5, 0xd2, 0x09, 0x74, 0x98, 0x32, 0x4b, 0x1f, 0xa6, 0xeb, 0x47, 0x41,
-	0x85, 0x73, 0xe8, 0xc5, 0xfe, 0xd0, 0x8b, 0xd2, 0xeb, 0x68, 0x8a, 0x57, 0xcb, 0xb4, 0x30, 0xd1,
-	0x23, 0x61, 0xb5, 0xfc, 0x3a, 0x6a, 0xf4, 0x5a, 0xfc, 0x5b, 0x0b, 0xa6, 0xf7, 0xe2, 0x22, 0x3e,
-	0x3e, 0xd8, 0xae, 0xc2, 0xa4, 0x18, 0x1c, 0x38, 0xbc, 0x17, 0x57, 0x29, 0x4d, 0x15, 0xcf, 0x69,
-	0x99, 0x4b, 0x86, 0xee, 0x05, 0xc3, 0xdb, 0xd1, 0x7b, 0x50, 0x12, 0x4c, 0xbd, 0x1c, 0xcc, 0xee,
-	0xdc, 0xce, 0x5e, 0x47, 0x33, 0x4f, 0x2d, 0x76, 0x49, 0x30, 0x7c, 0xa0, 0x6e, 0xe8, 0xf9, 0x63,
-	0x73, 0xde, 0x70, 0xa0, 0x4d, 0x3a, 0x65, 0x3c, 0x1e, 0xc1, 0x63, 0x12, 0x13, 0x75, 0xdb, 0x28,
-	0x98, 0x93, 0x57, 0x61, 0xb2, 0x2f, 0x06, 0x07, 0x89, 0xdb, 0x86, 0x42, 0x5b, 0x30, 0xa9, 0x6e,
-	0x0f, 0xfa, 0xd5, 0x62, 0x76, 0xa7, 0x9a, 0xb5, 0x77, 0x60, 0x3b, 0x17, 0xe6, 0x55, 0xc2, 0xc8,
-	0xe1, 0xbf, 0x97, 0x65, 0xeb, 0x4e, 0xf8, 0x39, 0xd1, 0x8c, 0xdf, 0x80, 0x4a, 0xa9, 0x37, 0xa0,
-	0xd7, 0x8b, 0xe4, 0x36, 0x54, 0x4e, 0x25, 0xa1, 0x8a, 0xc0, 0x68, 0x30, 0x1f, 0xc9, 0x2f, 0x32,
-	0xc9, 0x3a, 0x98, 0x5a, 0x12, 0x61, 0x28, 0x9f, 0x7b, 0xb4, 0x3a, 0xa9, 0xa2, 0xbf, 0x94, 0x59,
-	0x70, 0xe2, 0x51, 0x5b, 0x7e, 0x44, 0x6f, 0x9a, 0x01, 0x6b, 0x2a, 0xa7, 0xd7, 0x9e, 0xb0, 0x48,
-	0x98, 0x99, 0xab, 0x0e, 0xb3, 0x67, 0x21, 0xeb, 0x9b, 0x94, 0x55, 0xa7, 0xd5, 0x18, 0x97, 0x66,
-	0x99, 0x4c, 0xcf, 0x5c, 0x2b, 0xd3, 0xa8, 0x99, 0xbc, 0x54, 0x80, 0x5a, 0x70, 0x2b, 0xb3, 0x60,
-	0xf8, 0x86, 0x96, 0xbc, 0x51, 0x54, 0x61, 0x2a, 0x70, 0x2e, 0x7d, 0xe6, 0x74, 0xaa, 0xb3, 0xfa,
-	0x48, 0x1b, 0x52, 0x96, 0x6a, 0x97, 0xd1, 0x33, 0x2f, 0xec, 0xeb, 0xe7, 0xc4, 0xea, 0x9c, 0x2a,
-	0x92, 0x59, 0xa6, 0xcc, 0x03, 0xf7, 0x7e, 0x4c, 0xaa, 0xf3, 0x2a, 0xe0, 0xea, 0xb7, 0xcc, 0xd6,
-	0x19, 0x21, 0xd5, 0x05, 0xd5, 0x5a, 0xe5, 0xcf, 0x54, 0x87, 0x5e, 0xd4, 0x63, 0x90, 0xe9, 0xd0,
-	0x1d, 0x58, 0xc8, 0x46, 0x38, 0x35, 0x30, 0x59, 0x0a, 0x2e, 0x1e, 0x98, 0xd6, 0x61, 0x46, 0xc5,
-	0x3e, 0x75, 0x80, 0x86, 0x0c, 0xf9, 0x55, 0x78, 0x7d, 0xc2, 0x85, 0xd3, 0x0f, 0xcc, 0x7d, 0x7c,
-	0xc8, 0xd8, 0xf9, 0xd7, 0x22, 0x40, 0x2b, 0xf0, 0x8e, 0x49, 0x78, 0xee, 0xb9, 0x04, 0x05, 0x30,
-	0x9f, 0xb9, 0xfe, 0xa0, 0x7b, 0x39, 0x2f, 0x19, 0xd9, 0x31, 0xbf, 0x86, 0xaf, 0x12, 0x89, 0x3b,
-	0xe2, 0x37, 0x7f, 0xfe, 0xdb, 0x6f, 0x4a, 0x08, 0xcf, 0x37, 0xcf, 0xb7, 0x9b, 0xc9, 0x20, 0xbe,
-	0x6b, 0xbd, 0x8b, 0x7e, 0x04, 0x73, 0xe9, 0x79, 0x0a, 0xad, 0x36, 0xf4, 0x9b, 0x6c, 0x23, 0xd1,
-	0xf8, 0x69, 0x3f, 0x10, 0x97, 0xb5, 0x7b, 0xa3, 0x75, 0x67, 0x6c, 0x04, 0xc3, 0x2b, 0x0a, 0x64,
-	0x11, 0x65, 0x41, 0xd0, 0x00, 0x60, 0x78, 0x47, 0x42, 0x77, 0x47, 0xf5, 0x64, 0x2f, 0x6e, 0xb5,
-	0x8d, 0xc2, 0xef, 0x06, 0xe5, 0x1d, 0x85, 0xf2, 0x06, 0xba, 0x97, 0x41, 0x69, 0x3e, 0x4f, 0x7e,
-	0xbe, 0x68, 0x9a, 0xab, 0x11, 0xfa, 0x1a, 0xe6, 0x33, 0xb7, 0xa9, 0x42, 0xe7, 0xf0, 0x98, 0x73,
-	0x63, 0x37, 0x30, 0x7c, 0x47, 0xe1, 0xde, 0x42, 0x2b, 0x59, 0xdc, 0x18, 0xab, 0x0f, 0x53, 0x66,
-	0x3c, 0x43, 0xb7, 0x47, 0xb5, 0xa5, 0x6e, 0x46, 0xb5, 0xf5, 0xfc, 0x8f, 0x06, 0xe4, 0x6d, 0x05,
-	0x72, 0x0f, 0x6d, 0x14, 0x3b, 0xa7, 0xc6, 0x60, 0xf4, 0x43, 0x15, 0xd4, 0x96, 0xef, 0x2b, 0xc4,
-	0x22, 0xbf, 0xae, 0x06, 0xbb, 0xad, 0xc0, 0x56, 0xd0, 0xcd, 0x2c, 0x98, 0x06, 0xf8, 0xb9, 0x05,
-	0x8b, 0x23, 0x77, 0x44, 0xf4, 0x46, 0xb6, 0x52, 0xe4, 0xde, 0x3a, 0x6b, 0xf7, 0xaf, 0x16, 0x32,
-	0xd8, 0x9b, 0x0a, 0x1b, 0xa3, 0x7a, 0xbe, 0xa3, 0x2f, 0x9a, 0xe7, 0x66, 0x21, 0xfa, 0xc6, 0x4a,
-	0xae, 0x60, 0xf1, 0xe0, 0x3b, 0x62, 0x48, 0xfe, 0x20, 0x3d, 0x62, 0x48, 0xc1, 0xec, 0x8c, 0xef,
-	0x2b, 0x43, 0xee, 0xa2, 0xf5, 0x9c, 0x20, 0x34, 0x9f, 0xeb, 0xd9, 0xfb, 0x05, 0xfa, 0x95, 0x15,
-	0xbf, 0x87, 0x64, 0xfb, 0x0b, 0xda, 0xbc, 0xee, 0xb3, 0x69, 0xed, 0x9d, 0x6b, 0x48, 0x66, 0x6d,
-	0xc2, 0x6b, 0xd2, 0x26, 0x31, 0x14, 0xe0, 0x4d, 0x57, 0x2e, 0xf3, 0x68, 0x57, 0x9e, 0xdc, 0x9f,
-	0x5a, 0xea, 0xe1, 0x23, 0xfb, 0xbc, 0x86, 0xde, 0xbc, 0xd6, 0x23, 0x76, 0xed, 0xad, 0x97, 0x89,
-	0x19, 0x53, 0x36, 0x94, 0x29, 0x6b, 0x78, 0x79, 0xcc, 0x94, 0x33, 0x42, 0xa4, 0x15, 0x7f, 0xb0,
-	0x60, 0xa5, 0x15, 0x09, 0xa6, 0x1d, 0x4a, 0x87, 0xe6, 0xfd, 0x57, 0x79, 0x84, 0x7d, 0x95, 0xf0,
-	0x98, 0x0a, 0x80, 0xef, 0x16, 0x86, 0xa7, 0xe9, 0x44, 0x82, 0x49, 0xeb, 0x7e, 0x61, 0x01, 0x1a,
-	0x7f, 0xe2, 0x43, 0x59, 0xef, 0x0b, 0x1f, 0x1a, 0x6b, 0x6f, 0xbf, 0x54, 0xce, 0x98, 0xf4, 0x86,
-	0x32, 0xe9, 0x0e, 0xae, 0x8e, 0x99, 0xc4, 0xbd, 0x2e, 0x35, 0x09, 0x53, 0xc6, 0x8c, 0x3d, 0xe5,
-	0x8d, 0x1a, 0x53, 0xf4, 0x88, 0x38, 0x6a, 0x4c, 0xe1, 0x9b, 0xe0, 0x55, 0xc6, 0x10, 0xda, 0x31,
-	0xc6, 0xfc, 0x52, 0xef, 0x9e, 0x11, 0x5b, 0xc6, 0x76, 0x4f, 0xbe, 0x29, 0x6f, 0xbd, 0x4c, 0x2c,
-	0xaf, 0x9c, 0x65, 0x2c, 0x79, 0x2e, 0x87, 0xb9, 0x17, 0xcd, 0x0e, 0x11, 0x8e, 0xe7, 0xcb, 0x1e,
-	0x31, 0x9b, 0xba, 0x51, 0xa3, 0xb1, 0x26, 0x30, 0x72, 0x2b, 0xaf, 0xd5, 0x8b, 0x05, 0x0c, 0xf4,
-	0x5b, 0x0a, 0xba, 0x8e, 0xee, 0x16, 0x41, 0xeb, 0x36, 0x8f, 0x2e, 0x54, 0x75, 0x49, 0x0f, 0xd1,
-	0xe3, 0xd5, 0x25, 0xe7, 0x26, 0x39, 0x5e, 0x5d, 0xf2, 0xe6, 0x70, 0xbc, 0xa6, 0xac, 0xb8, 0x89,
-	0x6e, 0x48, 0x2b, 0x5c, 0x25, 0x61, 0x80, 0x1f, 0xfd, 0xa5, 0xf4, 0xeb, 0xd6, 0x9f, 0x4a, 0xe8,
-	0x3d, 0x28, 0x3b, 0x81, 0x87, 0x37, 0x60, 0xf1, 0xf3, 0xd6, 0xf1, 0x71, 0x5d, 0x6b, 0xa9, 0xb7,
-	0x8e, 0x0e, 0x6b, 0x73, 0x0f, 0xfb, 0x0e, 0xe7, 0x94, 0x88, 0x06, 0x0b, 0xbb, 0x3b, 0xe5, 0xed,
-	0xc6, 0xd6, 0xbb, 0x25, 0xab, 0xb4, 0xb3, 0xe4, 0x04, 0x81, 0xef, 0xb9, 0x6a, 0xc6, 0x69, 0x7e,
-	0xcd, 0x19, 0xdd, 0x59, 0x4d, 0x73, 0x06, 0x0f, 0xce, 0x18, 0x7b, 0xd0, 0xf7, 0xfa, 0x64, 0x77,
-	0x4c, 0x72, 0xb7, 0x40, 0xd2, 0x3e, 0x82, 0xf2, 0x87, 0x5b, 0x1f, 0xa0, 0x43, 0xd8, 0xb7, 0x89,
-	0x88, 0x42, 0x4a, 0x3a, 0xf5, 0x8b, 0x1e, 0xa1, 0x75, 0xd1, 0x23, 0xf5, 0x88, 0x93, 0xb0, 0xde,
-	0x61, 0x84, 0xd7, 0x29, 0x13, 0xf5, 0x9e, 0x73, 0x4e, 0xea, 0x01, 0x09, 0xfb, 0x1e, 0x97, 0xd3,
-	0x6b, 0x5d, 0xb0, 0xba, 0xe3, 0xba, 0x84, 0x73, 0x25, 0x1b, 0x12, 0xce, 0xa2, 0xd0, 0x25, 0x0d,
-	0xfb, 0x5b, 0x52, 0xe3, 0x87, 0xe8, 0x43, 0x78, 0x77, 0x5c, 0x63, 0x2c, 0x35, 0xd4, 0x4a, 0x06,
-	0x1e, 0x17, 0x0d, 0x34, 0x09, 0x13, 0xbf, 0x2f, 0x59, 0x53, 0xe1, 0x2e, 0xdc, 0x19, 0x09, 0x46,
-	0xfd, 0x31, 0x73, 0xa3, 0x3e, 0xa1, 0xfa, 0xdf, 0xc7, 0x68, 0xad, 0x27, 0x44, 0xc0, 0x77, 0x9b,
-	0xcd, 0x0e, 0x73, 0x79, 0x23, 0x15, 0xa6, 0xe6, 0xe9, 0xa4, 0xca, 0xc9, 0x07, 0xff, 0x09, 0x00,
-	0x00, 0xff, 0xff, 0x00, 0x11, 0xdf, 0xcb, 0xbf, 0x1e, 0x00, 0x00,
+	// 3765 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x3b, 0x4d, 0x6f, 0x1c, 0xd9,
+	0x56, 0x54, 0x7f, 0xf7, 0xb1, 0xdb, 0x1f, 0xd7, 0x8e, 0xd3, 0x29, 0x3b, 0xb1, 0xa7, 0x66, 0x92,
+	0x78, 0xa2, 0xb8, 0x7b, 0xe2, 0x79, 0x81, 0x87, 0x47, 0x20, 0xec, 0xcc, 0x4c, 0x9e, 0x61, 0xf2,
+	0x92, 0x29, 0x3b, 0x09, 0x12, 0x8b, 0x56, 0xb9, 0xeb, 0xda, 0x5d, 0x71, 0x77, 0x55, 0xa7, 0xea,
+	0xb6, 0xdd, 0x3d, 0x4f, 0x59, 0x00, 0x4f, 0x8f, 0x05, 0x0f, 0x3d, 0xf1, 0x9e, 0xf8, 0x14, 0x42,
+	0x02, 0x09, 0x16, 0xfc, 0x06, 0xb6, 0x08, 0xf6, 0x08, 0x36, 0x20, 0x36, 0xb0, 0x87, 0x0d, 0x1b,
+	0x16, 0x08, 0xdd, 0xaf, 0xaa, 0xba, 0xf5, 0xd1, 0xee, 0x24, 0x23, 0x56, 0xee, 0x7b, 0xef, 0x39,
+	0xf7, 0x7c, 0x9f, 0x7b, 0xee, 0xb9, 0x65, 0xa8, 0x5b, 0x43, 0xa7, 0x35, 0xf4, 0x3d, 0xe2, 0xa1,
+	0x39, 0x7f, 0xd8, 0x65, 0xbf, 0x4e, 0x46, 0xa7, 0xfa, 0xc6, 0x99, 0xe7, 0x9d, 0xf5, 0x71, 0xdb,
+	0x1a, 0x3a, 0x6d, 0xcb, 0x75, 0x3d, 0x62, 0x11, 0xc7, 0x73, 0x03, 0x0e, 0xaa, 0xdf, 0x67, 0x7f,
+	0xba, 0x3b, 0x67, 0xd8, 0xdd, 0x09, 0x2e, 0xad, 0xb3, 0x33, 0xec, 0xb7, 0xbd, 0x21, 0x83, 0xc8,
+	0x80, 0x5e, 0x17, 0x7b, 0xc9, 0xcd, 0xdb, 0x78, 0x30, 0x24, 0x13, 0xbe, 0x68, 0xfc, 0x4d, 0x05,
+	0xae, 0x3f, 0xc6, 0xe4, 0x51, 0xdf, 0xc1, 0x2e, 0x39, 0x22, 0x16, 0x19, 0x05, 0x26, 0x0e, 0x86,
+	0x9e, 0x1b, 0x60, 0x74, 0x1b, 0x16, 0x86, 0x18, 0xfb, 0x9d, 0xbe, 0x13, 0x10, 0xec, 0x3a, 0xee,
+	0x59, 0x53, 0xdb, 0xd2, 0xb6, 0x6b, 0x66, 0x83, 0xce, 0x7e, 0x25, 0x27, 0x51, 0x13, 0xaa, 0xc1,
+	0xc4, 0xed, 0xd2, 0xf5, 0x02, 0x5b, 0x97, 0x43, 0x74, 0x03, 0x6a, 0xdd, 0x9e, 0xe5, 0xb8, 0x1d,
+	0xc7, 0x6e, 0x16, 0xb7, 0xb4, 0xed, 0xba, 0x59, 0x65, 0xe3, 0x43, 0x1b, 0xdd, 0x83, 0xe5, 0xbe,
+	0xd7, 0xb5, 0xfa, 0x9d, 0x13, 0x1c, 0x90, 0x4e, 0x0f, 0x3b, 0x67, 0x3d, 0xd2, 0x2c, 0x6d, 0x69,
+	0xdb, 0x25, 0x73, 0x91, 0x2d, 0x1c, 0xe0, 0x80, 0x7c, 0x8f, 0x4d, 0x53, 0xd8, 0x73, 0xd7, 0xbb,
+	0x74, 0x15, 0xd8, 0x32, 0x87, 0x65, 0x0b, 0x31, 0xd8, 0xfb, 0x80, 0x2e, 0xad, 0x7e, 0x1f, 0x93,
+	0x0e, 0x65, 0x42, 0x02, 0x57, 0x18, 0xf0, 0x12, 0x5f, 0x39, 0x9a, 0xb8, 0x5d, 0x01, 0xfd, 0x35,
+	0x00, 0x93, 0xb0, 0xeb, 0x8d, 0x5c, 0xd2, 0xac, 0x6e, 0x69, 0xdb, 0x73, 0xbb, 0xbb, 0xad, 0x98,
+	0x21, 0x5a, 0x39, 0xba, 0x69, 0x51, 0xb4, 0x47, 0x14, 0xeb, 0xd0, 0x3d, 0xf5, 0xcc, 0x7a, 0x38,
+	0x44, 0x8f, 0xa0, 0x4c, 0x07, 0x41, 0xb3, 0xc6, 0x76, 0xdb, 0x99, 0x79, 0x37, 0xaa, 0x50, 0x93,
+	0xe3, 0xea, 0xbf, 0x01, 0x0d, 0x85, 0x00, 0x5a, 0x85, 0x32, 0xf1, 0x88, 0xd5, 0x67, 0x16, 0x68,
+	0x98, 0x7c, 0x80, 0x74, 0xa8, 0x79, 0x23, 0x72, 0xe2, 0x8d, 0x5c, 0x9b, 0xa9, 0xbe, 0x61, 0x86,
+	0x63, 0x6a, 0x15, 0xc7, 0xe5, 0x4b, 0x45, 0xb6, 0x24, 0x87, 0xba, 0x09, 0x35, 0xba, 0x39, 0xdb,
+	0x77, 0x01, 0x0a, 0x8e, 0xcd, 0x36, 0xad, 0x9b, 0x05, 0x87, 0x61, 0x59, 0xb6, 0xed, 0xe3, 0x20,
+	0x60, 0x1b, 0xd6, 0x4d, 0x39, 0x44, 0x1b, 0x50, 0xb7, 0x1d, 0x1f, 0x77, 0xa9, 0x67, 0x09, 0x63,
+	0x46, 0x13, 0xfa, 0xbf, 0x6b, 0x7c, 0x53, 0x2a, 0x04, 0x3a, 0x8c, 0xb1, 0xa5, 0x6d, 0x15, 0xdf,
+	0x4a, 0x0b, 0x4c, 0x9d, 0x91, 0x14, 0x8f, 0x23, 0x29, 0x0a, 0xef, 0xb2, 0x93, 0xc4, 0xa6, 0x66,
+	0xf1, 0x48, 0x0f, 0xfb, 0xcd, 0xe2, 0xbb, 0x6c, 0xc3, 0x71, 0x8d, 0x3d, 0x40, 0x5f, 0x8f, 0x1c,
+	0x01, 0x1b, 0x86, 0x09, 0x82, 0x52, 0xd7, 0xb3, 0x31, 0xd3, 0x62, 0xd1, 0x64, 0xbf, 0xd1, 0x12,
+	0x14, 0x07, 0xc1, 0x99, 0xd0, 0x21, 0xfd, 0x69, 0xfc, 0xa7, 0x06, 0x8b, 0x2f, 0x99, 0xff, 0x45,
+	0x01, 0xf6, 0x39, 0x54, 0xb9, 0x4b, 0x06, 0x42, 0x4f, 0xf7, 0x14, 0xb6, 0x12, 0xe0, 0x62, 0x7c,
+	0x34, 0x1a, 0x0c, 0x2c, 0x7f, 0x62, 0x4a, 0x54, 0xfd, 0x0f, 0x34, 0x68, 0x28, 0x4b, 0x68, 0x1d,
+	0xea, 0x22, 0x08, 0x42, 0xe3, 0xd6, 0xf8, 0xc4, 0xa1, 0x4d, 0xd9, 0x25, 0x93, 0x21, 0x16, 0x0e,
+	0xc3, 0x7e, 0x53, 0xb3, 0xfb, 0x78, 0x60, 0xf9, 0xe7, 0x81, 0x8c, 0x53, 0x31, 0xa4, 0x8e, 0xe7,
+	0x63, 0xcb, 0x9e, 0xb0, 0xd8, 0xac, 0x99, 0x7c, 0x80, 0x3e, 0x84, 0x06, 0x0d, 0x2f, 0x6c, 0xab,
+	0xd1, 0x38, 0xcf, 0x27, 0x79, 0x70, 0x19, 0x6d, 0x58, 0x7a, 0x1e, 0x60, 0xce, 0x99, 0x89, 0x5f,
+	0x8f, 0x70, 0x40, 0xa6, 0x72, 0x66, 0xfc, 0x8f, 0x06, 0xcb, 0x31, 0x0c, 0xa1, 0xa4, 0x78, 0x12,
+	0xd1, 0xd4, 0x24, 0xa2, 0xec, 0x56, 0xc8, 0x91, 0xb3, 0x18, 0x93, 0xf3, 0x43, 0x68, 0xb0, 0xc8,
+	0xe9, 0x9c, 0x58, 0x7d, 0xcb, 0xed, 0x62, 0x26, 0x55, 0xdd, 0x9c, 0x67, 0x93, 0x07, 0x7c, 0x8e,
+	0xa6, 0x10, 0x3c, 0x26, 0xd8, 0x77, 0xad, 0x7e, 0xe7, 0x1c, 0x4f, 0x44, 0x72, 0xa0, 0x12, 0x96,
+	0xcd, 0x25, 0xb9, 0xf2, 0x6b, 0x78, 0xc2, 0xe3, 0xfd, 0x3e, 0x20, 0xc7, 0x4d, 0x41, 0x57, 0x38,
+	0xb4, 0x5c, 0x09, 0xa1, 0x63, 0x8a, 0xae, 0x2a, 0x8a, 0x36, 0x5e, 0xc1, 0xca, 0x23, 0x1f, 0x5b,
+	0x24, 0xa1, 0xb0, 0x5b, 0x00, 0x43, 0x2b, 0x08, 0x86, 0x3d, 0xdf, 0x0a, 0xb0, 0x90, 0x3f, 0x36,
+	0x13, 0xdf, 0xb0, 0xa0, 0x5a, 0xee, 0x06, 0xd4, 0x4e, 0x1c, 0xd2, 0x09, 0x9c, 0x6f, 0xb8, 0x0e,
+	0xca, 0x66, 0xf5, 0xc4, 0x21, 0x47, 0xce, 0x37, 0xd8, 0x78, 0x0a, 0xab, 0x2a, 0x2d, 0xa1, 0xea,
+	0xa9, 0x7e, 0xa3, 0x43, 0x6d, 0xe0, 0xe2, 0x81, 0xe7, 0x3a, 0x5d, 0xa9, 0x6b, 0x39, 0x36, 0xbe,
+	0x86, 0x95, 0xc3, 0xc1, 0xd0, 0xf3, 0x89, 0xca, 0xbc, 0x0e, 0xb5, 0x73, 0x3c, 0x09, 0x88, 0xe7,
+	0x4b, 0xd6, 0xc3, 0x71, 0x42, 0xb0, 0x42, 0x52, 0x30, 0xe3, 0x35, 0xac, 0xaa, 0x5b, 0x0a, 0x1e,
+	0x17, 0xa0, 0xe0, 0x9d, 0x8b, 0x83, 0xa8, 0xe0, 0x9d, 0xbf, 0xbd, 0x0f, 0xc4, 0x34, 0x56, 0x52,
+	0x4d, 0xf0, 0x77, 0x1a, 0x6c, 0xc6, 0x69, 0xbe, 0x74, 0x48, 0xef, 0x89, 0x10, 0x31, 0x26, 0x52,
+	0xa8, 0x05, 0x4d, 0xd5, 0xc2, 0x55, 0x22, 0x4d, 0x89, 0xb2, 0xdb, 0xb0, 0x10, 0xba, 0x9c, 0xe3,
+	0xda, 0x78, 0xcc, 0x58, 0x6b, 0x98, 0x0d, 0x39, 0x7b, 0x48, 0x27, 0x29, 0x58, 0xe8, 0x6b, 0x1c,
+	0xac, 0xcc, 0xc1, 0xe4, 0x2c, 0x03, 0x33, 0x4c, 0x58, 0xf9, 0x62, 0x9c, 0xb6, 0xc6, 0x54, 0xeb,
+	0x5e, 0x65, 0x8e, 0x5d, 0x58, 0x55, 0xf7, 0x14, 0xe6, 0x98, 0x62, 0x62, 0xca, 0x87, 0x89, 0x07,
+	0xde, 0x05, 0xfe, 0x16, 0xf9, 0xb8, 0x03, 0xab, 0xea, 0x9e, 0xd9, 0x6e, 0x61, 0x78, 0xd0, 0x7c,
+	0x8c, 0xc9, 0x3e, 0x3f, 0xbc, 0x44, 0x64, 0x4b, 0x06, 0x1e, 0xc2, 0x9a, 0x8f, 0x5f, 0x8f, 0x1c,
+	0x1f, 0xdb, 0x9d, 0xae, 0xe7, 0x9e, 0x3a, 0xfe, 0x80, 0x17, 0x4c, 0x0c, 0xbf, 0x6c, 0x5e, 0x93,
+	0xab, 0x8f, 0xe2, 0x8b, 0xf4, 0x04, 0x14, 0x87, 0x21, 0x0e, 0xd8, 0x69, 0x54, 0x37, 0xa3, 0x09,
+	0xe3, 0xef, 0x35, 0x58, 0x16, 0xe4, 0xf6, 0x5d, 0x5b, 0xe6, 0x92, 0xd8, 0x79, 0xaa, 0xa9, 0xe7,
+	0x69, 0x78, 0xa2, 0x73, 0x19, 0xc5, 0x89, 0xbe, 0x01, 0xf5, 0x60, 0x88, 0x5d, 0xdb, 0x3a, 0xe9,
+	0x63, 0x79, 0xca, 0x86, 0x13, 0xe8, 0x01, 0xac, 0x5e, 0x3a, 0xa4, 0x67, 0xfb, 0xd6, 0x25, 0x1d,
+	0x77, 0x02, 0x62, 0x9d, 0xd3, 0xb2, 0x8b, 0xfb, 0xf1, 0x4a, 0x7c, 0xed, 0x88, 0x2f, 0xa5, 0x50,
+	0x4e, 0x1c, 0xd7, 0xa6, 0x28, 0xe5, 0x34, 0xca, 0x01, 0x5f, 0x32, 0x5e, 0xc2, 0x8d, 0x0c, 0xd5,
+	0x09, 0x3d, 0xef, 0x41, 0x4d, 0xe4, 0x4e, 0x79, 0x66, 0xdd, 0x52, 0xce, 0xac, 0x94, 0x0a, 0xcc,
+	0x10, 0xde, 0xd8, 0x85, 0xb5, 0x17, 0x56, 0xdf, 0xb1, 0x2d, 0x82, 0x05, 0x98, 0xb4, 0x48, 0xae,
+	0x9a, 0x8c, 0xdf, 0xd4, 0xe0, 0x7a, 0x0a, 0x29, 0x3a, 0x19, 0x9c, 0xa0, 0x73, 0x41, 0x57, 0x85,
+	0xe5, 0xab, 0x4e, 0xc0, 0x80, 0xd1, 0x75, 0xa8, 0x3a, 0x41, 0x67, 0xe0, 0xb8, 0x58, 0xd4, 0xa4,
+	0x15, 0x27, 0x78, 0xe2, 0xb8, 0x8a, 0x41, 0x8a, 0xaa, 0x41, 0x9a, 0x50, 0xbd, 0xc0, 0x7e, 0x40,
+	0xcb, 0x9b, 0x12, 0x4f, 0x97, 0x62, 0x68, 0x7c, 0x22, 0xd3, 0x65, 0x9a, 0x6b, 0x89, 0xa1, 0xa9,
+	0x18, 0x0f, 0xe0, 0x5a, 0x02, 0x43, 0xb0, 0x9c, 0x2f, 0x68, 0x1b, 0x56, 0x22, 0xad, 0xe3, 0x19,
+	0x68, 0xfc, 0x8b, 0x06, 0xab, 0x2a, 0x86, 0xa0, 0x71, 0x08, 0x55, 0x1b, 0x13, 0xcb, 0xe9, 0x4b,
+	0x0b, 0xb5, 0x93, 0xc5, 0x4e, 0x0a, 0x47, 0x9a, 0xed, 0x73, 0x86, 0x67, 0x4a, 0x7c, 0x7d, 0x0c,
+	0x0d, 0x65, 0x65, 0x8a, 0x3f, 0xc7, 0x18, 0x2d, 0x28, 0x8c, 0xd2, 0x24, 0x3c, 0x0a, 0x30, 0x2f,
+	0x43, 0x6b, 0x26, 0xfb, 0x8d, 0x36, 0x61, 0x2e, 0x20, 0x76, 0x47, 0xee, 0xc5, 0x1d, 0x18, 0x02,
+	0x62, 0x0b, 0x72, 0x46, 0x8f, 0x5d, 0x4b, 0x78, 0x90, 0x7f, 0x3b, 0xe1, 0xbb, 0x06, 0x15, 0x2e,
+	0x96, 0xf4, 0x08, 0x3e, 0x32, 0xfe, 0xb2, 0xc0, 0x52, 0x45, 0x82, 0xd4, 0x2c, 0x27, 0x62, 0x76,
+	0x08, 0x7f, 0x1e, 0xd2, 0x29, 0xb2, 0x1b, 0xc0, 0xfd, 0xa4, 0xf6, 0x33, 0x29, 0xb5, 0x84, 0xea,
+	0x05, 0xae, 0xfe, 0x63, 0x0d, 0x2a, 0x42, 0xe7, 0x4a, 0x4e, 0xd0, 0x66, 0xcd, 0x09, 0x85, 0xb7,
+	0xcf, 0x09, 0xc5, 0xfc, 0x9c, 0xf0, 0x6f, 0x05, 0x58, 0x3a, 0x1e, 0x7f, 0xcf, 0xa1, 0x89, 0x7d,
+	0xc2, 0xf9, 0x0a, 0xd0, 0x0a, 0x94, 0xc9, 0x38, 0x52, 0x4c, 0x89, 0x8c, 0x0f, 0x6d, 0xf4, 0x01,
+	0xcc, 0x9f, 0xf4, 0xbd, 0xee, 0xb9, 0xac, 0x0c, 0x0b, 0xac, 0x32, 0x9c, 0x63, 0x73, 0xe2, 0xd6,
+	0xf5, 0x19, 0x54, 0x1c, 0x77, 0x38, 0x22, 0x81, 0x28, 0xc6, 0x3f, 0x54, 0x34, 0x94, 0x24, 0xd3,
+	0x3a, 0xa4, 0xb0, 0xa6, 0x40, 0x41, 0xbf, 0x0c, 0x55, 0x6f, 0x44, 0x18, 0x76, 0x89, 0x61, 0x7f,
+	0x34, 0x1d, 0xfb, 0x29, 0x03, 0x36, 0x25, 0x12, 0x3d, 0x43, 0x4f, 0x7d, 0x6f, 0xd0, 0x89, 0x52,
+	0x79, 0x99, 0xa5, 0xf2, 0x06, 0x9d, 0x0d, 0x03, 0x43, 0xdf, 0x85, 0x32, 0xa3, 0x9b, 0x2d, 0xe4,
+	0x2a, 0x94, 0xf9, 0xf9, 0x5b, 0x60, 0x35, 0x3f, 0x1f, 0xe8, 0x7b, 0x50, 0xe1, 0xd4, 0xa6, 0x84,
+	0xc9, 0x1a, 0x54, 0xac, 0x01, 0x2b, 0x11, 0xb9, 0x81, 0xc4, 0xc8, 0x78, 0x06, 0xcb, 0x21, 0xeb,
+	0xa1, 0xf7, 0x7d, 0x06, 0xf5, 0x1e, 0x9b, 0x72, 0xc2, 0x6c, 0x7b, 0x73, 0xaa, 0xb4, 0x66, 0x04,
+	0x6f, 0x1c, 0xc4, 0x2c, 0x26, 0x43, 0x67, 0x15, 0xca, 0xbc, 0x3e, 0x15, 0xd7, 0xc8, 0xae, 0x2c,
+	0x4a, 0xb3, 0x2f, 0x7d, 0xc6, 0x67, 0xb0, 0x74, 0xec, 0x5b, 0x6e, 0x60, 0xb1, 0x5b, 0xde, 0x14,
+	0x85, 0x20, 0x28, 0x5d, 0x78, 0x23, 0x22, 0x2f, 0x15, 0xf4, 0xb7, 0xf1, 0xbf, 0x1a, 0xac, 0xf3,
+	0x2c, 0x68, 0x5a, 0x97, 0xb1, 0x6d, 0xa2, 0x38, 0x96, 0x6e, 0x90, 0x29, 0x5a, 0x82, 0x6e, 0xe8,
+	0x00, 0x4f, 0xa1, 0xca, 0x75, 0x16, 0x88, 0x2b, 0xe1, 0x43, 0x05, 0x6f, 0x0a, 0xc5, 0xd6, 0x3e,
+	0xc7, 0xfb, 0xc2, 0x25, 0xf4, 0xfe, 0x24, 0x76, 0xa1, 0x31, 0xce, 0x1c, 0x96, 0x38, 0x03, 0x7e,
+	0xe6, 0x96, 0xcc, 0x1a, 0x9d, 0x38, 0x76, 0x06, 0x58, 0xdf, 0x83, 0xf9, 0x38, 0x16, 0xbd, 0xd8,
+	0x9d, 0xe3, 0x89, 0x90, 0x9d, 0xfe, 0xa4, 0x3a, 0xbd, 0xb0, 0xfa, 0x23, 0x59, 0xac, 0xf0, 0xc1,
+	0x5e, 0xe1, 0xbb, 0x1a, 0x55, 0xc0, 0xc6, 0xfe, 0x88, 0x78, 0x9c, 0xa5, 0x0c, 0x0d, 0x3c, 0x8b,
+	0x44, 0xe1, 0x2a, 0xf8, 0x79, 0xf5, 0x2c, 0x9d, 0x82, 0x3b, 0x8b, 0x2c, 0x05, 0x55, 0x16, 0xca,
+	0xfb, 0x29, 0x96, 0x65, 0x05, 0xfd, 0x49, 0x83, 0x35, 0x1e, 0x0c, 0x22, 0x0f, 0xcf, 0xc5, 0x42,
+	0xe1, 0xbd, 0x14, 0xf0, 0x09, 0x6c, 0x64, 0x9b, 0x43, 0xf8, 0xf7, 0x12, 0x14, 0x7b, 0x78, 0x2c,
+	0xf7, 0xea, 0xe1, 0xb1, 0xf1, 0xb7, 0x1a, 0x6c, 0x72, 0x14, 0x91, 0xac, 0x32, 0xb4, 0x96, 0x64,
+	0x5a, 0x4b, 0x31, 0x8d, 0xee, 0xc2, 0xa2, 0xc8, 0x83, 0x1d, 0xd5, 0xb3, 0x17, 0xc4, 0xf4, 0x7e,
+	0x2a, 0x1c, 0x8b, 0xf1, 0x70, 0xa4, 0x17, 0xc5, 0x53, 0xdf, 0xfb, 0x06, 0xbb, 0x9d, 0x21, 0xf6,
+	0x1d, 0xcf, 0x16, 0xf5, 0xf8, 0x3c, 0x9f, 0x7c, 0xc6, 0xe6, 0xa4, 0x3e, 0xcb, 0xa1, 0x3e, 0x8d,
+	0xff, 0xd6, 0x60, 0xfd, 0x31, 0x26, 0x5f, 0x59, 0x04, 0x07, 0xc4, 0xc4, 0x97, 0x96, 0x6f, 0xb3,
+	0xb6, 0x8e, 0x14, 0xf8, 0x69, 0xf2, 0x68, 0x7e, 0x98, 0x3c, 0x1c, 0xf2, 0x50, 0x5b, 0x7c, 0x2a,
+	0x79, 0x40, 0xff, 0x50, 0x83, 0xf9, 0xf8, 0x0a, 0x0d, 0x44, 0xdf, 0x72, 0xcf, 0xc5, 0x51, 0xc8,
+	0x7e, 0xe7, 0xe5, 0x1c, 0x3a, 0x7f, 0xc9, 0x93, 0x34, 0x15, 0x5e, 0x33, 0xc5, 0x28, 0x9e, 0x0f,
+	0x4a, 0xa9, 0xec, 0x35, 0xf4, 0xbd, 0x53, 0x87, 0x08, 0xa1, 0xc5, 0xc8, 0xf8, 0x69, 0x89, 0xd5,
+	0x8c, 0xc2, 0x66, 0xe9, 0x34, 0x56, 0x24, 0x63, 0x29, 0xf1, 0xc7, 0x49, 0x89, 0xb3, 0x91, 0x5a,
+	0xc7, 0x63, 0x93, 0x62, 0xa1, 0x27, 0x50, 0xe5, 0x6c, 0xc9, 0x70, 0xff, 0x74, 0xc6, 0x0d, 0x5e,
+	0x72, 0x2c, 0x11, 0x20, 0x62, 0x0f, 0xfd, 0xf7, 0x34, 0x98, 0x13, 0x08, 0xcf, 0x8f, 0x7f, 0xfd,
+	0xe9, 0xcc, 0xd9, 0x6c, 0x4a, 0xe1, 0x18, 0xa9, 0xb7, 0x34, 0xdd, 0x87, 0xca, 0x69, 0x1f, 0xd2,
+	0xff, 0x4c, 0x83, 0xc2, 0xf1, 0x38, 0x9b, 0x8d, 0x35, 0xa8, 0x04, 0xac, 0x21, 0x25, 0x18, 0x11,
+	0xa3, 0xd4, 0x11, 0x5b, 0x4c, 0x1f, 0xb1, 0x5f, 0x42, 0x69, 0x44, 0xc6, 0x1e, 0xe3, 0x28, 0xa3,
+	0xa5, 0x99, 0xa3, 0xb2, 0x98, 0x62, 0x4c, 0x86, 0x4f, 0xa3, 0x3f, 0xae, 0xc7, 0xab, 0xa2, 0x5f,
+	0x8b, 0x47, 0xff, 0x0e, 0xdc, 0x38, 0xc2, 0xae, 0x9d, 0x9d, 0xfc, 0xd3, 0xa1, 0xff, 0x00, 0xf4,
+	0x2c, 0x70, 0xe1, 0x43, 0x59, 0x0a, 0x32, 0xfe, 0x84, 0x97, 0x6e, 0x31, 0xf8, 0x2f, 0x71, 0x58,
+	0x26, 0x7e, 0x95, 0x4c, 0xae, 0x29, 0x2d, 0x64, 0xe2, 0xbd, 0x4b, 0x62, 0x7d, 0x98, 0x28, 0x68,
+	0x66, 0x3c, 0xc9, 0x36, 0x61, 0xae, 0x67, 0x05, 0x61, 0xf9, 0xc5, 0x3b, 0x6c, 0xd0, 0xb3, 0x02,
+	0x51, 0x75, 0xbd, 0x57, 0xee, 0xdd, 0x61, 0x11, 0x99, 0x14, 0x31, 0x4a, 0xbc, 0x34, 0x73, 0x69,
+	0x51, 0xe6, 0xc2, 0xb0, 0x70, 0x40, 0xe5, 0x39, 0x74, 0x4f, 0xbd, 0x2f, 0x3d, 0xff, 0x78, 0x4c,
+	0xbd, 0x4f, 0xf8, 0x97, 0xc6, 0xc4, 0x15, 0x23, 0x74, 0x13, 0x40, 0x78, 0x9f, 0x15, 0xf4, 0x04,
+	0xdd, 0x3a, 0xf7, 0x3d, 0x2b, 0xe8, 0xd1, 0x6a, 0x95, 0xea, 0x28, 0x20, 0xd6, 0x60, 0xc8, 0x3c,
+	0xb3, 0x68, 0x46, 0x13, 0xc6, 0x4f, 0x0a, 0x50, 0x7c, 0xe1, 0xb8, 0x11, 0xdf, 0x5a, 0x8c, 0x6f,
+	0x34, 0x0f, 0x9a, 0x2b, 0x7c, 0x5d, 0x73, 0x33, 0x9b, 0x37, 0x07, 0xd0, 0xf0, 0xb1, 0x8d, 0xf1,
+	0xa0, 0x23, 0x6a, 0x6c, 0xee, 0xe0, 0xaa, 0xc2, 0x5f, 0x38, 0x6e, 0xcb, 0x64, 0x50, 0x22, 0x5d,
+	0xce, 0xfb, 0xb1, 0x91, 0xfe, 0xbb, 0x2c, 0x67, 0x46, 0x13, 0xb3, 0xe7, 0x00, 0x1d, 0x6a, 0x01,
+	0xf5, 0x12, 0xb7, 0x1b, 0x16, 0x0a, 0x72, 0x4c, 0xf3, 0xc3, 0xa5, 0x43, 0x5c, 0x9e, 0x34, 0x69,
+	0x41, 0x29, 0x87, 0x6a, 0xdf, 0xa0, 0x9c, 0xec, 0x1b, 0xfc, 0x97, 0x06, 0xa5, 0x17, 0x74, 0xf3,
+	0x77, 0x55, 0xc9, 0x23, 0x68, 0x04, 0x5d, 0xdf, 0x19, 0x12, 0x55, 0x25, 0xea, 0xb5, 0x9c, 0x52,
+	0x68, 0x1d, 0x31, 0x30, 0xa9, 0x93, 0x20, 0x36, 0xd2, 0xcf, 0x61, 0x3e, 0xbe, 0x4a, 0x1d, 0xc4,
+	0x0a, 0x06, 0xd2, 0x41, 0xac, 0x60, 0x20, 0x03, 0xb6, 0x10, 0x06, 0x2c, 0xbd, 0x7e, 0xfb, 0xf8,
+	0x75, 0x27, 0x70, 0xce, 0x02, 0xd9, 0x60, 0xf4, 0xf1, 0xeb, 0x23, 0xe7, 0x2c, 0x21, 0x72, 0x29,
+	0x29, 0x72, 0x9b, 0x45, 0x6d, 0x76, 0x5e, 0xc8, 0x8c, 0xf3, 0xdf, 0x2f, 0x32, 0x67, 0x9e, 0xb5,
+	0x8a, 0x88, 0x36, 0x29, 0xc4, 0x0c, 0x1a, 0xbb, 0xa0, 0x16, 0xd5, 0x0b, 0xaa, 0x12, 0xdb, 0x25,
+	0xe6, 0xb2, 0x51, 0x6c, 0x3f, 0x80, 0x32, 0x73, 0x6e, 0x96, 0xbd, 0xe7, 0x76, 0xd7, 0x15, 0xb5,
+	0xaa, 0x21, 0x63, 0x72, 0x48, 0x64, 0x40, 0xf1, 0xc2, 0x71, 0x9b, 0x15, 0x96, 0x0b, 0x96, 0x92,
+	0xae, 0x69, 0xd2, 0x45, 0x74, 0x5b, 0xb8, 0x57, 0x95, 0x01, 0x2d, 0xa7, 0x8c, 0x15, 0x9d, 0x3a,
+	0x43, 0x6b, 0xd2, 0xf7, 0x2c, 0x9b, 0xbd, 0x27, 0xd5, 0x4d, 0x39, 0x44, 0x1f, 0x41, 0x43, 0xbd,
+	0xfc, 0xd6, 0x99, 0x43, 0xaa, 0x93, 0xd4, 0x61, 0x58, 0x03, 0x18, 0x78, 0x39, 0x40, 0x7f, 0xcb,
+	0xe0, 0x9f, 0x8b, 0xca, 0xc0, 0xe8, 0xa0, 0x99, 0x67, 0x70, 0xf2, 0xa0, 0xd1, 0xa1, 0xd6, 0xf5,
+	0x1c, 0xf7, 0xc4, 0x0a, 0x70, 0xb3, 0xc1, 0xb2, 0x53, 0x38, 0x36, 0x3e, 0x06, 0x44, 0xf3, 0xcb,
+	0x58, 0x3e, 0x99, 0x4c, 0x31, 0xdf, 0x3e, 0x6b, 0x6d, 0x44, 0xa0, 0x19, 0xef, 0x26, 0x65, 0xf1,
+	0x6e, 0xa2, 0x1e, 0x79, 0x75, 0xc9, 0x89, 0xd1, 0x83, 0x1b, 0x47, 0xce, 0x99, 0x9b, 0xed, 0x33,
+	0xd7, 0xa0, 0xe2, 0x5b, 0x97, 0x1d, 0x22, 0x7d, 0xa0, 0xec, 0x5b, 0x97, 0xc7, 0x63, 0x1a, 0x50,
+	0xa7, 0x7d, 0xeb, 0x4c, 0x6e, 0xc5, 0x07, 0x89, 0x06, 0x63, 0x31, 0xd5, 0x60, 0xfc, 0x55, 0xd0,
+	0xb3, 0x28, 0xe5, 0xfa, 0x1a, 0xd3, 0xd1, 0x60, 0xd8, 0xc7, 0x44, 0xb6, 0x9a, 0xc2, 0xb1, 0xd1,
+	0x82, 0x85, 0xc7, 0x98, 0x3c, 0x27, 0x63, 0x4f, 0xb2, 0xaa, 0x04, 0x86, 0x96, 0x0c, 0x8c, 0x7f,
+	0xd6, 0xa0, 0xf4, 0x76, 0x55, 0x49, 0x5e, 0xfd, 0x9a, 0x2c, 0x11, 0x4a, 0xe9, 0x12, 0x41, 0x87,
+	0xda, 0xc0, 0x22, 0x23, 0xdf, 0x21, 0x13, 0x51, 0x99, 0x84, 0xe3, 0xb4, 0x73, 0x55, 0x78, 0x9f,
+	0x59, 0x75, 0xae, 0x6d, 0x58, 0x0a, 0x86, 0xd8, 0x25, 0x9d, 0x93, 0x49, 0x67, 0xe4, 0x0e, 0x1c,
+	0x17, 0xdb, 0xec, 0x55, 0xa3, 0x66, 0x2e, 0xb0, 0xf9, 0x83, 0xc9, 0x73, 0x3e, 0x6b, 0x3c, 0x83,
+	0x39, 0x51, 0x71, 0x33, 0xf1, 0xf2, 0xaf, 0xc7, 0x77, 0xa1, 0x4c, 0xeb, 0x0e, 0x59, 0xeb, 0xa9,
+	0x71, 0xc1, 0xea, 0x12, 0xbe, 0x6e, 0x3c, 0x83, 0xc5, 0x50, 0xb5, 0xc2, 0x36, 0xbf, 0x04, 0x0d,
+	0xb1, 0x4d, 0x87, 0xef, 0xc1, 0x8f, 0xfd, 0x66, 0x56, 0x7f, 0x92, 0x6d, 0x35, 0x2f, 0xc0, 0x9f,
+	0xb3, 0x1d, 0xbf, 0xab, 0x74, 0x8c, 0xf9, 0x09, 0x3c, 0x9b, 0xd9, 0xfe, 0x5a, 0x53, 0x3a, 0xa6,
+	0x12, 0x55, 0xb0, 0xf5, 0x24, 0x59, 0x87, 0x7c, 0x9a, 0xd3, 0x8e, 0x4b, 0x20, 0x66, 0x17, 0x22,
+	0xef, 0x55, 0x13, 0xfc, 0x13, 0xcf, 0xa3, 0x82, 0x50, 0xb2, 0x4c, 0xff, 0x2a, 0xdd, 0x6d, 0x68,
+	0x25, 0x59, 0xcd, 0x46, 0x6d, 0xc9, 0x71, 0xb4, 0x81, 0xfe, 0xe7, 0x1a, 0xcc, 0x09, 0xe8, 0xb7,
+	0x73, 0xe9, 0xdb, 0xb0, 0xd0, 0xf3, 0xfa, 0x36, 0xf6, 0x3b, 0x6a, 0xbd, 0xdd, 0xe0, 0xb3, 0xb1,
+	0x2b, 0x9e, 0x28, 0x9c, 0x12, 0xb7, 0xd7, 0x05, 0x31, 0x9d, 0xbe, 0xe2, 0x95, 0xe3, 0x21, 0xa2,
+	0xff, 0x83, 0x06, 0x55, 0xc1, 0xf7, 0xff, 0x77, 0xf9, 0x9d, 0xa3, 0xc5, 0x98, 0xba, 0x78, 0xf9,
+	0x3d, 0x63, 0xb3, 0xca, 0xf8, 0xa3, 0x82, 0xbc, 0x35, 0x8b, 0x2d, 0x32, 0x92, 0xe4, 0x93, 0xa8,
+	0x6f, 0x96, 0xe5, 0x86, 0x57, 0xa0, 0xa7, 0xda, 0x68, 0xc9, 0x4b, 0x78, 0x21, 0x7d, 0x09, 0x4f,
+	0xb5, 0x1b, 0xf4, 0x61, 0xd8, 0x20, 0x4b, 0x1b, 0x59, 0x9b, 0xd1, 0xc8, 0x85, 0x2b, 0x8c, 0xac,
+	0xe4, 0x41, 0xe3, 0x4b, 0xd6, 0x23, 0x3f, 0xc0, 0x01, 0x61, 0x47, 0x75, 0xe8, 0xeb, 0x79, 0xc5,
+	0xed, 0x1a, 0x54, 0x88, 0xe5, 0x9f, 0xe1, 0xf0, 0xaa, 0xcc, 0x47, 0xc6, 0xcb, 0x58, 0x8f, 0x38,
+	0xf9, 0x24, 0xf8, 0x5e, 0xef, 0x59, 0xbf, 0xc0, 0x22, 0x32, 0xb9, 0x71, 0xf4, 0xb8, 0x96, 0xf7,
+	0xd8, 0xb8, 0xfb, 0xaf, 0xb7, 0x00, 0xf6, 0x87, 0xce, 0x11, 0xf6, 0x2f, 0x9c, 0x2e, 0x46, 0x27,
+	0x30, 0x1f, 0x17, 0x14, 0xad, 0xb5, 0xf8, 0x57, 0x3f, 0xad, 0xd0, 0xc2, 0x5f, 0x0c, 0x86, 0x64,
+	0xa2, 0x7f, 0x90, 0xf2, 0xc5, 0xa4, 0x6e, 0x8c, 0xeb, 0xbf, 0xf5, 0x8f, 0xff, 0xf1, 0xb3, 0xc2,
+	0x32, 0x5a, 0x6c, 0x5f, 0x3c, 0x68, 0x33, 0xaf, 0x0e, 0xda, 0x27, 0x54, 0xd0, 0x57, 0x2c, 0xe7,
+	0xc6, 0xbf, 0x94, 0xc8, 0x25, 0xf3, 0xd1, 0x2c, 0xdf, 0x57, 0x18, 0x37, 0x18, 0xa5, 0x15, 0xb4,
+	0x4c, 0x29, 0x75, 0x19, 0x44, 0x5b, 0x04, 0x99, 0x05, 0x10, 0x7d, 0x6a, 0x91, 0x4b, 0x66, 0x53,
+	0x21, 0x93, 0xfe, 0x36, 0xc3, 0xd0, 0x19, 0x85, 0x55, 0x63, 0x31, 0x46, 0xe1, 0xf5, 0xc8, 0x21,
+	0x7b, 0xda, 0x3d, 0x74, 0x0c, 0x55, 0xf1, 0x85, 0x45, 0xee, 0xfe, 0x1b, 0xd3, 0xbe, 0xc7, 0x30,
+	0x56, 0xd8, 0xe6, 0x0d, 0x34, 0x47, 0x37, 0x17, 0x5f, 0x63, 0x20, 0x1f, 0xe6, 0xe3, 0x6f, 0xeb,
+	0x68, 0x2b, 0x23, 0xcc, 0x94, 0xf7, 0xd0, 0x84, 0x49, 0xb2, 0x1e, 0xe6, 0x8d, 0x9b, 0x8c, 0xd2,
+	0x75, 0x03, 0xc5, 0x28, 0xb5, 0xbb, 0x0c, 0x92, 0x4a, 0x72, 0x0a, 0xf5, 0xf0, 0xbb, 0x09, 0xa4,
+	0xde, 0x85, 0x92, 0x5f, 0x60, 0xe8, 0xb7, 0xf2, 0x96, 0xb3, 0x34, 0x26, 0x49, 0x8d, 0x02, 0x46,
+	0xc7, 0x87, 0xf9, 0xf8, 0xfb, 0x78, 0x42, 0xb6, 0x8c, 0x2f, 0x00, 0x12, 0xb2, 0x65, 0x3d, 0xe8,
+	0x67, 0xcb, 0xe6, 0x30, 0x48, 0x4a, 0xf3, 0x67, 0x1a, 0x34, 0xf3, 0x1e, 0xe5, 0xd1, 0xfd, 0xdc,
+	0xed, 0x33, 0xde, 0xee, 0x67, 0x61, 0xe6, 0x0e, 0x63, 0x66, 0xcb, 0x58, 0x4f, 0x33, 0xd3, 0x96,
+	0xa1, 0x27, 0x34, 0x11, 0x7f, 0x0e, 0x4f, 0x68, 0x22, 0xe3, 0xf5, 0x3d, 0x41, 0x3c, 0xeb, 0x2d,
+	0x3d, 0x5b, 0x13, 0x78, 0x2c, 0x35, 0xe1, 0xd3, 0x6b, 0x6b, 0xf4, 0xf4, 0x9d, 0xa0, 0x99, 0xf1,
+	0xd2, 0x9e, 0xa0, 0x99, 0xf5, 0x6e, 0x9e, 0x4d, 0xd3, 0x67, 0x90, 0x94, 0xe6, 0x6f, 0x6b, 0xb0,
+	0x9c, 0xca, 0x4f, 0xe8, 0x76, 0xf6, 0x93, 0x56, 0x52, 0xdf, 0x77, 0xae, 0x02, 0x13, 0x3c, 0x6c,
+	0x32, 0x1e, 0x6e, 0x18, 0xab, 0x71, 0x1e, 0xe2, 0xda, 0xfe, 0x1d, 0x0d, 0x96, 0x92, 0x0f, 0x67,
+	0xe8, 0xa3, 0x2b, 0xde, 0xd5, 0x38, 0x0f, 0xb7, 0x67, 0x7a, 0x7d, 0xcb, 0xb6, 0x7b, 0x77, 0xe4,
+	0xfb, 0x34, 0x61, 0x88, 0x07, 0x6c, 0xca, 0xc9, 0x25, 0x34, 0x94, 0x87, 0x5d, 0x94, 0x15, 0xbc,
+	0xea, 0x33, 0xb1, 0x6e, 0x4c, 0x03, 0xc9, 0x52, 0x41, 0x78, 0xda, 0xc7, 0x42, 0x9c, 0xb0, 0xfc,
+	0x1e, 0x1e, 0xf9, 0x09, 0xe3, 0x67, 0xbc, 0x1c, 0xa7, 0x33, 0x7d, 0xea, 0xd5, 0x57, 0x52, 0x45,
+	0xd7, 0x55, 0xaa, 0x3f, 0x10, 0x17, 0xe3, 0x37, 0xe8, 0x87, 0xdc, 0xfc, 0xea, 0xb7, 0x00, 0x69,
+	0xf3, 0x67, 0x7e, 0x66, 0x91, 0x36, 0x7f, 0xf6, 0x27, 0x05, 0xc6, 0x16, 0xe3, 0x42, 0x37, 0xae,
+	0xa9, 0x5c, 0xc4, 0xb4, 0xfe, 0x23, 0x0d, 0x16, 0x13, 0x1f, 0x01, 0x20, 0xf5, 0xd1, 0x30, 0xfb,
+	0xbb, 0x82, 0xc4, 0x31, 0x94, 0xf3, 0x1d, 0x81, 0xb1, 0xcd, 0x18, 0x30, 0xd0, 0x56, 0x42, 0x0d,
+	0xe2, 0xe7, 0x9b, 0xf6, 0x85, 0x40, 0x44, 0x36, 0x54, 0xc5, 0xad, 0x03, 0xad, 0x27, 0xa5, 0x8b,
+	0x5d, 0xf3, 0x12, 0xe7, 0x46, 0xe2, 0xa2, 0x62, 0xdc, 0x62, 0xf4, 0x9a, 0xc6, 0x8a, 0x4a, 0x8f,
+	0x5d, 0x5a, 0xa8, 0xb8, 0x3f, 0xd1, 0xe4, 0x07, 0x07, 0xea, 0x2d, 0x14, 0x6d, 0xcf, 0xfa, 0xd2,
+	0xa5, 0x7f, 0x3c, 0x03, 0xa4, 0xe0, 0xc6, 0x60, 0xdc, 0x6c, 0x18, 0xcc, 0x09, 0x48, 0x04, 0x10,
+	0xf7, 0xbe, 0x3f, 0xd4, 0xe0, 0x5a, 0xe6, 0x6b, 0x14, 0xfa, 0x78, 0xe6, 0x17, 0xab, 0xb7, 0xe1,
+	0xe9, 0x2e, 0xe3, 0xe9, 0x03, 0x63, 0x23, 0x87, 0xa7, 0xb6, 0x35, 0x22, 0x9e, 0xc8, 0x0c, 0x28,
+	0x7d, 0x5d, 0x47, 0xaa, 0xeb, 0xe5, 0x76, 0x0e, 0xf4, 0xbb, 0x57, 0xc2, 0x65, 0xf9, 0xa8, 0xc2,
+	0x50, 0xe0, 0x9c, 0xb9, 0xb1, 0x4c, 0xa9, 0x36, 0x5c, 0xd3, 0xa1, 0x92, 0xd9, 0x73, 0x4e, 0x87,
+	0x4a, 0x76, 0xdf, 0x56, 0x4d, 0x13, 0x0a, 0x1b, 0xa7, 0x18, 0x87, 0xfa, 0x48, 0x75, 0xd1, 0x93,
+	0xfa, 0xc8, 0xeb, 0xca, 0x27, 0xf5, 0x91, 0xdb, 0x8e, 0x9f, 0xa6, 0x0f, 0xec, 0xda, 0x94, 0x93,
+	0x1f, 0x73, 0x7d, 0x24, 0x18, 0x49, 0xe9, 0x23, 0x9b, 0x8f, 0x3b, 0x57, 0x81, 0x65, 0x45, 0xae,
+	0xc2, 0xc6, 0x0f, 0xd8, 0x7d, 0xee, 0x4d, 0x5b, 0x3c, 0x94, 0xa1, 0x09, 0xcc, 0xc5, 0x7a, 0x50,
+	0x68, 0x33, 0xa5, 0x70, 0xb5, 0x91, 0xa5, 0x6f, 0xe5, 0x03, 0xa8, 0x3e, 0x8a, 0x36, 0x73, 0x69,
+	0x8b, 0x52, 0xf6, 0x8f, 0x35, 0x68, 0xe6, 0xbd, 0x69, 0x26, 0x2a, 0x98, 0x2b, 0x9e, 0x3e, 0xdf,
+	0x26, 0x84, 0x3e, 0x64, 0xec, 0xdd, 0x34, 0x9a, 0x69, 0x0b, 0xf1, 0xed, 0xa9, 0x91, 0xde, 0x30,
+	0x1b, 0xa9, 0xaf, 0x41, 0xb9, 0xc5, 0xf0, 0x9d, 0xd9, 0x5e, 0x91, 0xa6, 0x18, 0x45, 0x50, 0x6e,
+	0xf7, 0x04, 0xa5, 0x1f, 0x69, 0xac, 0x33, 0x98, 0x7c, 0xf3, 0xcc, 0xe5, 0x60, 0x7b, 0xd6, 0xd7,
+	0x52, 0x63, 0x87, 0xf1, 0x70, 0x17, 0xdd, 0xce, 0xe5, 0xa1, 0xcf, 0x50, 0x7d, 0x86, 0x8a, 0x3c,
+	0xa8, 0x87, 0xdf, 0x4a, 0xa0, 0x9c, 0x4f, 0x2c, 0xb2, 0x0b, 0xe8, 0xd4, 0x47, 0x1b, 0x53, 0x14,
+	0x2f, 0xc4, 0xa6, 0x8a, 0x4f, 0x1c, 0xac, 0xfc, 0x32, 0x9b, 0x7f, 0xb0, 0x2a, 0xdd, 0xa8, 0xfc,
+	0x83, 0x55, 0x6d, 0x20, 0xe5, 0x1e, 0xac, 0x1c, 0x2c, 0xb2, 0xbf, 0xda, 0x8e, 0x98, 0xdd, 0xfe,
+	0xd9, 0x6d, 0x8c, 0x29, 0xf6, 0x17, 0x94, 0x43, 0xfb, 0x47, 0x91, 0x91, 0x6e, 0x3c, 0x64, 0x46,
+	0x46, 0x6e, 0x7f, 0xe2, 0xdb, 0x89, 0x8c, 0x48, 0x33, 0x07, 0x7f, 0x55, 0xf8, 0xe9, 0xfe, 0x5f,
+	0x14, 0xd0, 0x11, 0x2c, 0x3e, 0xd9, 0x3f, 0x3a, 0xda, 0xe1, 0x55, 0xe3, 0xd6, 0xfe, 0xb3, 0x43,
+	0xe3, 0x17, 0x61, 0x9e, 0x4e, 0x6d, 0x0d, 0x7d, 0xef, 0x15, 0xee, 0x12, 0xb4, 0xda, 0x23, 0x64,
+	0x18, 0xec, 0xb5, 0xdb, 0x03, 0x2b, 0x08, 0x5c, 0x4c, 0x5a, 0x9e, 0x7f, 0xd6, 0xd6, 0x57, 0xba,
+	0x9e, 0x4b, 0xac, 0x2e, 0xf9, 0x95, 0xd8, 0xec, 0xbd, 0x9f, 0xdb, 0x2d, 0x3e, 0x68, 0x7d, 0x72,
+	0x4f, 0x2b, 0xec, 0x2e, 0x59, 0xc3, 0x61, 0xdf, 0xe9, 0xb2, 0x46, 0x6a, 0xfb, 0x55, 0xe0, 0xb9,
+	0xbb, 0x6b, 0xf1, 0x99, 0xf1, 0xce, 0xa9, 0xe7, 0xed, 0x0c, 0x9c, 0x01, 0xde, 0x4b, 0x41, 0xee,
+	0xe5, 0x40, 0x9a, 0x9b, 0x50, 0xfc, 0xce, 0x27, 0x9f, 0xa2, 0x26, 0x2c, 0x7c, 0xdf, 0xdb, 0x1a,
+	0x62, 0x7f, 0xe0, 0x04, 0xb4, 0x8a, 0x6b, 0xa1, 0x0a, 0x94, 0xfe, 0xb4, 0xa0, 0x55, 0xcd, 0x75,
+	0x0a, 0xf0, 0x1d, 0xb4, 0x0a, 0xf0, 0x7d, 0x8f, 0x6c, 0x9d, 0x7a, 0x23, 0xd7, 0x0e, 0x17, 0xfd,
+	0x87, 0x70, 0x33, 0x21, 0xe9, 0xd6, 0xe7, 0x5e, 0x77, 0x34, 0xc0, 0x2e, 0xff, 0x6f, 0xa2, 0x6c,
+	0x39, 0x4f, 0x2a, 0x4c, 0xe7, 0x9f, 0xfe, 0x5f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xb6, 0x8c, 0x0e,
+	0xd1, 0xc9, 0x34, 0x00, 0x00,
 }

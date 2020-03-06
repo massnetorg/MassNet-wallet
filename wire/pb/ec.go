@@ -1,105 +1,135 @@
 package wirepb
 
 import (
-	"bytes"
 	"encoding/binary"
+	"errors"
 	"math/big"
 
-	"github.com/massnetorg/MassNet-wallet/btcec"
+	"github.com/btcsuite/btcd/btcec"
+	"massnet.org/mass-wallet/pocec"
 )
 
 // BigIntToProto get proto BigInt from golang big.Int
 func BigIntToProto(x *big.Int) *BigInt {
+	if x == nil {
+		return nil
+	}
 	pb := new(BigInt)
-	pb.RawAbs = x.Bytes()
+	pb.Raw = x.Bytes()
 	return pb
 }
 
 // ProtoToBigInt get golang big.Int from proto BigInt
-func ProtoToBigInt(pb *BigInt) *big.Int {
-	return new(big.Int).SetBytes(pb.RawAbs)
+func ProtoToBigInt(pb *BigInt, bi *big.Int) error {
+	if pb == nil {
+		return errors.New("nil proto big_int")
+	}
+	bi.SetBytes(pb.Raw)
+	return nil
 }
 
 func (m *BigInt) Bytes() []byte {
-	buf := make([]byte, len(m.RawAbs), len(m.RawAbs))
-	copy(buf, m.RawAbs)
+	buf := make([]byte, len(m.Raw))
+	copy(buf, m.Raw)
 	return buf
 }
 
 // NewEmptyPublicKey returns new empty initialized proto PublicKey
 func NewEmptyPublicKey() *PublicKey {
 	return &PublicKey{
-		RawX: &BigInt{RawAbs: make([]byte, 0)},
-		RawY: &BigInt{RawAbs: make([]byte, 0)},
+		Raw: make([]byte, 0),
 	}
 }
 
-// PublicKeyToProto accespts a btcec PublicKey, returns a proto PublicKey
+// PublicKeyToProto accespts a btcec/pocec PublicKey, returns a proto PublicKey
 func PublicKeyToProto(pub interface{}) *PublicKey {
+	if pub == nil {
+		return nil
+	}
 	pb := NewEmptyPublicKey()
 	switch p := pub.(type) {
 	case *btcec.PublicKey:
-		pb.RawX.RawAbs = p.X.Bytes()
-		pb.RawY.RawAbs = p.Y.Bytes()
+		pb.Raw = p.SerializeCompressed()
+	case *pocec.PublicKey:
+		pb.Raw = p.SerializeCompressed()
 	}
 	return pb
 }
 
-// ProtoToPublicKey accepts a proto PublicKey and a btcec PublicKey,
+// ProtoToPublicKey accepts a proto PublicKey and a btcec/pocec PublicKey,
 // fills content into the latter
-func ProtoToPublicKey(pb *PublicKey, pub interface{}) {
+func ProtoToPublicKey(pb *PublicKey, pub interface{}) error {
+	if pb == nil {
+		return errors.New("nil proto public_key")
+	}
 	switch p := pub.(type) {
 	case *btcec.PublicKey:
-		p.Curve = btcec.S256()
-		p.X = ProtoToBigInt(pb.RawX)
-		p.Y = ProtoToBigInt(pb.RawY)
+		key, err := btcec.ParsePubKey(pb.Raw, btcec.S256())
+		if err != nil {
+			return err
+		}
+		*p = *key
+	case *pocec.PublicKey:
+		key, err := pocec.ParsePubKey(pb.Raw, pocec.S256())
+		if err != nil {
+			return err
+		}
+		*p = *key
 	}
+	return nil
 }
 
 func (m *PublicKey) Bytes() []byte {
-	return bytes.Join([][]byte{m.RawX.Bytes(), m.RawY.Bytes()}, []byte(""))
+	return m.Raw
 }
 
 // NewEmptySignature returns new empty initialized proto Signature
 func NewEmptySignature() *Signature {
 	return &Signature{
-		RawR: &BigInt{RawAbs: make([]byte, 0)},
-		RawS: &BigInt{RawAbs: make([]byte, 0)},
+		Raw: make([]byte, 0),
 	}
 }
 
-// SignatureToProto accepts a btcec Signature, returns a proto Signature
+// SignatureToProto accepts a btcec/pocec Signature, returns a proto Signature
 func SignatureToProto(sig interface{}) *Signature {
+	if sig == nil {
+		return nil
+	}
 	pb := NewEmptySignature()
 	switch s := sig.(type) {
 	case *btcec.Signature:
-		pb.RawR.RawAbs = s.R.Bytes()
-		pb.RawS.RawAbs = s.S.Bytes()
+		pb.Raw = s.Serialize()
+	case *pocec.Signature:
+		pb.Raw = s.Serialize()
 	}
 	return pb
 }
 
-// ProtoToSignature accepts a proto Signture and a btcec Signture,
+// ProtoToSignature accepts a proto Signture and a btcec/pocec Signture,
 // fills content into the latter
-func ProtoToSignature(pb *Signature, sig interface{}) {
+func ProtoToSignature(pb *Signature, sig interface{}) error {
+	if pb == nil {
+		return errors.New("nil proto signature")
+	}
 	switch s := sig.(type) {
 	case *btcec.Signature:
-		s.R = ProtoToBigInt(pb.RawR)
-		s.S = ProtoToBigInt(pb.RawS)
+		result, err := btcec.ParseDERSignature(pb.Raw, btcec.S256())
+		if err != nil {
+			return err
+		}
+		*s = *result
+	case *pocec.Signature:
+		result, err := pocec.ParseDERSignature(pb.Raw, pocec.S256())
+		if err != nil {
+			return err
+		}
+		*s = *result
 	}
+	return nil
 }
 
 func (m *Signature) Bytes() []byte {
-	return bytes.Join([][]byte{m.RawR.Bytes(), m.RawS.Bytes()}, []byte(""))
-}
-
-// NewEmptyPrivateKey returns new empty initialized proto PrivateKey
-func NewEmptyPrivateKey() *PrivateKey {
-	pub := NewEmptyPublicKey()
-	return &PrivateKey{
-		RawPub: pub,
-		RawD:   &BigInt{RawAbs: make([]byte, 0)},
-	}
+	return m.Raw
 }
 
 func (m *Hash) Bytes() []byte {
@@ -108,5 +138,5 @@ func (m *Hash) Bytes() []byte {
 	binary.LittleEndian.PutUint64(s1[:], m.S1)
 	binary.LittleEndian.PutUint64(s2[:], m.S2)
 	binary.LittleEndian.PutUint64(s3[:], m.S3)
-	return bytes.Join([][]byte{s0[:], s1[:], s2[:], s3[:]}, []byte(""))
+	return combineBytes(s0[:], s1[:], s2[:], s3[:])
 }

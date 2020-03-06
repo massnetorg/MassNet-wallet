@@ -1,0 +1,27 @@
+{
+    "app" : {
+        "profile": "",
+        "cpu_profile": ""
+    },
+    "network": {
+        "p2p": {
+            "seeds": "39.98.220.234,39.98.254.84,39.100.45.79,39.100.49.206,39.98.226.61,39.100.48.43,39.100.39.204,39.100.47.214,39.100.49.65,47.92.251.152",
+            "listen_address": "tcp://0.0.0.0:43454"
+        },
+        "api": {
+            "grpc_port": "9687",
+            "http_port": "9688",
+            "disable_tls": false,
+            "rpc_cert": "./cert.crt",
+            "rpc_key": "./cert.key"
+        }
+    },
+    "data": {
+        "db_dir": "chain",
+        "db_type": "leveldb"
+    },
+    "log": {
+        "log_dir": "logs",
+        "log_level": "info"
+    }
+}   

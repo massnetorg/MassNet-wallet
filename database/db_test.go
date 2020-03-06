@@ -1,15 +1,12 @@
-// Modified for MassNet
-// Copyright (c) 2013-2015 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package database_test
 
 import (
 	"fmt"
 	"testing"
 
-	"github.com/massnetorg/MassNet-wallet/database"
+	"math"
+
+	"massnet.org/mass-wallet/database"
 )
 
 var (
@@ -31,7 +28,7 @@ func testNewestShaEmpty(t *testing.T, db database.Db) {
 		t.Errorf("NewestSha wrong hash got: %s, want %s", sha, &zeroHash)
 
 	}
-	if height != -1 {
+	if height != math.MaxUint64 {
 		t.Errorf("NewestSha wrong height got: %d, want %d", height, -1)
 	}
 }
@@ -41,6 +38,7 @@ func TestEmptyDB(t *testing.T) {
 	for _, dbType := range database.SupportedDBs() {
 		// Ensure NewestSha returns expected values for a newly created
 		// db.
+		//fmt.Println("dbType:", dbType)
 		db, teardown, err := createDB(dbType, "emptydb", false)
 		if err != nil {
 			t.Errorf("Failed to create test database %v", err)

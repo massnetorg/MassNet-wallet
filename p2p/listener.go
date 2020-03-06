@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	//log "github.com/sirupsen/logrus"
-	cmn "github.com/tendermint/tmlibs/common"
-
-	"github.com/massnetorg/MassNet-wallet/errors"
-	"github.com/massnetorg/MassNet-wallet/p2p/upnp"
+	configpb "massnet.org/mass-wallet/config/pb"
+	"massnet.org/mass-wallet/errors"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/p2p/upnp"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 const (
@@ -45,11 +44,11 @@ func getUPNPExternalAddress(externalPort, internalPort int) (*NetAddress, error)
 	if externalPort == 0 {
 		externalPort = defaultExternalPort
 	}
-	externalPort, err = nat.AddPortMapping("tcp", externalPort, internalPort, "bytomd tcp", 0)
+	externalPort, err = nat.AddPortMapping("tcp", externalPort, internalPort, "mass tcp", 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not add tcp UPNP port mapping")
 	}
-	externalPort, err = nat.AddPortMapping("udp", externalPort, internalPort, "bytomd udp", 0)
+	externalPort, err = nat.AddPortMapping("udp", externalPort, internalPort, "mass udp", 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not add udp UPNP port mapping")
 	}
@@ -89,7 +88,7 @@ func splitHostPort(addr string) (host string, port int) {
 	return host, port
 }
 
-//DefaultListener Implements Listener
+//DefaultListener Implements mass server Listener
 type DefaultListener struct {
 	cmn.BaseService
 
@@ -99,8 +98,20 @@ type DefaultListener struct {
 	connections chan net.Conn
 }
 
+// Defaults to tcp
+func protocolAndAddress(listenAddr string) (string, string) {
+	p, address := "tcp", listenAddr
+	parts := strings.SplitN(address, "://", 2)
+	if len(parts) == 2 {
+		p, address = parts[0], parts[1]
+	}
+	return p, address
+}
+
 //NewDefaultListener create a default listener
-func NewDefaultListener(protocol string, lAddr string, skipUPNP bool) (Listener, bool) {
+func NewDefaultListener(cfg *configpb.Config) (Listener, bool) {
+	protocol, lAddr := protocolAndAddress(cfg.Network.P2P.ListenAddress)
+	skipUPNP := cfg.Network.P2P.SkipUpnp
 	// Local listen IP & port
 	lAddrIP, lAddrPort := splitHostPort(lAddr)
 
@@ -132,7 +143,7 @@ func NewDefaultListener(protocol string, lAddr string, skipUPNP bool) (Listener,
 	}
 
 	if extAddr == nil {
-		if address := GetIP(); address.Success == true {
+		if address := GetIP(); address.Success {
 			extAddr = NewNetAddressIPPort(net.ParseIP(address.IP), uint16(lAddrPort))
 		}
 	}
@@ -140,7 +151,7 @@ func NewDefaultListener(protocol string, lAddr string, skipUPNP bool) (Listener,
 		extAddr = getNaiveExternalAddress(listenerPort, false)
 	}
 	if extAddr == nil {
-		logging.CPrint(logging.FATAL, "could not determine external address!", logging.LogFormat{})
+		logging.CPrint(logging.FATAL, "could not determine external address!")
 	}
 
 	dl := &DefaultListener{
@@ -186,7 +197,7 @@ func (l *DefaultListener) listenRoutine() {
 		// listener wasn't stopped,
 		// yet we encountered an error.
 		if err != nil {
-			logging.CPrint(logging.FATAL, err.Error(), logging.LogFormat{})
+			logging.CPrint(logging.FATAL, err.Error())
 		}
 		l.connections <- conn
 	}

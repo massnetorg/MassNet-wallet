@@ -1,10 +1,10 @@
 package wirepb
 
 import (
-	"github.com/golang/protobuf/proto"
-
 	"testing"
 	"time"
+
+	"github.com/golang/protobuf/proto"
 )
 
 // TestEncodeTxTimeUsage tests encode 2000 mocked txs.
@@ -16,8 +16,7 @@ func TestEncodeTxTimeUsage(t *testing.T) {
 		tx := mockTx()
 		_, err := proto.Marshal(tx)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 	}
 
@@ -34,8 +33,7 @@ func BenchmarkEncodeTx(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := proto.Marshal(tx)
 		if err != nil {
-			b.Error(err)
-			b.FailNow()
+			b.Fatal(err)
 		}
 	}
 }
@@ -44,13 +42,12 @@ func BenchmarkEncodeTx(b *testing.B) {
 func TestDecodeTxTimeUsage(t *testing.T) {
 	var txCount = 2000
 
-	txs := make([][]byte, txCount, txCount)
+	txs := make([][]byte, txCount)
 	for i := 0; i < txCount; i++ {
 		tx := mockTx()
 		buf, err := proto.Marshal(tx)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 		txs[i] = buf
 	}
@@ -60,8 +57,7 @@ func TestDecodeTxTimeUsage(t *testing.T) {
 		newPb := new(Tx)
 		err := proto.Unmarshal(txs[i], newPb)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 	}
 
@@ -75,8 +71,7 @@ func BenchmarkDecodeTx(b *testing.B) {
 	tx := mockTx()
 	buf, err := proto.Marshal(tx)
 	if err != nil {
-		b.Error(err)
-		b.FailNow()
+		b.Fatal(err)
 	}
 
 	b.StartTimer()
@@ -84,8 +79,7 @@ func BenchmarkDecodeTx(b *testing.B) {
 		newPb := new(Tx)
 		err := proto.Unmarshal(buf, newPb)
 		if err != nil {
-			b.Error(err)
-			b.FailNow()
+			b.Fatal(err)
 		}
 	}
 }
@@ -99,8 +93,7 @@ func TestEncodeBlockTimeUsage(t *testing.T) {
 	for i := 0; i < blockCount; i++ {
 		_, err := proto.Marshal(block)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 	}
 
@@ -117,8 +110,7 @@ func BenchmarkEncodeBlock(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := proto.Marshal(block)
 		if err != nil {
-			b.Error(err)
-			b.FailNow()
+			b.Fatal(err)
 		}
 	}
 }
@@ -129,8 +121,7 @@ func TestDecodeBlockTimeUsage(t *testing.T) {
 	block := mockBlock(3000)
 	buf, err := proto.Marshal(block)
 	if err != nil {
-		t.Error(err)
-		t.FailNow()
+		t.Fatal(err)
 	}
 
 	start := time.Now()
@@ -138,8 +129,7 @@ func TestDecodeBlockTimeUsage(t *testing.T) {
 		newPb := new(Block)
 		err := proto.Unmarshal(buf, newPb)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 	}
 
@@ -153,8 +143,7 @@ func BenchmarkDecodeBlock(b *testing.B) {
 	block := mockBlock(3000)
 	buf, err := proto.Marshal(block)
 	if err != nil {
-		b.Error(err)
-		b.FailNow()
+		b.Fatal(err)
 	}
 
 	b.StartTimer()
@@ -162,8 +151,7 @@ func BenchmarkDecodeBlock(b *testing.B) {
 		newPb := new(Block)
 		err := proto.Unmarshal(buf, newPb)
 		if err != nil {
-			b.Error(err)
-			b.FailNow()
+			b.Fatal(err)
 		}
 	}
 }

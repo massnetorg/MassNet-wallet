@@ -14,15 +14,13 @@ func TestBlockHeader(t *testing.T) {
 		header := mockHeader()
 		buf, err := proto.Marshal(header)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 
 		newHeader := new(BlockHeader)
 		err = proto.Unmarshal(buf, newHeader)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 
 		// compare header and newHeader

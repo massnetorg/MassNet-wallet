@@ -1,38 +1,14 @@
-// Modified for MassNet
-// Copyright (c) 2013-2014 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package database_test
 
 import (
-	"compress/bzip2"
-	"encoding/binary"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"strings"
-	"testing"
 
-	"github.com/massnetorg/MassNet-wallet/config"
-
-	"github.com/massnetorg/MassNet-wallet/database"
-	_ "github.com/massnetorg/MassNet-wallet/database/ldb"
-	_ "github.com/massnetorg/MassNet-wallet/database/memdb"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
-)
-
-var (
-	// savedBlocks is used to store blocks loaded from the blockDataFile
-	// so multiple invocations to loadBlocks from the various test functions
-	// do not have to reload them from disk.
-	savedBlocks []*massutil.Block
-
-	// blockDataFile is the path to a file containing the first 256 blocks
-	// of the block chain.
-	blockDataFile = filepath.Join("testdata", "blocks1-256.bz2")
+	"massnet.org/mass-wallet/database"
+	_ "massnet.org/mass-wallet/database/ldb"
+	_ "massnet.org/mass-wallet/database/memdb"
+	"massnet.org/mass-wallet/wire"
 )
 
 var zeroHash = wire.Hash{}
@@ -126,94 +102,4 @@ func createDB(dbType, dbName string, close bool) (database.Db, func(), error) {
 	}
 
 	return db, teardown, nil
-}
-
-// setupDB is used to create a new db instance with the genesis block already
-// inserted.  In addition to the new db instance, it returns a teardown function
-// the caller should invoke when done testing to clean up.
-func setupDB(dbType, dbName string) (database.Db, func(), error) {
-	db, teardown, err := createDB(dbType, dbName, true)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Insert the main network genesis block.  This is part of the initial
-	// database setup.
-	genesisBlock := massutil.NewBlock(config.ChainParams.GenesisBlock)
-	_, err = db.InsertBlock(genesisBlock)
-	if err != nil {
-		teardown()
-		err := fmt.Errorf("failed to insert genesis block: %v", err)
-		return nil, nil, err
-	}
-
-	return db, teardown, nil
-}
-
-// loadBlocks loads the blocks contained in the testdata directory and returns
-// a slice of them.
-func loadBlocks(t *testing.T) ([]*massutil.Block, error) {
-	if len(savedBlocks) != 0 {
-		return savedBlocks, nil
-	}
-
-	var dr io.Reader
-	fi, err := os.Open(blockDataFile)
-	if err != nil {
-		t.Errorf("failed to open file %v, err %v", blockDataFile, err)
-		return nil, err
-	}
-	if strings.HasSuffix(blockDataFile, ".bz2") {
-		z := bzip2.NewReader(fi)
-		dr = z
-	} else {
-		dr = fi
-	}
-
-	defer func() {
-		if err := fi.Close(); err != nil {
-			t.Errorf("failed to close file %v %v", blockDataFile, err)
-		}
-	}()
-
-	// Set the first block as the genesis block.
-	blocks := make([]*massutil.Block, 0, 256)
-	genesis := massutil.NewBlock(config.ChainParams.GenesisBlock)
-	blocks = append(blocks, genesis)
-
-	for height := int64(1); err == nil; height++ {
-		var rintbuf uint32
-		err := binary.Read(dr, binary.LittleEndian, &rintbuf)
-		if err == io.EOF {
-			// hit end of file at expected offset: no warning
-			//height--
-			//err = nil
-			break
-		}
-		if err != nil {
-			t.Errorf("failed to load network type, err %v", err)
-			break
-		}
-		err = binary.Read(dr, binary.LittleEndian, &rintbuf)
-		if err != nil {
-			t.Errorf("failed to read length of block")
-			break
-		}
-		blocklen := rintbuf
-
-		rbytes := make([]byte, blocklen)
-
-		// read block
-		dr.Read(rbytes)
-
-		block, err := massutil.NewBlockFromBytes(rbytes, wire.DB)
-		if err != nil {
-			t.Errorf("failed to parse block %v", height)
-			return nil, err
-		}
-		blocks = append(blocks, block)
-	}
-
-	savedBlocks = blocks
-	return blocks, nil
 }

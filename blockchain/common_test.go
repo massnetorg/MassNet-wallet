@@ -1,31 +1,35 @@
-// Modified for MassNet
-// Copyright (c) 2013-2014 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
-package blockchain_test
+package blockchain
 
 import (
-	"compress/bzip2"
-	"encoding/binary"
+	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
-	"io"
+	"math"
 	"os"
-	"path/filepath"
-	"strings"
+	"testing"
 
-	"github.com/massnetorg/MassNet-wallet/config"
-
-	"github.com/massnetorg/MassNet-wallet/blockchain"
-	"github.com/massnetorg/MassNet-wallet/database"
-	_ "github.com/massnetorg/MassNet-wallet/database/ldb"
-	_ "github.com/massnetorg/MassNet-wallet/database/memdb"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"github.com/btcsuite/btcd/btcec"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/consensus"
+	"massnet.org/mass-wallet/database"
+	"massnet.org/mass-wallet/database/ldb"
+	"massnet.org/mass-wallet/database/memdb"
+	"massnet.org/mass-wallet/errors"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/txscript"
+	"massnet.org/mass-wallet/wire"
 )
 
-// testDbType is the database backend type to use for the tests.
-const testDbType = "memdb"
+var (
+	dataDir = "testdata"
+	dbpath  = "./" + dataDir + "/testdb"
+	logpath = "./" + dataDir + "/testlog"
+	// dbType             = "leveldb"
+
+	blks200 []*massutil.Block
+)
 
 // testDbRoot is the root directory used to create all test databases.
 const testDbRoot = "testdbs"
@@ -40,189 +44,227 @@ func fileExists(name string) bool {
 	return true
 }
 
-// isSupportedDbType returns whether or not the passed database type is
-// currently supported.
-func isSupportedDbType(dbType string) bool {
-	supportedDBs := database.SupportedDBs()
-	for _, sDbType := range supportedDBs {
-		if dbType == sDbType {
-			return true
-		}
-	}
-
-	return false
-}
-
-// chainSetup is used to create a new db and chain instance with the genesis
-// block already inserted.  In addition to the new chain instnce, it returns
-// a teardown function the caller should invoke when done testing to clean up.
-func chainSetup(dbName string) (*blockchain.BlockChain, func(), error) {
-	if !isSupportedDbType(testDbType) {
-		return nil, nil, fmt.Errorf("unsupported db type %v", testDbType)
-	}
-
-	// Handle memory database specially since it doesn't need the disk
-	// specific handling.
-	var db database.Db
-	var teardown func()
-	if testDbType == "memdb" {
-		ndb, err := database.CreateDB(testDbType)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error creating db: %v", err)
-		}
-		db = ndb
-
-		// Setup a teardown function for cleaning up.  This function is
-		// returned to the caller to be invoked when it is done testing.
-		teardown = func() {
-			db.Close()
-		}
-	} else {
-		// Create the root directory for test databases.
-		if !fileExists(testDbRoot) {
-			if err := os.MkdirAll(testDbRoot, 0700); err != nil {
-				err := fmt.Errorf("unable to create test db "+
-					"root: %v", err)
-				return nil, nil, err
-			}
-		}
-
-		// Create a new database to store the accepted blocks into.
-		dbPath := filepath.Join(testDbRoot, dbName)
-		_ = os.RemoveAll(dbPath)
-		ndb, err := database.CreateDB(testDbType, dbPath)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error creating db: %v", err)
-		}
-		db = ndb
-
-		// Setup a teardown function for cleaning up.  This function is
-		// returned to the caller to be invoked when it is done testing.
-		teardown = func() {
-			dbVersionPath := filepath.Join(testDbRoot, dbName+".ver")
-			db.Sync()
-			db.Close()
-			os.RemoveAll(dbPath)
-			os.Remove(dbVersionPath)
-			os.RemoveAll(testDbRoot)
-		}
-	}
-
-	// Insert the main network genesis block.  This is part of the initial
-	// database setup.
-	genesisBlock := massutil.NewBlock(config.ChainParams.GenesisBlock)
-	_, err := db.InsertBlock(genesisBlock)
-	if err != nil {
-		teardown()
-		err := fmt.Errorf("failed to insert genesis block: %v", err)
-		return nil, nil, err
-	}
-
-	chain, err := blockchain.New(db, nil, nil, nil, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	return chain, teardown, nil
-}
-
-// loadTxStore returns a transaction store loaded from a file.
-func loadTxStore(filename string) (blockchain.TxStore, error) {
-	// The txstore file format is:
-	// <num tx data entries> <tx length> <serialized tx> <blk height>
-	// <num spent bits> <spent bits>
-	//
-	// All num and length fields are little-endian uint32s.  The spent bits
-	// field is padded to a byte boundary.
-
-	filename = filepath.Join("testdata/", filename)
-	fi, err := os.Open(filename)
+// Returns a new memory chaindb which is initialized with genesis block.
+func newTestChainDb() (database.Db, error) {
+	db, err := memdb.NewMemDb()
 	if err != nil {
 		return nil, err
 	}
 
-	// Choose read based on whether the file is compressed or not.
-	var r io.Reader
-	if strings.HasSuffix(filename, ".bz2") {
-		r = bzip2.NewReader(fi)
-	} else {
-		r = fi
-	}
-	defer fi.Close()
-
-	// Num of transaction store objects.
-	var numItems uint32
-	if err := binary.Read(r, binary.LittleEndian, &numItems); err != nil {
+	// Get the latest block height from the database.
+	_, height, err := db.NewestSha()
+	if err != nil {
+		db.Close()
 		return nil, err
 	}
 
-	txStore := make(blockchain.TxStore)
-	var uintBuf uint32
-	for height := uint32(0); height < numItems; height++ {
-		txD := blockchain.TxData{}
-
-		// Serialized transaction length.
-		err = binary.Read(r, binary.LittleEndian, &uintBuf)
+	// Insert the appropriate genesis block for the Mass network being
+	// connected to if needed.
+	if height == math.MaxUint64 {
+		blk, err := loadNthBlk(1)
 		if err != nil {
 			return nil, err
 		}
-		serializedTxLen := uintBuf
-		if serializedTxLen > wire.MaxBlockPayload {
-			return nil, fmt.Errorf("Read serialized transaction "+
-				"length of %d is larger max allowed %d",
-				serializedTxLen, wire.MaxBlockPayload)
-		}
-
-		// Transaction.
-		var msgTx wire.MsgTx
-		err = msgTx.Deserialize(r, wire.DB)
+		err = db.InitByGenesisBlock(blk)
 		if err != nil {
+			db.Close()
 			return nil, err
 		}
-		txD.Tx = massutil.NewTx(&msgTx)
+		height = blk.Height()
+		copy(config.ChainParams.GenesisHash[:], blk.Hash()[:])
+	}
+	fmt.Printf("newTestChainDb initialized with block height %v\n", height)
+	return db, nil
+}
 
-		// Transaction hash.
-		txHash := msgTx.TxHash()
-		txD.Hash = &txHash
-
-		// Block height the transaction came from.
-		err = binary.Read(r, binary.LittleEndian, &uintBuf)
-		if err != nil {
-			return nil, err
-		}
-		txD.BlockHeight = int32(uintBuf)
-
-		// Num spent bits.
-		err = binary.Read(r, binary.LittleEndian, &uintBuf)
-		if err != nil {
-			return nil, err
-		}
-		numSpentBits := uintBuf
-		numSpentBytes := numSpentBits / 8
-		if numSpentBits%8 != 0 {
-			numSpentBytes++
-		}
-
-		// Packed spent bytes.
-		spentBytes := make([]byte, numSpentBytes)
-		_, err = io.ReadFull(r, spentBytes)
-		if err != nil {
-			return nil, err
-		}
-
-		// Populate spent data based on spent bits.
-		txD.Spent = make([]bool, numSpentBits)
-		for byteNum, spentByte := range spentBytes {
-			for bit := 0; bit < 8; bit++ {
-				if uint32((byteNum*8)+bit) < numSpentBits {
-					if spentByte&(1<<uint(bit)) != 0 {
-						txD.Spent[(byteNum*8)+bit] = true
-					}
-				}
-			}
-		}
-
-		txStore[*txD.Hash] = &txD
+// loadTestBlksIntoTestChainDb Loads fisrt N blocks (genesis not included) into db
+func loadTestBlksIntoTestChainDb(db database.Db, numBlks int) error {
+	blks, err := loadTopNBlk(numBlks)
+	if err != nil {
+		return err
 	}
 
-	return txStore, nil
+	for i, blk := range blks {
+		if i == 0 {
+			continue
+		}
+
+		err = db.SubmitBlock(blk)
+		if err != nil {
+			return err
+		}
+		cdb := db.(*ldb.ChainDb)
+		cdb.Batch(1).Set(*blk.Hash())
+		cdb.Batch(1).Done()
+		err = db.Commit(*blk.Hash())
+		if err != nil {
+			return err
+		}
+
+		if i == numBlks-1 {
+			// // used to print tx info
+			// txs := blk.Transactions()
+			// tx1 := txs[1]
+			// for i, txIn := range tx1.MsgTx().TxIn {
+			// 	h := txIn.PreviousOutPoint.Hash
+			// 	fmt.Println(i, h, h[:], txIn.PreviousOutPoint.Index)
+			// 	fmt.Println(txIn.Sequence)
+			// 	fmt.Println(txIn.Witness)
+			// }
+			// fmt.Println(tx1.MsgTx().LockTime, tx1.MsgTx().Payload)
+			// for i, txOut := range tx1.MsgTx().TxOut {
+			// 	fmt.Println(i, txOut.Value, txOut.PkScript)
+			// }
+			break
+		}
+	}
+
+	_, height, err := db.NewestSha()
+	if err != nil {
+		return err
+	}
+	if height != uint64(numBlks-1) {
+		return errors.New("incorrect best height")
+	}
+	return nil
+}
+
+func newTestBlockchain(db database.Db, blkCachePath string) (*Blockchain, error) {
+	chain, err := NewBlockchain(db, blkCachePath, nil)
+	if err != nil {
+		return nil, err
+	}
+	chain.GetTxPool().SetNewTxCh(make(chan *massutil.Tx, 2000)) // prevent deadlock
+	return chain, nil
+}
+
+func init() {
+	f, err := os.Open("./data/mockBlks.dat")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		buf, err := hex.DecodeString(scanner.Text())
+		if err != nil {
+			panic(err)
+		}
+
+		blk, err := massutil.NewBlockFromBytes(buf, wire.Packet)
+		if err != nil {
+			panic(err)
+		}
+		blks200 = append(blks200, blk)
+	}
+}
+
+// the 1st block is genesis
+func loadNthBlk(nth int) (*massutil.Block, error) {
+	if nth <= 0 || nth > len(blks200) {
+		return nil, errors.New("invalid nth")
+	}
+	return blks200[nth-1], nil
+}
+
+// the 1st block is genesis
+func loadTopNBlk(n int) ([]*massutil.Block, error) {
+	if n <= 0 || n > len(blks200) {
+		return nil, errors.New("invalid n")
+	}
+
+	return blks200[:n], nil
+}
+
+func newWitnessScriptAddress(pubkeys []*btcec.PublicKey, nrequired int,
+	addressClass uint16, net *config.Params) ([]byte, massutil.Address, error) {
+
+	var addressPubKeyStructs []*massutil.AddressPubKey
+	for i := 0; i < len(pubkeys); i++ {
+		pubKeySerial := pubkeys[i].SerializeCompressed()
+		addressPubKeyStruct, err := massutil.NewAddressPubKey(pubKeySerial, net)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "create addressPubKey failed",
+				logging.LogFormat{
+					"err":       err,
+					"version":   addressClass,
+					"nrequired": nrequired,
+				})
+			return nil, nil, err
+		}
+		addressPubKeyStructs = append(addressPubKeyStructs, addressPubKeyStruct)
+	}
+
+	redeemScript, err := txscript.MultiSigScript(addressPubKeyStructs, nrequired)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "create redeemScript failed",
+			logging.LogFormat{
+				"err":       err,
+				"version":   addressClass,
+				"nrequired": nrequired,
+			})
+		return nil, nil, err
+	}
+	var witAddress massutil.Address
+	// scriptHash is witnessProgram
+	scriptHash := sha256.Sum256(redeemScript)
+	switch addressClass {
+	case massutil.AddressClassWitnessStaking:
+		witAddress, err = massutil.NewAddressStakingScriptHash(scriptHash[:], net)
+	case massutil.AddressClassWitnessV0:
+		witAddress, err = massutil.NewAddressWitnessScriptHash(scriptHash[:], net)
+	default:
+		return nil, nil, errors.New("invalid version")
+	}
+
+	if err != nil {
+		logging.CPrint(logging.ERROR, "create witness address failed",
+			logging.LogFormat{
+				"err":       err,
+				"version":   addressClass,
+				"nrequired": nrequired,
+			})
+		return nil, nil, err
+	}
+
+	return redeemScript, witAddress, nil
+}
+
+func mkTmpDir(dir string) (func(), error) {
+	_, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(dir, 0700)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
+	return func() {
+		os.RemoveAll(dir)
+	}, nil
+}
+
+var (
+	comTestCoinbaseMaturity     uint64 = 20
+	comTestMinStakingValue             = 100 * consensus.MaxwellPerMass
+	comTestMinFrozenPeriod      uint64 = 4
+	comTestStakingTxRewardStart uint64 = 2
+)
+
+// make sure to be consistent with mocked blocks
+func TestMain(m *testing.M) {
+	consensus.CoinbaseMaturity = comTestCoinbaseMaturity
+	consensus.MinStakingValue = comTestMinStakingValue
+	consensus.MinFrozenPeriod = comTestMinFrozenPeriod
+	consensus.StakingTxRewardStart = comTestStakingTxRewardStart
+
+	fmt.Println("coinbase maturity:", consensus.CoinbaseMaturity)
+	fmt.Println("mininum frozen period:", consensus.MinFrozenPeriod)
+	fmt.Println("mininum staking value:", consensus.MinStakingValue)
+
+	os.Exit(m.Run())
 }

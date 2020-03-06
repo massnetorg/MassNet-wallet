@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -20,8 +19,8 @@ func TestIsPayToWitnessScriptHash(t *testing.T) {
 	}{
 		{
 			"standard p2wsh script",
-			"OP_0 DATA_20 0xfe441065b6532231de2fac56" +
-				"3152205ec4f59caa",
+			"OP_0 DATA_32 0xfe441065b6532231de2fac56" +
+				"3152205ec4f59caa3152205ec4f59caade2fac56",
 			true,
 		},
 		{
@@ -98,6 +97,7 @@ func TestExtractWitnessProgramInfo(t *testing.T) {
 		scripts        string
 		witnessVersion int
 		witnessProgram string
+		witnessExtProg []parsedOpcode
 	}{
 		"standard p2wsh script",
 		"OP_0 DATA_20 0xfe441065b6532231de2fac56" +
@@ -105,15 +105,16 @@ func TestExtractWitnessProgramInfo(t *testing.T) {
 		0,
 		"0xfe441065b6532231de2fac56" +
 			"3152205ec4f59caa",
+		[]parsedOpcode{},
 	}
 	script := mustParseShortForm(tests.scripts)
-	witnessProgram_valid := mustParseShortForm(tests.witnessProgram)
-	witnessVersion, witnessProgram, err := ExtractWitnessProgramInfo(script)
+	validWitnessProgram := mustParseShortForm(tests.witnessProgram)
+	witnessVersion, witnessProgram, _, err := ExtractWitnessProgramInfo(script)
 	if err != nil {
 		t.Errorf("extract witnessProgram error : %v", err)
 	}
-	if !bytes.Equal(witnessProgram_valid, witnessProgram) {
-		t.Errorf("Test ExtractWitnessProgram failed, want %x\n"+"get %x\n", witnessProgram_valid, witnessProgram)
+	if !bytes.Equal(validWitnessProgram, witnessProgram) {
+		t.Errorf("Test ExtractWitnessProgram failed, want %x\n"+"get %x\n", validWitnessProgram, witnessProgram)
 	}
 	if witnessVersion != tests.witnessVersion {
 		t.Errorf("Test ExtractWitnessVersion failed, want %x\n"+"get %x\n", tests.witnessVersion, witnessVersion)

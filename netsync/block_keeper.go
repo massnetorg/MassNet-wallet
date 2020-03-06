@@ -4,29 +4,28 @@ import (
 	"container/list"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	//log "github.com/sirupsen/logrus"
-
-	"github.com/massnetorg/MassNet-wallet/consensus"
-	"github.com/massnetorg/MassNet-wallet/errors"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/consensus"
+	"massnet.org/mass-wallet/errors"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
 
 const (
 	syncCycle            = 5 * time.Second
 	blockProcessChSize   = 1024
 	blocksProcessChSize  = 128
-	headersProcessChSize = 1024
+	headerProcessChSize  = 1024
+	headersProcessChSize = 2048
 )
 
 var (
-	maxBlockPerMsg        = uint64(512)
-	maxBlockHeadersPerMsg = uint64(2048)
-	batchSyncGap          = uint64(128)
-	syncTimeout           = 30 * time.Second
+	maxRegularBlocksPerRound   = uint64(512)
+	maxBatchBlocksPerMsg       = uint64(2048)
+	maxBlockHeadersPerMsg      = uint64(2048)
+	maxBatchSyncBlocksPerRound = maxBlockHeadersPerMsg
+	syncTimeout                = 30 * time.Second
 
 	errAppendHeaders  = errors.New("fail to append list due to order dismatch")
 	errRequestTimeout = errors.New("request timeout")
@@ -44,6 +43,11 @@ type blocksMsg struct {
 	peerID string
 }
 
+type headerMsg struct {
+	header *wire.BlockHeader
+	peerID string
+}
+
 type headersMsg struct {
 	headers []*wire.BlockHeader
 	peerID  string
@@ -56,6 +60,7 @@ type blockKeeper struct {
 	syncPeer         *peer
 	blockProcessCh   chan *blockMsg
 	blocksProcessCh  chan *blocksMsg
+	headerProcessCh  chan *headerMsg
 	headersProcessCh chan *headersMsg
 
 	headerList *list.List
@@ -67,6 +72,7 @@ func newBlockKeeper(chain Chain, peers *peerSet) *blockKeeper {
 		peers:            peers,
 		blockProcessCh:   make(chan *blockMsg, blockProcessChSize),
 		blocksProcessCh:  make(chan *blocksMsg, blocksProcessChSize),
+		headerProcessCh:  make(chan *headerMsg, headerProcessChSize),
 		headersProcessCh: make(chan *headersMsg, headersProcessChSize),
 		headerList:       list.New(),
 	}
@@ -171,16 +177,18 @@ func (bk *blockKeeper) fastBlockSync(checkPoint *config.Checkpoint) error {
 	return nil
 }
 
-func (bk *blockKeeper) batchBlockSync(targetHeight uint64, targetHash *wire.Hash) error {
+func (bk *blockKeeper) batchBlockSync(targetHeight uint64) error {
 	bk.resetBatchHeaderState()
 	lastHeader := bk.headerList.Back().Value.(*wire.BlockHeader)
-
-	if bk.syncPeer.Height() < targetHeight {
-		return errors.Wrap(errPeerMisbehave, "peer is not fully synced")
-	}
-
 	lastHash := lastHeader.BlockHash()
-	headers, err := bk.requireHeaders(bk.blockLocator(), targetHash)
+
+	targetHeader, err := bk.requireHeader(targetHeight)
+	if err != nil {
+		return err
+	}
+	targetHash := targetHeader.BlockHash()
+
+	headers, err := bk.requireHeaders(bk.blockLocator(), &targetHash)
 	if err != nil {
 		return err
 	}
@@ -195,7 +203,7 @@ func (bk *blockKeeper) batchBlockSync(targetHeight uint64, targetHash *wire.Hash
 		if err != nil {
 			return errors.Wrap(errPeerMisbehave, "peer created a misleading header list")
 		}
-		return bk.batchForkedSync(rootHeader, headers, targetHeight, targetHash)
+		return bk.batchForkedSync(rootHeader, headers, targetHeight, &targetHash)
 	}
 
 	if err := bk.appendHeaderList(headers); err != nil {
@@ -206,7 +214,7 @@ func (bk *blockKeeper) batchBlockSync(targetHeight uint64, targetHash *wire.Hash
 	syncHeight := bk.headerList.Back().Value.(*wire.BlockHeader).Height
 	for bk.chain.BestBlockHeight() < syncHeight {
 		locator := bk.blockLocator()
-		blocks, err := bk.requireBlocks(locator, targetHash)
+		blocks, err := bk.requireBlocks(locator, &targetHash)
 		if err != nil {
 			return err
 		}
@@ -302,14 +310,14 @@ func (bk *blockKeeper) batchForkedSync(root *wire.BlockHeader, diverged []*wire.
 }
 
 func (bk *blockKeeper) locateBlocks(locator []*wire.Hash, stopHash *wire.Hash) ([]*massutil.Block, error) {
-	headers, err := bk.locateHeaders(locator, stopHash)
+	headers, err := bk.locateHeaders(locator, stopHash, maxBatchBlocksPerMsg)
 	if err != nil {
 		return nil, err
 	}
 
 	blocks := []*massutil.Block{}
 	for i, header := range headers {
-		if uint64(i) >= maxBlockPerMsg {
+		if uint64(i) >= maxBatchBlocksPerMsg {
 			break
 		}
 
@@ -324,7 +332,7 @@ func (bk *blockKeeper) locateBlocks(locator []*wire.Hash, stopHash *wire.Hash) (
 	return blocks, nil
 }
 
-func (bk *blockKeeper) locateHeaders(locator []*wire.Hash, stopHash *wire.Hash) ([]*wire.BlockHeader, error) {
+func (bk *blockKeeper) locateHeaders(locator []*wire.Hash, stopHash *wire.Hash, maxHeaders uint64) ([]*wire.BlockHeader, error) {
 	stopHeader, err := bk.chain.GetHeaderByHash(stopHash)
 	if err != nil {
 		return nil, err
@@ -344,8 +352,8 @@ func (bk *blockKeeper) locateHeaders(locator []*wire.Hash, stopHash *wire.Hash) 
 	}
 
 	totalHeaders := stopHeader.Height - startHeader.Height
-	if totalHeaders > maxBlockHeadersPerMsg {
-		totalHeaders = maxBlockHeadersPerMsg
+	if totalHeaders > maxHeaders {
+		totalHeaders = maxHeaders
 	}
 
 	headers := []*wire.BlockHeader{}
@@ -383,6 +391,10 @@ func (bk *blockKeeper) processBlock(peerID string, block *massutil.Block) {
 
 func (bk *blockKeeper) processBlocks(peerID string, blocks []*massutil.Block) {
 	bk.blocksProcessCh <- &blocksMsg{blocks: blocks, peerID: peerID}
+}
+
+func (bk *blockKeeper) processHeader(peerID string, header *wire.BlockHeader) {
+	bk.headerProcessCh <- &headerMsg{header: header, peerID: peerID}
 }
 
 func (bk *blockKeeper) processHeaders(peerID string, headers []*wire.BlockHeader) {
@@ -458,6 +470,28 @@ func (bk *blockKeeper) requireBlocks(locator []*wire.Hash, stopHash *wire.Hash) 
 	}
 }
 
+func (bk *blockKeeper) requireHeader(height uint64) (*wire.BlockHeader, error) {
+	if ok := bk.syncPeer.getHeaderByHeight(height); !ok {
+		return nil, errPeerDropped
+	}
+
+	waitTicker := time.NewTimer(syncTimeout)
+	for {
+		select {
+		case msg := <-bk.headerProcessCh:
+			if msg.peerID != bk.syncPeer.ID() {
+				continue
+			}
+			if msg.header.Height != height {
+				continue
+			}
+			return msg.header, nil
+		case <-waitTicker.C:
+			return nil, errors.Wrap(errRequestTimeout, "requireHeader")
+		}
+	}
+}
+
 func (bk *blockKeeper) requireHeaders(locator []*wire.Hash, stopHash *wire.Hash) ([]*wire.BlockHeader, error) {
 	if ok := bk.syncPeer.getHeaders(locator, stopHash); !ok {
 		return nil, errPeerDropped
@@ -498,47 +532,51 @@ func (bk *blockKeeper) resetBatchHeaderState() {
 func (bk *blockKeeper) startSync() bool {
 	checkPoint := bk.nextCheckpoint()
 	peer := bk.peers.bestPeer(consensus.SFFastSync | consensus.SFFullNode)
-	if peer != nil && checkPoint != nil && peer.Height() >= checkPoint.Height {
+	if peer == nil {
+		return false
+	}
+
+	// fastBlockSync
+	if checkPoint != nil && peer.Height() >= checkPoint.Height {
 		bk.syncPeer = peer
 		if err := bk.fastBlockSync(checkPoint); err != nil {
-			logging.CPrint(logging.WARN, "fail on fastBlockSync", logging.LogFormat{"err": err})
+			logging.CPrint(logging.WARN, "fail on fastBlockSync", logging.LogFormat{"err": err, "peer": peer.Addr()})
 			bk.peers.errorHandler(peer.ID(), err)
 			return false
 		}
 		return true
 	}
 
-	blockHeight := bk.chain.BestBlockHeight()
-	if peer != nil && bk.chain.BestBlockHeight()+batchSyncGap <= peer.Height() {
-		bk.syncPeer = peer
-		peer.mtx.Lock()
-		targetHeight := peer.height
-		targetHash := peer.hash
-		peer.mtx.Unlock()
-		if err := bk.batchBlockSync(targetHeight, targetHash); err != nil {
-			logging.CPrint(logging.WARN, "fail on batchBlockSync", logging.LogFormat{"err": err})
+	localHeight := bk.chain.BestBlockHeight()
+	if peer.Height() <= localHeight {
+		return false
+	}
+
+	bk.syncPeer = peer
+	diff := peer.Height() - localHeight
+	// batchBlockSync
+	if diff > maxRegularBlocksPerRound {
+		targetHeight := localHeight + maxBatchSyncBlocksPerRound
+		diff = diff - maxRegularBlocksPerRound
+		if diff < maxBatchSyncBlocksPerRound {
+			targetHeight = localHeight + diff
+		}
+
+		if err := bk.batchBlockSync(targetHeight); err != nil {
+			logging.CPrint(logging.WARN, "fail on batchBlockSync", logging.LogFormat{"err": err, "peer": peer.Addr()})
 			bk.peers.errorHandler(peer.ID(), err)
 			return false
 		}
 		return true
 	}
 
-	peer = bk.peers.bestPeer(consensus.SFFullNode)
-	if peer != nil && peer.Height() > blockHeight {
-		bk.syncPeer = peer
-		targetHeight := blockHeight + maxBlockPerMsg
-		if targetHeight > peer.Height() {
-			targetHeight = peer.Height()
-		}
-
-		if err := bk.regularBlockSync(targetHeight); err != nil {
-			logging.CPrint(logging.WARN, "fail on regularBlockSync", logging.LogFormat{"err": err})
-			bk.peers.errorHandler(peer.ID(), err)
-			return false
-		}
-		return true
+	// regularBlockSync
+	if err := bk.regularBlockSync(peer.Height()); err != nil {
+		logging.CPrint(logging.WARN, "fail on regularBlockSync", logging.LogFormat{"err": err, "peer": peer.Addr()})
+		bk.peers.errorHandler(peer.ID(), err)
+		return false
 	}
-	return false
+	return true
 }
 
 func (bk *blockKeeper) syncWorker() {
@@ -557,14 +595,17 @@ func (bk *blockKeeper) syncWorker() {
 		block, err := bk.chain.GetBlockByHeight(bk.chain.BestBlockHeight())
 		if err != nil {
 			logging.CPrint(logging.ERROR, "fail on syncWorker get best block", logging.LogFormat{"err": err})
+			continue
 		}
 
 		if err := bk.peers.broadcastMinedBlock(block); err != nil {
 			logging.CPrint(logging.ERROR, "fail on syncWorker broadcast new block", logging.LogFormat{"err": err})
+			continue
 		}
 
 		if err = bk.peers.broadcastNewStatus(block, genesisBlock); err != nil {
 			logging.CPrint(logging.ERROR, "fail on syncWorker broadcast new status", logging.LogFormat{"err": err})
+			continue
 		}
 	}
 }

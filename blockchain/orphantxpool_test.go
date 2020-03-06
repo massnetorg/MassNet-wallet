@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"github.com/stretchr/testify/assert"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
 
 func TestAddOrphan(t *testing.T) {
 	pool := newOrphanTxPool()
+	pool.maxOrphanTransactions = 2
 	tests := []struct {
 		tx wire.MsgTx
 	}{
@@ -42,12 +43,14 @@ func TestAddOrphan(t *testing.T) {
 			},
 		},
 	}
-	config.MaxOrphanTxs = 2
-	for _, test := range tests {
+
+	for i, test := range tests {
 		pool.addOrphan(massutil.NewTx(&test.tx))
-	}
-	if len(pool.orphans) == 2 {
-		t.Log("success to check limitNumOrphans")
+		if i+1 >= pool.maxOrphanTransactions {
+			assert.Equal(t, pool.maxOrphanTransactions, pool.pool.Count())
+		} else {
+			assert.Equal(t, i+1, pool.pool.Count())
+		}
 	}
 }
 
@@ -67,13 +70,7 @@ func TestMaybeAddOrphan(t *testing.T) {
 
 	tx := massutil.NewTx(&msgtx)
 	err := pool.maybeAddOrphan(tx)
-	if err != nil {
-		if err.Error() == "orphan transaction size of 5017 bytes is larger than max allowed size of 5000 bytes" {
-			t.Log("success to reject a tx size > maxOrphanTxSize")
-		} else {
-			t.Error(err)
-		}
-	}
+	assert.Equal(t, ErrTxTooBig, err)
 
 	pool.removeOrphan(tx.Hash())
 }
@@ -91,15 +88,25 @@ func TestIsOrphanInPool(t *testing.T) {
 		Payload:  []byte{},
 	}
 
+	msgtx2 := wire.MsgTx{
+		Version: 1,
+		TxIn:    []*wire.TxIn{},
+		TxOut: []*wire.TxOut{{
+			Value:    0,
+			PkScript: bytes.Repeat([]byte{0x00}, 10),
+		}},
+		LockTime: 0,
+		Payload:  []byte("not added to orphan pool"),
+	}
+
 	tx := massutil.NewTx(&msgtx)
 	err := pool.maybeAddOrphan(tx)
 	if err != nil {
-		t.Error(err)
-	} else {
-		if result := pool.isOrphanInPool(tx.Hash()); result {
-			t.Log("success to find the tx in orphan pool")
-		} else {
-			t.Fail()
-		}
+		t.Fatal(err)
 	}
+	exists := pool.isOrphanInPool(tx.Hash())
+	assert.True(t, exists)
+
+	exists = pool.isOrphanInPool(massutil.NewTx(&msgtx2).Hash())
+	assert.False(t, exists)
 }

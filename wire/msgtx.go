@@ -1,20 +1,15 @@
-// Modified for MassNet
-// Copyright (c) 2013-2015 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package wire
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"math"
 	"strconv"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
-
 	"github.com/golang/protobuf/proto"
+	"massnet.org/mass-wallet/consensus"
+	wirepb "massnet.org/mass-wallet/wire/pb"
 )
 
 const (
@@ -23,41 +18,48 @@ const (
 
 	// MaxTxInSequenceNum is the maximum sequence number the sequence field
 	// of a transaction input can be.
-	MaxTxInSequenceNum uint32 = 0xffffffff
+	MaxTxInSequenceNum uint64 = math.MaxUint64
 
 	// MaxPrevOutIndex is the maximum index the index field of a previous
 	// outpoint can be.
-	MaxPrevOutIndex uint32 = 0xffffffff
+	MaxPrevOutIndex uint32 = math.MaxUint32
 
 	// SequenceLockTimeDisabled is a flag that if set on a transaction
 	// input's sequence number, the sequence number will not be interpreted
 	// as a relative locktime.
-	SequenceLockTimeDisabled = 1 << 31
+	SequenceLockTimeDisabled uint64 = 1 << 63
 
 	// SequenceLockTimeIsSeconds is a flag thabt if set on a transaction
-	// input's sequence number, the relative locktime has units of 512
-	// seconds.
-	SequenceLockTimeIsSeconds = 1 << 22
+	// input's sequence number, the relative locktime has units of 32
+	// seconds(close to block interval).
+	SequenceLockTimeIsSeconds uint64 = 1 << 38
 
 	// SequenceLockTimeMask is a mask that extracts the relative locktime
 	// when masked against the transaction input sequence number.
-	SequenceLockTimeMask = 0x0000ffff
+	SequenceLockTimeMask uint64 = 0x00000000ffffffff
 
 	// SequenceLockTimeGranularity is the defined time based granularity
 	// for seconds-based relative time locks. When converting from seconds
 	// to a sequence number, the value is right shifted by this amount,
-	// therefore the granularity of relative time locks in 512 or 2^9
-	// seconds. Enforced relative lock times are multiples of 512 seconds.
-	SequenceLockTimeGranularity = 9
-
-	//Min Locked Heigt in a LocktimeScriptHash output
-	MinLockHeight = 40
+	// therefore the granularity of relative time locks in 32 or 2^5
+	// seconds. Enforced relative lock times are multiples of 32 seconds.
+	SequenceLockTimeGranularity = 5
 )
 
+// defaultTxInOutAlloc is the default size used for the backing array for
+// transaction inputs and outputs.  The array will dynamically grow as needed,
+// but this figure is intended to provide enough space for the number of
+// inputs and outputs in a typical transaction without needing to grow the
+// backing array multiple times.
 const defaultTxInOutAlloc = 15
 
 const (
-	minTxPayload = 10
+	// minTxPayload is the minimum payload size for a transaction.  Note
+	// that any realistically usable transaction must have at least one
+	// input or output, but that is a rule enforced at a higher layer, so
+	// it is intentionally not included here.
+	// Version 4 bytes + LockTime 8 bytes + min input payload + min output payload.
+	minTxPayload = 12
 )
 
 // zeroHash is the zero value for a wire.Hash and is defined as
@@ -65,11 +67,18 @@ const (
 // every time a check is needed.
 var zeroHash = &Hash{}
 
+// OutPoint defines a mass data type that is used to track previous
+// transaction outputs.
+
+// OutPoint defines a mass data type that is used to track previous
+// transaction outputs.
 type OutPoint struct {
 	Hash  Hash
 	Index uint32
 }
 
+// NewOutPoint returns a new mass transaction outpoint point with the
+// provided hash and index.
 func NewOutPoint(hash *Hash, index uint32) *OutPoint {
 	return &OutPoint{
 		Hash:  *hash,
@@ -79,6 +88,12 @@ func NewOutPoint(hash *Hash, index uint32) *OutPoint {
 
 // String returns the OutPoint in the human-readable form "hash:index".
 func (o OutPoint) String() string {
+	// Allocate enough for hash string, colon, and 10 digits.  Although
+	// at the time of writing, the number of digits can be no greater than
+	// the length of the decimal representation of maxTxOutPerMessage, the
+	// maximum message payload may increase in the future and this
+	// optimization may go unnoticed, so allocate space for 10 decimal
+	// digits, which will fit any uint32.
 	buf := make([]byte, 2*HashSize+1, 2*HashSize+1+10)
 	copy(buf, o.Hash.String())
 	buf[2*HashSize] = ':'
@@ -86,22 +101,26 @@ func (o OutPoint) String() string {
 	return string(buf)
 }
 
+// TxIn defines a mass transaction input.
 type TxIn struct {
 	PreviousOutPoint OutPoint
 	Witness          TxWitness
-	Sequence         uint32
+	Sequence         uint64
 }
 
-// SerializeSize returns the number of bytes it would take to serialize the
+// PlainSize returns the number of bytes it would take to serialize the
 // the transaction input.
-func (t *TxIn) SerializeSize() int {
+func (t *TxIn) PlainSize() int {
 	var n = 0
-	n += 4 + 32                    // OutPoint
-	n += t.Witness.SerializeSize() // Witness
-	n += 4                         // Sequence
+	n += 4 + 32                // OutPoint
+	n += t.Witness.PlainSize() // Witness
+	n += 8                     // Sequence
 	return n
 }
 
+// NewTxIn returns a new mass transaction input with the provided
+// previous outpoint point and signature script with a default sequence of
+// MaxTxInSequenceNum.
 func NewTxIn(prevOut *OutPoint, witness [][]byte) *TxIn {
 	return &TxIn{
 		PreviousOutPoint: *prevOut,
@@ -114,14 +133,11 @@ func NewTxIn(prevOut *OutPoint, witness [][]byte) *TxIn {
 // a slice of byte slices, or a stack with one or many elements.
 type TxWitness [][]byte
 
-// SerializeSize returns the number of bytes it would take to serialize the the
+// PlainSize returns the number of bytes it would take to serialize the the
 // transaction input's witness.
-func (t TxWitness) SerializeSize() int {
+func (t TxWitness) PlainSize() int {
 	var n = 0
 
-	// For each element in the witness, we'll need a varint to signal the
-	// size of the element, then finally the number of bytes the element
-	// itself comprises.
 	for _, witItem := range t {
 		n += len(witItem)
 	}
@@ -129,19 +145,22 @@ func (t TxWitness) SerializeSize() int {
 	return n
 }
 
+// TxOut defines a mass transaction output.
 type TxOut struct {
 	Value    int64
 	PkScript []byte
 }
 
-// SerializeSize returns the number of bytes it would take to serialize the
+// PlainSize returns the number of bytes it would take to serialize the
 // the transaction output.
-func (t *TxOut) SerializeSize() int {
+func (t *TxOut) PlainSize() int {
 	// Value 8 bytes + serialized varint size for the length of PkScript +
 	// PkScript bytes.
 	return 8 + len(t.PkScript)
 }
 
+// NewTxOut returns a new mass transaction output with the provided
+// transaction value and public key script.
 func NewTxOut(value int64, pkScript []byte) *TxOut {
 	return &TxOut{
 		Value:    value,
@@ -149,13 +168,17 @@ func NewTxOut(value int64, pkScript []byte) *TxOut {
 	}
 }
 
+// MsgTx implements the Message interface and represents a mass tx message.
+// It is used to deliver transaction information in response to a getdata
+// message (MsgGetData) for a given transaction.
+//
 // Use the AddTxIn and AddTxOut functions to build up the list of transaction
 // inputs and outputs.
 type MsgTx struct {
-	Version  int32
+	Version  uint32
 	TxIn     []*TxIn
 	TxOut    []*TxOut
-	LockTime uint32
+	LockTime uint64
 	Payload  []byte
 }
 
@@ -169,8 +192,17 @@ func (msg *MsgTx) AddTxOut(to *TxOut) {
 	msg.TxOut = append(msg.TxOut, to)
 }
 
-func (msg *MsgTx) AddPayload(payload []byte) {
-	msg.Payload = payload
+func (msg *MsgTx) RemoveTxOut(index int) {
+	msg.TxOut = append(msg.TxOut[:index], msg.TxOut[index+1:]...)
+}
+
+func (msg *MsgTx) RemoveAllTxOut() {
+	msg.TxOut = make([]*TxOut, 0, defaultTxInOutAlloc)
+}
+
+func (msg *MsgTx) SetPayload(payload []byte) {
+	msg.Payload = make([]byte, len(payload))
+	copy(msg.Payload, payload)
 }
 
 // IsCoinBaseTx determines whether or not a transaction is a coinbase.  A coinbase
@@ -182,6 +214,13 @@ func (msg *MsgTx) AddPayload(payload []byte) {
 // This function only differs from IsCoinBase in that it works with a raw wire
 // transaction as opposed to a higher level util transaction.
 func (msg *MsgTx) IsCoinBaseTx() bool {
+	// A coin base must only have at least one transaction input.
+	if len(msg.TxIn) == 0 {
+		return false
+	}
+
+	// The previous output of a coin base must have a max value index and
+	// a zero hash.
 	prevOut := &msg.TxIn[0].PreviousOutPoint
 	if prevOut.Index != math.MaxUint32 || !prevOut.Hash.IsEqual(zeroHash) {
 		return false
@@ -192,176 +231,86 @@ func (msg *MsgTx) IsCoinBaseTx() bool {
 
 // TxHash generates the Hash for the transaction.
 func (msg *MsgTx) TxHash() Hash {
-	var buf bytes.Buffer
-	err := msg.Serialize(&buf, ID)
+	buf, err := msg.Bytes(ID)
 	if err != nil {
 		return Hash{}
 	}
-	return DoubleHashH(buf.Bytes())
+	return DoubleHashH(buf)
 }
 
+// WitnessHash generates the hash of the transaction serialized according to
+// the new witness serialization defined in BIP0141 and BIP0144. The final
+// output is used within the Segregated Witness commitment of all the witnesses
+// within a block. If a transaction has no witness data, then the witness hash,
+// is the same as its txid.
 func (msg *MsgTx) WitnessHash() Hash {
 	var buf bytes.Buffer
-	err := msg.Serialize(&buf, WitnessID)
+	_, err := msg.Encode(&buf, WitnessID)
 	if err != nil {
 		return Hash{}
 	}
 	return DoubleHashH(buf.Bytes())
 }
 
-// Copy creates a deep copy of a transaction so that the original does not get
-// modified when the copy is manipulated.
-func (msg *MsgTx) Copy() *MsgTx {
-	// Create new tx and start by copying primitive values and making space
-	// for the transaction inputs and outputs.
-	newTx := MsgTx{
-		Version:  msg.Version,
-		TxIn:     make([]*TxIn, 0, len(msg.TxIn)),
-		TxOut:    make([]*TxOut, 0, len(msg.TxOut)),
-		LockTime: msg.LockTime,
-		Payload:  make([]byte, 0, defaultTxInOutAlloc),
-	}
-
-	// Deep copy the old TxIn data.
-	for _, oldTxIn := range msg.TxIn {
-		// Deep copy the old previous outpoint.
-		oldOutPoint := oldTxIn.PreviousOutPoint
-		newOutPoint := OutPoint{}
-		newOutPoint.Hash.SetBytes(oldOutPoint.Hash[:])
-		newOutPoint.Index = oldOutPoint.Index
-
-		// Create new txIn with the deep copied data and append it to
-		// new Tx.
-		newTxIn := TxIn{
-			PreviousOutPoint: newOutPoint,
-			Sequence:         oldTxIn.Sequence,
-		}
-		newTx.TxIn = append(newTx.TxIn, &newTxIn)
-		// If the transaction is witnessy, then also copy the
-		// witnesses.
-		if len(oldTxIn.Witness) != 0 {
-			// Deep copy the old witness data.
-			newTxIn.Witness = make([][]byte, len(oldTxIn.Witness))
-			for i, oldItem := range oldTxIn.Witness {
-				newItem := make([]byte, len(oldItem))
-				copy(newItem, oldItem)
-				newTxIn.Witness[i] = newItem
-			}
-		}
-		// Finally, append this fully copied txin.
-		newTx.TxIn = append(newTx.TxIn, &newTxIn)
-	}
-
-	// Deep copy the old TxOut data.
-	for _, oldTxOut := range msg.TxOut {
-		// Deep copy the old PkScript
-		var newScript []byte
-		oldScript := oldTxOut.PkScript
-		oldScriptLen := len(oldScript)
-		if oldScriptLen > 0 {
-			newScript = make([]byte, oldScriptLen, oldScriptLen)
-			copy(newScript, oldScript[:oldScriptLen])
-		}
-
-		// Create new txOut with the deep copied data and append it to
-		// new Tx.
-		newTxOut := TxOut{
-			Value:    oldTxOut.Value,
-			PkScript: newScript,
-		}
-		newTx.TxOut = append(newTx.TxOut, &newTxOut)
-	}
-
-	return &newTx
-}
-
-func (msg *MsgTx) MassDecode(r io.Reader, mode CodecMode) error {
+func (msg *MsgTx) Decode(r io.Reader, mode CodecMode) (n int, err error) {
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	n64, err := buf.ReadFrom(r)
+	n = int(n64)
+	if err != nil {
+		return n, err
+	}
 
 	switch mode {
-	case DB:
+	case DB, Packet:
 		pb := new(wirepb.Tx)
-		err := proto.Unmarshal(buf.Bytes(), pb)
-		if err != nil {
-			return err
+		if err = proto.Unmarshal(buf.Bytes(), pb); err != nil {
+			return n, err
 		}
-		msg.FromProto(pb)
-		return nil
-
-	case Packet:
-		pb := new(wirepb.Tx)
-		err := proto.Unmarshal(buf.Bytes(), pb)
-		if err != nil {
-			return err
+		if err = msg.FromProto(pb); err != nil {
+			return n, err
 		}
-		msg.FromProto(pb)
-		return nil
+		return n, nil
 
 	default:
-		logging.CPrint(logging.FATAL, "MsgTx.MassDecode: invalid CodecMode", logging.LogFormat{"mode": mode})
-		panic(nil) // unreachable
+		return n, ErrInvalidCodecMode
 	}
 
 }
 
-// Deserialize decodes a transaction from r.
-func (msg *MsgTx) Deserialize(r io.Reader, mode CodecMode) error {
-	return msg.MassDecode(r, mode)
-}
-
-func (msg *MsgTx) MassEncode(w io.Writer, mode CodecMode) error {
+func (msg *MsgTx) Encode(w io.Writer, mode CodecMode) (n int, err error) {
 	pb := msg.ToProto()
 
-	var writeAll = func() error {
-		_, err := w.Write(pb.Bytes())
-		return err
-	}
-
 	switch mode {
-	case DB:
+	case DB, Packet:
 		content, err := proto.Marshal(pb)
 		if err != nil {
-			return err
+			return n, err
 		}
-		_, err = w.Write(content)
-		return err
+		return w.Write(content)
 
-	case Packet:
-		content, err := proto.Marshal(pb)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(content)
-		return err
-
-	case Plain:
+	case Plain, WitnessID:
 		// Write all elements of a transaction
-		return writeAll()
+		return pb.Write(w)
 
 	case ID:
-		_, err := w.Write(pb.BytesNoWitness())
-		return err
-
-	case WitnessID:
-		// Write all elements of a transaction
-		return writeAll()
+		return pb.WriteNoWitness(w)
 
 	default:
-		logging.CPrint(logging.FATAL, "MsgTx.MassEncode: invalid CodecMode", logging.LogFormat{"mode": mode})
-		panic(nil) // unreachable
+		return n, ErrInvalidCodecMode
 	}
 
 }
 
-// Serialize encodes the transaction to w.
-func (msg *MsgTx) Serialize(w io.Writer, mode CodecMode) error {
-	return msg.MassEncode(w, mode)
+func (msg *MsgTx) Bytes(mode CodecMode) ([]byte, error) {
+	return getBytes(msg, mode)
 }
 
-// SerializeSize returns the number of bytes it would take to serialize the
-// the transaction.
-func (msg *MsgTx) SerializeSize() int {
+func (msg *MsgTx) SetBytes(bs []byte, mode CodecMode) error {
+	return setFromBytes(msg, bs, mode)
+}
+
+// PlainSize returns the number of bytes the transaction contains.
+func (msg *MsgTx) PlainSize() int {
 	var n = 0
 
 	// Version
@@ -369,16 +318,16 @@ func (msg *MsgTx) SerializeSize() int {
 
 	// TxIns
 	for _, ti := range msg.TxIn {
-		n += ti.SerializeSize()
+		n += ti.PlainSize()
 	}
 
 	// TxOuts
 	for _, to := range msg.TxOut {
-		n += to.SerializeSize()
+		n += to.PlainSize()
 	}
 
 	// LockTime
-	n += 4
+	n += 8
 
 	//Payload
 	n += len(msg.Payload)
@@ -386,41 +335,36 @@ func (msg *MsgTx) SerializeSize() int {
 	return n
 }
 
-// Command returns the protocol command string for the message.  This is part
-// of the Message interface implementation.
-func (msg *MsgTx) Command() string {
-	return CmdTx
-}
-
-// MaxPayloadLength returns the maximum length the payload can be for the
-// receiver.  This is part of the Message interface implementation.
-func (msg *MsgTx) MaxPayloadLength(pver uint32) uint32 {
-	return MaxBlockPayload
-}
-
+// NewMsgTx returns a new mass tx message that conforms to the Message
+// interface.  The return instance has a default version of TxVersion and there
+// are no transaction inputs or outputs.  Also, the lock time is set to zero
+// to indicate the transaction is valid immediately as opposed to some time in
+// future.
 func NewMsgTx() *MsgTx {
 	return &MsgTx{
 		Version: TxVersion,
 		TxIn:    make([]*TxIn, 0, defaultTxInOutAlloc),
 		TxOut:   make([]*TxOut, 0, defaultTxInOutAlloc),
-		Payload: make([]byte, 0, defaultTxInOutAlloc),
+		Payload: make([]byte, 0, 8),
 	}
 }
 
-func WriteTxOut(w io.Writer, pver uint32, version int32, to *TxOut) error {
-	err := binarySerializer.PutUint64(w, littleEndian, uint64(to.Value))
+// WriteTxOut encodes to into the mass protocol encoding for a transaction
+// output (TxOut) to w.
+func WriteTxOut(w io.Writer, to *TxOut) error {
+	_, err := WriteUint64(w, uint64(to.Value))
 	if err != nil {
 		return err
 	}
 
-	return WriteVarBytes(w, pver, to.PkScript)
+	return WriteVarBytes(w, to.PkScript)
 }
 
 // ToProto get proto Tx from wire Tx
 func (msg *MsgTx) ToProto() *wirepb.Tx {
-	txIns := make([]*wirepb.TxIn, len(msg.TxIn), len(msg.TxIn))
+	txIns := make([]*wirepb.TxIn, len(msg.TxIn))
 	for i, ti := range msg.TxIn {
-		witness := make([][]byte, len(ti.Witness), len(ti.Witness))
+		witness := make([][]byte, len(ti.Witness))
 		for j, data := range ti.Witness {
 			witness[j] = data
 		}
@@ -435,7 +379,7 @@ func (msg *MsgTx) ToProto() *wirepb.Tx {
 		txIns[i] = txIn
 	}
 
-	txOuts := make([]*wirepb.TxOut, len(msg.TxOut), len(msg.TxOut))
+	txOuts := make([]*wirepb.TxOut, len(msg.TxOut))
 	for i, to := range msg.TxOut {
 		txOut := &wirepb.TxOut{
 			Value:    to.Value,
@@ -454,16 +398,29 @@ func (msg *MsgTx) ToProto() *wirepb.Tx {
 }
 
 // FromProto load proto TX into wire Tx
-func (msg *MsgTx) FromProto(pb *wirepb.Tx) {
-	txIns := make([]*TxIn, len(pb.TxIn), len(pb.TxIn))
+func (msg *MsgTx) FromProto(pb *wirepb.Tx) error {
+	if pb == nil {
+		return errors.New("nil proto tx")
+	}
+	txIns := make([]*TxIn, len(pb.TxIn))
 	for i, ti := range pb.TxIn {
-		witness := make([][]byte, len(ti.Witness), len(ti.Witness))
+		if ti == nil {
+			return errors.New("nil proto tx_in")
+		}
+		if ti.PreviousOutPoint == nil {
+			return errors.New("nil proto out_point")
+		}
+		witness := make([][]byte, len(ti.Witness))
 		for j, data := range ti.Witness {
-			witness[j] = data
+			witness[j] = MoveBytes(data)
+		}
+		opHash := new(Hash)
+		if err := opHash.FromProto(ti.PreviousOutPoint.Hash); err != nil {
+			return err
 		}
 		txIn := &TxIn{
 			PreviousOutPoint: OutPoint{
-				Hash:  *NewHashFromProto(ti.PreviousOutPoint.Hash),
+				Hash:  *opHash,
 				Index: ti.PreviousOutPoint.Index,
 			},
 			Witness:  witness,
@@ -472,11 +429,14 @@ func (msg *MsgTx) FromProto(pb *wirepb.Tx) {
 		txIns[i] = txIn
 	}
 
-	txOuts := make([]*TxOut, len(pb.TxOut), len(pb.TxOut))
+	txOuts := make([]*TxOut, len(pb.TxOut))
 	for i, to := range pb.TxOut {
+		if to == nil {
+			return errors.New("nil proto tx_out")
+		}
 		txOut := &TxOut{
 			Value:    to.Value,
-			PkScript: to.PkScript,
+			PkScript: MoveBytes(to.PkScript),
 		}
 		txOuts[i] = txOut
 	}
@@ -485,12 +445,23 @@ func (msg *MsgTx) FromProto(pb *wirepb.Tx) {
 	msg.TxIn = txIns
 	msg.TxOut = txOuts
 	msg.LockTime = pb.LockTime
-	msg.Payload = pb.Payload
+	msg.Payload = MoveBytes(pb.Payload)
+	return nil
 }
 
 // NewTxFromProto get wire Tx from proto Tx
-func NewTxFromProto(pb *wirepb.Tx) *MsgTx {
+func NewTxFromProto(pb *wirepb.Tx) (*MsgTx, error) {
 	msg := new(MsgTx)
-	msg.FromProto(pb)
-	return msg
+	if err := msg.FromProto(pb); err != nil {
+		return nil, err
+	}
+	return msg, nil
+}
+
+func IsValidFrozenPeriod(height uint64) bool {
+	return height >= consensus.MinFrozenPeriod && height <= SequenceLockTimeMask-1
+}
+
+func IsValidStakingValue(value int64) bool {
+	return value >= int64(consensus.MinStakingValue)
 }

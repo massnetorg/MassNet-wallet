@@ -10,8 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-	//log "github.com/sirupsen/logrus"
+	"massnet.org/mass-wallet/logging"
 )
 
 const (
@@ -39,10 +38,10 @@ func checkClockDrift() {
 		howtofix := fmt.Sprintf("Please enable network time synchronisation in system settings")
 		separator := strings.Repeat("-", len(warning))
 
-		logging.CPrint(logging.WARN, separator, logging.LogFormat{})
-		logging.CPrint(logging.WARN, warning, logging.LogFormat{})
-		logging.CPrint(logging.WARN, howtofix, logging.LogFormat{})
-		logging.CPrint(logging.WARN, separator, logging.LogFormat{})
+		logging.CPrint(logging.WARN, separator)
+		logging.CPrint(logging.WARN, warning)
+		logging.CPrint(logging.WARN, howtofix)
+		logging.CPrint(logging.WARN, separator)
 	} else {
 		logging.CPrint(logging.DEBUG, "sanity NTP check reported drift, all ok", logging.LogFormat{"drift": drift})
 	}

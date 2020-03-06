@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -7,11 +6,14 @@ package txscript
 
 import (
 	"encoding/hex"
+	"fmt"
 	"reflect"
 	"testing"
 
-	"github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/stretchr/testify/assert"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/consensus"
+	"massnet.org/mass-wallet/massutil"
 )
 
 // decodeHex decodes the passed hex string and returns the resulting bytes.  It
@@ -66,8 +68,10 @@ func TestCalcScriptInfo(t *testing.T) {
 				"5060708090a0b0c0d0e0f101112131415161718191a1" +
 				"b1c1d1e1f2021 3 CHECKMULTISIG",
 
-			pkScript: "OP_0 DATA_20 0xfe441065b6532231de2fac56" +
-				"3152205ec4f59caa",
+			// pkScript: "OP_0 DATA_20 0xfe441065b6532231de2fac56" +
+			// 	"3152205ec4f59caa",
+			pkScript: "OP_0 DATA_32 0x010203040506070801020304050607080" +
+				"1020304050607080102030405060708",
 			scriptInfo: ScriptInfo{
 				PkScriptClass:  WitnessV0ScriptHashTy,
 				NumInputs:      2,
@@ -165,11 +169,11 @@ func TestExtractPkScriptAddrs(t *testing.T) {
 
 		{
 			name: "standard p2wsh",
-			script: mustParseShortForm("OP_0 DATA_20 0xfe441065b6532231de2fac56" +
-				"3152205ec4f59caa"),
+			script: mustParseShortForm("OP_0 DATA_32 0x010203040506070801020304050607080" +
+				"1020304050607080102030405060708"),
 			addrs: []massutil.Address{
-				newAddressWitnessScriptHash(decodeHex("fe441065b6532231de2fac56" +
-					"3152205ec4f59caa")),
+				newAddressWitnessScriptHash(decodeHex("010203040506070801020304050607080" +
+					"1020304050607080102030405060708")),
 			},
 			reqSigs: 1,
 			class:   WitnessV0ScriptHashTy,
@@ -269,31 +273,33 @@ func TestExtractPkScriptAddrs(t *testing.T) {
 
 	t.Logf("Running %d tests.", len(tests))
 	for i, test := range tests {
-		class, addrs, _, reqSigs, err := ExtractPkScriptAddrs(
-			test.script, &config.ChainParams)
-		if err != nil {
-		}
+		t.Run(test.name, func(t *testing.T) {
+			class, addrs, _, reqSigs, err := ExtractPkScriptAddrs(
+				test.script, &config.ChainParams)
+			if err != nil {
+			}
 
-		if !reflect.DeepEqual(addrs, test.addrs) {
-			t.Errorf("ExtractPkScriptAddrs #%d (%s) unexpected "+
-				"addresses\ngot  %v\nwant %v", i, test.name,
-				addrs, test.addrs)
-			continue
-		}
+			if !reflect.DeepEqual(addrs, test.addrs) {
+				t.Errorf("ExtractPkScriptAddrs #%d (%s) unexpected "+
+					"addresses\ngot  %v\nwant %v", i, test.name,
+					addrs, test.addrs)
+				return
+			}
 
-		if reqSigs != test.reqSigs {
-			t.Errorf("ExtractPkScriptAddrs #%d (%s) unexpected "+
-				"number of required signatures - got %d, "+
-				"want %d", i, test.name, reqSigs, test.reqSigs)
-			continue
-		}
+			if reqSigs != test.reqSigs {
+				t.Errorf("ExtractPkScriptAddrs #%d (%s) unexpected "+
+					"number of required signatures - got %d, "+
+					"want %d", i, test.name, reqSigs, test.reqSigs)
+				return
+			}
 
-		if class != test.class {
-			t.Errorf("ExtractPkScriptAddrs #%d (%s) unexpected "+
-				"script type - got %s, want %s", i, test.name,
-				class, test.class)
-			continue
-		}
+			if class != test.class {
+				t.Errorf("ExtractPkScriptAddrs #%d (%s) unexpected "+
+					"script type - got %s, want %s", i, test.name,
+					class, test.class)
+				return
+			}
+		})
 	}
 }
 
@@ -324,9 +330,22 @@ func TestScriptClass(t *testing.T) {
 		//tx e5779b9e78f9650debc2893fd9636d827b26b4ddfa6a8172fe8708c924f5c39d
 		{
 			name: "P2WSH",
-			script: "OP_0 DATA_20 0x433ec2ac1ffa1b7b7d027f564529c57197f" +
-				"9ae88",
+			script: "OP_0 DATA_32 0x010203040506070801020304050607080" +
+				"1020304050607080102030405060708",
 			class: WitnessV0ScriptHashTy,
+		},
+		{
+			name: "P2WSH-staking",
+			script: "OP_0 DATA_32 0x010203040506070801020304050607080" +
+				"1020304050607080102030405060708 DATA_8 0x3412080934526719",
+			class: StakingScriptHashTy,
+		},
+		{
+			name: "P2WSH-binding",
+			script: "OP_0 DATA_32 0x010203040506070801020304050607080" +
+				"1020304050607080102030405060708 DATA_20 " +
+				"0x433ec2ac1ffa1b7b7d027f564529c57197f9ae88",
+			class: BindingScriptHashTy,
 		},
 		{
 			// Nulldata with no data at all.
@@ -374,13 +393,15 @@ func TestScriptClass(t *testing.T) {
 		},
 	}
 	for _, test := range scriptClassTests {
-		script := mustParseShortForm(test.script)
-		class := GetScriptClass(script)
-		if class != test.class {
-			t.Errorf("%s: expected %s got %s", test.name,
-				test.class, class)
-			return
-		}
+		t.Run(test.name, func(t *testing.T) {
+			script := mustParseShortForm(test.script)
+			class := GetScriptClass(script)
+			if class != test.class {
+				t.Errorf("%s: expected %s got %s", test.name,
+					test.class, class)
+				return
+			}
+		})
 	}
 }
 
@@ -403,6 +424,16 @@ func TestStringifyClass(t *testing.T) {
 			name:     "witness_v0_scripthashty",
 			class:    WitnessV0ScriptHashTy,
 			stringed: "witness_v0_scripthash",
+		},
+		{
+			name:     "staking_scripthashty",
+			class:    StakingScriptHashTy,
+			stringed: "staking_scripthash",
+		},
+		{
+			name:     "binding_scripthashty",
+			class:    BindingScriptHashTy,
+			stringed: "binding_scripthash",
 		},
 		{
 			name:     "multisigty",
@@ -451,4 +482,76 @@ func newAddressWitnessScriptHash(scriptHash []byte) massutil.Address {
 	}
 
 	return addr
+}
+
+func TestPayToStakingAddrScript(t *testing.T) {
+	encodedAddr := "ms1qpqypqxpq9qcrssqgzqvzq2ps8pqqsyqcyq5rqwzqpqgpsgpgxquyqjyww3n"
+	addr, err := massutil.DecodeAddress(encodedAddr,
+		&config.ChainParams)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !massutil.IsWitnessStakingAddress(addr) {
+		t.Error("not a staking address")
+		t.FailNow()
+	}
+
+	pkScript, err := PayToStakingAddrScript(addr, consensus.MinFrozenPeriod)
+	assert.Nil(t, err)
+	t.Log(len(pkScript))
+	class, pops := GetScriptInfo(pkScript)
+	t.Log("class: ", class, len(pops))
+
+	for i, val := range pops {
+		t.Log(i, val)
+		data, _ := val.bytes()
+		t.Log(val.opcode, data, len(data))
+	}
+}
+
+func ExampleWitnessScript() {
+	var address massutil.Address
+	var err error
+
+	redeemScriptHash := []byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}
+	pocPubKeyHash := []byte{7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2}
+
+	// witness v0
+	address, err = massutil.NewAddressWitnessScriptHash(redeemScriptHash, &config.ChainParams)
+	if err != nil {
+		panic(err)
+	}
+	pkScript, err := PayToWitnessScriptHashScript(redeemScriptHash)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("witV0", address.EncodeAddress(), len(pkScript))
+
+	// witness staking
+	address, err = massutil.NewAddressStakingScriptHash(redeemScriptHash, &config.ChainParams)
+	if err != nil {
+		panic(err)
+	}
+	pkScript, err = PayToStakingAddrScript(address, consensus.MinFrozenPeriod)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("staking", address.EncodeAddress(), len(pkScript))
+
+	// witness binding
+	address, err = massutil.NewAddressPubKeyHash(pocPubKeyHash, &config.ChainParams)
+	if err != nil {
+		panic(err)
+	}
+	pkScript, err = PayToBindingScriptHashScript(redeemScriptHash, pocPubKeyHash)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("binding", address.EncodeAddress(), len(pkScript))
+
+	// Output:
+	// witV0 ms1qqqypqxpq9qcrssqgzqvzq2ps8pqqsyqcyq5rqwzqpqgpsgpgxquyqd07tvd 34
+	// staking ms1qpqypqxpq9qcrssqgzqvzq2ps8pqqsyqcyq5rqwzqpqgpsgpgxquyqjyww3n 43
+	// binding 1eBKU2y19PUERmytBTyUUGiK7GeJDqq42 55
 }

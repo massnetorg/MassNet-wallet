@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2014 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -9,79 +8,51 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"github.com/massnetorg/MassNet-wallet/consensus"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
-	"github.com/massnetorg/MassNet-wallet/version"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/version"
+	"massnet.org/mass-wallet/wire"
 
 	"errors"
 
-	"github.com/btcsuite/go-flags"
-	"github.com/massnetorg/MassNet-wallet/config/pb"
+	configpb "massnet.org/mass-wallet/config/pb"
+
+	flags "github.com/btcsuite/go-flags"
+	"massnet.org/mass-wallet/consensus"
 )
 
 const (
-	defaultChainTag          = "testnet"
-	DefaultConfigFilename    = "config.json"
-	defaultShowVersion       = false
-	DefaultDataDirname       = "chain"
-	DefaultLogLevel          = "info"
-	defaultLogDirname        = "logs"
-	defaultWalletFileDirname = "wallet"
-	defaultDbType            = "leveldb"
+	DefaultConfigFilename  = "config.json"
+	DefaultChainDataDir    = "chain"
+	DefaultElkFilename     = "json-masswallet"
+	DefaultLoggingFilename = "masswalletlog"
+
+	defaultChainTag    = "mainnet"
+	defaultShowVersion = false
+	defaultCreate      = false
 
 	defaultBlockMinSize      = 0
 	defaultBlockMaxSize      = wire.MaxBlockPayload
 	defaultBlockPrioritySize = consensus.DefaultBlockPrioritySize
-	defaultSigCacheMaxSize   = 50000
 )
 
 var (
-	FreeTxRelayLimit         = 15.0
-	AddrIndex                = true
-	DropAddrIndex            = false
-	MaxOrphanTxs             = consensus.MaxOrphanTransactions
-	NoRelayPriority          = true
-	MinRelayTxFee            = consensus.DefaultMinRelayTxFee
-	BlockPrioritySize uint32 = defaultBlockPrioritySize
-	BlockMinSize      uint32 = defaultBlockMinSize
-	BlockMaxSize      uint32 = defaultBlockMaxSize
-	SigCacheMaxSize   uint   = defaultSigCacheMaxSize
-)
-
-const (
-	defaultListenAddress    = "tcp://0.0.0.0:43453"
-	defaultDialTimeout      = 3
-	defaultHandshakeTimeout = 30
-)
-
-var (
-	MaxPeers            = 50
-	Moniker             = "anonymous"
-	ChainTag            = defaultChainTag
-	BanDuration         = time.Hour * 24
-	BanThreshold uint32 = 100
-)
-
-const (
-	defaultAPIUrl      = "localhost"
-	defaultAPIPortGRPC = "9685"
-	defaultAPIPortHttp = "9686"
-	defaultAPICORSAddr = ""
-)
-
-var (
-	MassHomeDir          = AppDataDir("mass", false)
-	defaultConfigFile    = DefaultConfigFilename
-	defaultDataDir       = DefaultDataDirname
-	knownDbTypes         = []string{"leveldb", "memdb"}
-	defaultWalletFileDir = defaultWalletFileDirname
-	defaultLogDir        = defaultLogDirname
+	MassWalletHomeDir            = AppDataDir("masswallet", false)
+	knownDbTypes                 = []string{"leveldb", "rocksdb", "memdb"}
+	FreeTxRelayLimit             = 15.0
+	AddrIndex                    = true
+	NoRelayPriority              = true
+	BlockPrioritySize     uint32 = defaultBlockPrioritySize
+	BlockMinSize          uint32 = defaultBlockMinSize
+	BlockMaxSize          uint32 = defaultBlockMaxSize
+	HDCoinTypeTestNet     uint32 = 1
+	HDCoinTypeMassMainNet uint32 = 297
+	MaxPeers                     = 50
+	Moniker                      = "anonymous"
+	ChainTag                     = defaultChainTag
 )
 
 // RunServiceCommand is only set to a real function on Windows.  It is used
@@ -98,7 +69,7 @@ type Config struct {
 	*configpb.Config
 	ConfigFile  string `short:"C" long:"configfile" description:"Path to configuration file"`
 	ShowVersion bool   `short:"V" long:"version" description:"Display Version information and exit"`
-	Generate    bool   `long:"generate" description:"Generate (mine) coins when start"`
+	Create      bool   `long:"create" description:"Create the wallet if it does not exist"`
 }
 
 // newConfigParser returns a new command line flags parser.
@@ -118,13 +89,19 @@ func newConfigParser(cfg *Config, so *serviceOptions, options flags.Options) *fl
 func ParseConfig() (*Config, []string, error) {
 	// Default config.
 	cfg := Config{
-		ConfigFile:  defaultConfigFile,
+		ConfigFile:  DefaultConfigFilename,
 		ShowVersion: defaultShowVersion,
-		Config:      configpb.NewConfig(),
+		Create:      defaultCreate,
+		Config:      NewDefaultConfig(),
 	}
 
+	// Service options which are only added on Windows.
 	serviceOpts := serviceOptions{}
 
+	// Pre-parse the command line options to see if an alternative config
+	// file or the version flag was specified.  Any errors aside from the
+	// help message error can be ignored here since they will be caught by
+	// the final parse below.
 	preCfg := cfg
 	preParser := newConfigParser(&preCfg, &serviceOpts, flags.HelpFlag)
 	_, err := preParser.Parse()
@@ -135,13 +112,17 @@ func ParseConfig() (*Config, []string, error) {
 		}
 	}
 
-	appName := "mass-wallet"
+	// Show the version and exit if the Version flag was specified.
+	appName := filepath.Base(os.Args[0])
 	usageMessage := fmt.Sprintf("Use %s -h to show usage", appName)
 	if preCfg.ShowVersion {
 		fmt.Println(appName, "version", version.GetVersion())
 		os.Exit(0)
 	}
 
+	// Perform service command and exit if specified.  Invalid service
+	// commands show an appropriate error.  Only runs on Windows since
+	// the RunServiceCommand function will be nil when not on Windows.
 	if serviceOpts.ServiceCommand != "" && RunServiceCommand != nil {
 		err := RunServiceCommand(serviceOpts.ServiceCommand)
 		if err != nil {
@@ -165,110 +146,39 @@ func ParseConfig() (*Config, []string, error) {
 	return &cfg, remainingArgs, nil
 }
 
-func LoadConfig(cfg *Config) (*Config, error) {
+func LoadConfig(cfg *Config) {
 	b, err := ioutil.ReadFile(cfg.ConfigFile)
 	if err != nil {
-		return cfg, err
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(0)
 	}
 
 	if err := json.Unmarshal(b, cfg.Config); err != nil {
-		return cfg, err
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(0)
 	}
-
-	return cfg, nil
 }
 
-func CheckConfig(cfg *Config) (*Config, error) {
-	if cfg.Common == nil {
-		cfg.Common = new(configpb.CommonConfig)
-	}
-	if cfg.App == nil {
-		cfg.App = new(configpb.AppConfig)
-	}
-	if cfg.Network == nil {
-		cfg.Network = new(configpb.NetworkConfig)
-	}
-	if cfg.Network.P2P == nil {
-		cfg.Network.P2P = new(configpb.P2PConfig)
-		cfg.Network.P2P.AddPeer = make([]string, 0)
-	}
-	if cfg.Network.API == nil {
-		cfg.Network.API = new(configpb.APIConfig)
-	}
-	if cfg.Db == nil {
-		cfg.Db = new(configpb.DataConfig)
-	}
-	if cfg.Log == nil {
-		cfg.Log = new(configpb.LogConfig)
-	}
-	if cfg.Chain == nil {
-		cfg.Chain = new(configpb.ChainConfig)
-	}
-	if cfg.Pool == nil {
-		cfg.Pool = new(configpb.MemPoolConfig)
-	}
-	if cfg.Wallet == nil {
-		cfg.Wallet = new(configpb.WalletConfig)
-	}
-
-	// Checks for APIConfig
-	if cfg.Network.API.APIUrl == "" {
-		cfg.Network.API.APIUrl = defaultAPIUrl
-	}
-	if cfg.Network.API.APIPortHttp == "" {
-		cfg.Network.API.APIPortHttp = defaultAPIPortHttp
-	}
-	if cfg.Network.API.APIPortGRPC == "" {
-		cfg.Network.API.APIPortGRPC = defaultAPIPortGRPC
-	}
-	if cfg.Network.API.APICORSAddr == "" {
-		cfg.Network.API.APICORSAddr = defaultAPICORSAddr
-	}
-
+func CheckConfig(cfg *Config) *Config {
 	// Checks for P2PConfig
 	cfg.Network.P2P.Seeds = NormalizeSeeds(cfg.Network.P2P.Seeds, ChainParams.DefaultPort)
-	if cfg.Network.P2P.ListenAddress == "" {
-		cfg.Network.P2P.ListenAddress = defaultListenAddress
-	}
-	if cfg.Network.P2P.DialTimeout == 0 {
-		cfg.Network.P2P.DialTimeout = defaultDialTimeout
-	}
-	if cfg.Network.P2P.HandshakeTimeout == 0 {
-		cfg.Network.P2P.HandshakeTimeout = defaultHandshakeTimeout
-	}
-
-	var dealWithDir = func(path string) string {
-		return cleanAndExpandPath(path)
+	if cfg.Network.API.DisableTls {
+		cfg.Network.API.RpcCert = ""
+		cfg.Network.API.RpcKey = ""
 	}
 
 	// Checks for DataConfig
-	if cfg.Db.DbType == "" {
-		cfg.Db.DbType = defaultDbType
+	if !validDbType(cfg.Data.DbType) {
+		err := errors.New(fmt.Sprintf("invalid db_type %s", cfg.Data.DbType))
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(0)
 	}
-	if !validDbType(cfg.Db.DbType) {
-		return cfg, errors.New(fmt.Sprintf("invalid db_type %s", cfg.Db.DbType))
-	}
-	if cfg.Db.DataDir == "" {
-		cfg.Db.DataDir = defaultDataDir
-	}
-	cfg.Db.DataDir = dealWithDir(cfg.Db.DataDir)
+	cfg.Data.DbDir = cleanAndExpandPath(cfg.Data.DbDir)
 
 	// Checks for LogConfig
-	if cfg.Log.LogDir == "" {
-		cfg.Log.LogDir = defaultLogDir
-	}
-	cfg.Log.LogDir = dealWithDir(cfg.Log.LogDir)
-	if cfg.Log.DebugLevel == "" {
-		cfg.Log.DebugLevel = DefaultLogLevel
-	}
+	cfg.Log.LogDir = cleanAndExpandPath(cfg.Log.LogDir)
 
-	// Checks for WalletConfig
-	if cfg.Wallet.WalletDir == "" {
-		cfg.Wallet.WalletDir = defaultWalletFileDir
-	}
-	cfg.Wallet.WalletDir = dealWithDir(cfg.Wallet.WalletDir)
-
-	return cfg, nil
+	return cfg
 }
 
 // cleanAndExpandPath expands environment variables and leading ~ in the
@@ -276,7 +186,7 @@ func CheckConfig(cfg *Config) (*Config, error) {
 func cleanAndExpandPath(path string) string {
 	// Expand initial ~ to OS specific home directory.
 	if strings.HasPrefix(path, "~") {
-		homeDir := filepath.Dir(MassHomeDir)
+		homeDir := filepath.Dir(MassWalletHomeDir)
 		path = strings.Replace(path, "~", homeDir, 1)
 	}
 
@@ -294,4 +204,15 @@ func validDbType(dbType string) bool {
 	}
 
 	return false
+}
+
+func fileExists(filePath string) (bool, error) {
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

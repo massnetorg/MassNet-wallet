@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -10,7 +9,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/wire"
 )
 
 // isSmallInt returns whether or not the opcode is considered a small integer,
@@ -27,19 +26,25 @@ func isSmallInt(op *opcode) bool {
 func isWitnessScriptHash(pops []parsedOpcode) bool {
 	return len(pops) == 2 &&
 		pops[0].opcode.value == OP_0 &&
-		pops[1].opcode.value == OP_DATA_20
+		pops[1].opcode.value == OP_DATA_32
 }
 
-// isLocktimeScriptHash returns true if the passed script is a
-// pay-to-Locktime-script-hash transaction, false otherwise.
-func isLocktimeScriptHash(pops []parsedOpcode) bool {
-	return len(pops) == 6 &&
-		pops[0].opcode.value <= OP_16 &&
-		pops[1].opcode.value == OP_CHECKSEQUENCEVERIFY &&
-		pops[2].opcode.value == OP_DROP &&
-		pops[3].opcode.value == OP_HASH160 &&
-		pops[4].opcode.value == OP_DATA_20 &&
-		pops[5].opcode.value == OP_EQUAL
+// isWitnessStakingScript returns true if the passed script is a
+// pay-to-Locktime-script-hash(staking) transaction, false otherwise.
+func isWitnessStakingScript(pops []parsedOpcode) bool {
+	return len(pops) == 3 &&
+		pops[0].opcode.value == OP_0 &&
+		pops[1].opcode.value == OP_DATA_32 &&
+		pops[2].opcode.value == OP_DATA_8
+}
+
+// isWitnessBindingScript returns true if the passed script is a
+// pay-to-binding-script-hash transaction, false otherwise.
+func isWitnessBindingScript(pops []parsedOpcode) bool {
+	return len(pops) == 3 &&
+		pops[0].opcode.value == OP_0 &&
+		pops[1].opcode.value == OP_DATA_32 &&
+		pops[2].opcode.value == OP_DATA_20
 }
 
 // IsPayToWitnessScriptHash returns true if the is in the standard
@@ -52,12 +57,20 @@ func IsPayToWitnessScriptHash(script []byte) bool {
 	return isWitnessScriptHash(pops)
 }
 
-func IsPayToLocktimeScriptHash(script []byte) bool {
+func IsPayToStakingScriptHash(script []byte) bool {
 	pops, err := parseScript(script)
 	if err != nil {
 		return false
 	}
-	return isLocktimeScriptHash(pops)
+	return isWitnessStakingScript(pops)
+}
+
+func IsPayToBindingScriptHash(script []byte) bool {
+	pops, err := parseScript(script)
+	if err != nil {
+		return false
+	}
+	return isWitnessBindingScript(pops)
 }
 
 // IsWitnessProgram returns true if the passed script is a valid witness
@@ -88,31 +101,45 @@ func IsWitnessProgram(script []byte) bool {
 // canonical, and finally the size of the push data must be between 2 and 40
 // bytes.
 func isWitnessProgram(pops []parsedOpcode) bool {
-	return len(pops) == 2 &&
-		isSmallInt(pops[0].opcode) &&
-		canonicalPush(pops[1]) &&
-		(len(pops[1].data) >= 2 && len(pops[1].data) <= 40)
+	switch len(pops) {
+	case 3:
+		if !canonicalPush(pops[2]) ||
+			(len(pops[2].data) != 8 && //	lockheight (int64)
+				len(pops[2].data) != 20) { // poc pubkey hash
+			return false
+		}
+		fallthrough
+	case 2:
+		return isSmallInt(pops[0].opcode) &&
+			canonicalPush(pops[1]) &&
+			(len(pops[1].data) >= 2 && len(pops[1].data) <= 40)
+	}
+	return false
 }
 
 // ExtractWitnessProgramInfo attempts to extract the witness program version,
 // as well as the witness program itself from the passed script.
-func ExtractWitnessProgramInfo(script []byte) (int, []byte, error) {
+func ExtractWitnessProgramInfo(script []byte) (int, []byte, []parsedOpcode, error) {
 	pops, err := parseScript(script)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, nil, err
 	}
+	return extractWitnessProgramInfo(pops)
+}
 
+func extractWitnessProgramInfo(pops []parsedOpcode) (int, []byte, []parsedOpcode, error) {
 	// If at this point, the scripts doesn't resemble a witness program,
 	// then we'll exit early as there isn't a valid version or program to
 	// extract.
 	if !isWitnessProgram(pops) {
-		return 0, nil, ErrwitnessProgramFormat
+		return 0, nil, nil, ErrwitnessProgramFormat
 	}
 
 	witnessVersion := asSmallInt(pops[0].opcode)
 	witnessProgram := pops[1].data
+	witnessExtProg := pops[2:]
 
-	return witnessVersion, witnessProgram, nil
+	return witnessVersion, witnessProgram, witnessExtProg, nil
 }
 
 // isPushOnly returns true if the script only pushes data, false otherwise.
@@ -218,7 +245,7 @@ func parseScriptTemplate(script []byte, opcodes *[256]opcode) ([]parsedOpcode, e
 	return retScript, nil
 }
 
-// parseScript preparses the script in bytes into a list of parsedOpcodes while
+// parseScript pre-parses the script in bytes into a list of parsedOpCodes while
 // applying a number of sanity checks.
 func parseScript(script []byte) ([]parsedOpcode, error) {
 	return parseScriptTemplate(script, &opcodeArray)
@@ -342,8 +369,8 @@ func calcHashPrevOuts(tx *wire.MsgTx) wire.Hash {
 func calcHashSequence(tx *wire.MsgTx) wire.Hash {
 	var b bytes.Buffer
 	for _, in := range tx.TxIn {
-		var buf [4]byte
-		binary.LittleEndian.PutUint32(buf[:], in.Sequence)
+		var buf [8]byte
+		binary.LittleEndian.PutUint64(buf[:], in.Sequence)
 		b.Write(buf[:])
 	}
 
@@ -358,7 +385,7 @@ func calcHashSequence(tx *wire.MsgTx) wire.Hash {
 func calcHashOutputs(tx *wire.MsgTx) wire.Hash {
 	var b bytes.Buffer
 	for _, out := range tx.TxOut {
-		wire.WriteTxOut(&b, 0, 0, out)
+		wire.WriteTxOut(&b, out)
 	}
 
 	return wire.DoubleHashH(b.Bytes())
@@ -375,6 +402,7 @@ func calcHashOutputs(tx *wire.MsgTx) wire.Hash {
 // being spent, in addition to the final transaction fee. In the case the
 // wallet if fed an invalid input amount, the real sighash will differ causing
 // the produced signature to be invalid.
+//only signHashAll is supported for now
 func calcWitnessSignatureHash(subScript []parsedOpcode, sigHashes *TxSigHashes,
 	hashType SigHashType, tx *wire.MsgTx, idx int, amt int64) ([]byte, error) {
 
@@ -429,17 +457,18 @@ func calcWitnessSignatureHash(subScript []parsedOpcode, sigHashes *TxSigHashes,
 	// the original script, with all code separators removed,
 	// serialized with a var int length prefix.
 	rawScript, _ := unparseScript(subScript)
-	err := wire.WriteVarBytes(&sigHash, 0, rawScript)
+	err := wire.WriteVarBytes(&sigHash, rawScript)
 	if err != nil {
 		return nil, err
 	}
+
 	// Next, add the input amount, and sequence number of the input being
 	// signed.
 	var bAmount [8]byte
 	binary.LittleEndian.PutUint64(bAmount[:], uint64(amt))
 	sigHash.Write(bAmount[:])
-	var bSequence [4]byte
-	binary.LittleEndian.PutUint32(bSequence[:], txIn.Sequence)
+	var bSequence [8]byte
+	binary.LittleEndian.PutUint64(bSequence[:], txIn.Sequence)
 	sigHash.Write(bSequence[:])
 	var bPayload []byte
 	copy(bPayload, tx.Payload)
@@ -453,7 +482,7 @@ func calcWitnessSignatureHash(subScript []parsedOpcode, sigHashes *TxSigHashes,
 		sigHash.Write(sigHashes.HashOutputs[:])
 	} else if hashType&sigHashMask == SigHashSingle && idx < len(tx.TxOut) {
 		var b bytes.Buffer
-		wire.WriteTxOut(&b, 0, 0, tx.TxOut[idx])
+		wire.WriteTxOut(&b, tx.TxOut[idx])
 		sigHash.Write(wire.DoubleHashB(b.Bytes()))
 	} else {
 		sigHash.Write(zeroHash[:])
@@ -461,8 +490,8 @@ func calcWitnessSignatureHash(subScript []parsedOpcode, sigHashes *TxSigHashes,
 
 	// Finally, write out the transaction's locktime, and the sig hash
 	// type.
-	var bLockTime [4]byte
-	binary.LittleEndian.PutUint32(bLockTime[:], tx.LockTime)
+	var bLockTime [8]byte
+	binary.LittleEndian.PutUint64(bLockTime[:], tx.LockTime)
 	sigHash.Write(bLockTime[:])
 	var bHashType [4]byte
 	binary.LittleEndian.PutUint32(bHashType[:], uint32(hashType))
@@ -548,14 +577,23 @@ func GetWitnessSigOpCount(pkScript []byte, witness wire.TxWitness) int {
 	return 0
 }
 
-func GetLocktimeScriptSigOpCount(pkScript []byte, witness wire.TxWitness) int {
-	if IsPayToLocktimeScriptHash(pkScript) {
-		witnessScript := witness[len(witness)-1]
-		pops, _ := parseScript(witnessScript)
-		return getSigOpCount(pops, true)
-	}
-	return 0
-}
+// func GetStakingScriptSigOpCount(pkScript []byte, witness wire.TxWitness) int {
+// 	if IsPayToStakingScriptHash(pkScript) {
+// 		witnessScript := witness[len(witness)-1]
+// 		pops, _ := parseScript(witnessScript)
+// 		return getSigOpCount(pops, true)
+// 	}
+// 	return 0
+// }
+
+// func GetBindingScriptSigOpCount(pkScript []byte, witness wire.TxWitness) int {
+// 	if IsPayToBindingScriptHash(pkScript) {
+// 		witnessScript := witness[len(witness)-1]
+// 		pops, _ := parseScript(witnessScript)
+// 		return getSigOpCount(pops, true)
+// 	}
+// 	return 0
+// }
 
 // getWitnessSigOps returns the number of signature operations generated by
 // spending the passed witness program wit the passed witness. The exact
@@ -564,14 +602,14 @@ func GetLocktimeScriptSigOpCount(pkScript []byte, witness wire.TxWitness) int {
 // extracted, then 0 is returned for the sig op count.
 func getWitnessSigOps(pkScript []byte, witness wire.TxWitness) int {
 	// Attempt to extract the witness program version.
-	witnessVersion, witnessProgram, err := ExtractWitnessProgramInfo(pkScript)
+	witnessVersion, witnessProgram, _, err := ExtractWitnessProgramInfo(pkScript)
 	if err != nil {
 		return 0
 	}
 
 	switch witnessVersion {
 	case 0:
-		if len(witnessProgram) == payToWitnessScriptHashDataSize &&
+		if len(witnessProgram) == WitnessV0ScriptHashDataSize &&
 			len(witness) > 0 {
 
 			witnessScript := witness[len(witness)-1]

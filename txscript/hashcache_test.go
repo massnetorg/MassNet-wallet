@@ -1,11 +1,10 @@
-// Modified for MassNet
 package txscript
 
 import (
 	"testing"
 
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
 
 var msgtx = wire.NewMsgTx()
@@ -26,7 +25,7 @@ func TestHashCache_ContainsHashes(t *testing.T) {
 	if len(hashCache.sigHashes) != 0 {
 		t.Errorf("new hashCache error")
 	}
-	msgtx.AddPayload([]byte{0x1})
+	msgtx.SetPayload([]byte{0x1})
 	hashCache.AddSigHashes(msgtx)
 	tx := massutil.NewTx(msgtx)
 	if !hashCache.ContainsHashes(tx.Hash()) {
@@ -39,7 +38,7 @@ func TestHashCache_GetSigHashes(t *testing.T) {
 	if len(hashCache.sigHashes) != 0 {
 		t.Errorf("new hashCache error")
 	}
-	msgtx.AddPayload([]byte{0x1})
+	msgtx.SetPayload([]byte{0x1})
 	hashCache.AddSigHashes(msgtx)
 	tx := massutil.NewTx(msgtx)
 	_, ok := hashCache.GetSigHashes(tx.Hash())
@@ -53,7 +52,7 @@ func TestHashCache_PurgeSigHashes(t *testing.T) {
 	if len(hashCache.sigHashes) != 0 {
 		t.Errorf("new hashCache error")
 	}
-	msgtx.AddPayload([]byte{0x1})
+	msgtx.SetPayload([]byte{0x1})
 	hashCache.AddSigHashes(msgtx)
 	tx := massutil.NewTx(msgtx)
 	_, ok1 := hashCache.GetSigHashes(tx.Hash())

@@ -5,10 +5,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	wire "github.com/tendermint/go-wire"
-	cmn "github.com/tendermint/tmlibs/common"
+	"massnet.org/mass-wallet/logging"
+	gowire "github.com/massnetorg/tendermint/go-wire"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 // ChannelDescriptor is the setting of channel
@@ -106,7 +105,7 @@ func (ch *channel) nextMsgPacket() msgPacket {
 // Not goroutine-safe
 func (ch *channel) recvMsgPacket(packet msgPacket) ([]byte, error) {
 	if ch.desc.RecvMessageCapacity < len(ch.recving)+len(packet.Bytes) {
-		return nil, wire.ErrBinaryReadOverflow
+		return nil, gowire.ErrBinaryReadOverflow
 	}
 
 	ch.recving = append(ch.recving, packet.Bytes...)
@@ -148,8 +147,10 @@ func (ch *channel) trySendBytes(bytes []byte) bool {
 // Not goroutine-safe
 func (ch *channel) writeMsgPacketTo(w io.Writer) (n int, err error) {
 	packet := ch.nextMsgPacket()
-	wire.WriteByte(packetTypeMsg, w, &n, &err)
-	wire.WriteBinary(packet, w, &n, &err)
+
+	gowire.WriteByte(packetTypeMsg, w, &n, &err)
+	gowire.WriteBinary(packet, w, &n, &err)
+
 	if err == nil {
 		ch.recentlySent += int64(n)
 	}

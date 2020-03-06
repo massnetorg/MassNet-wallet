@@ -1,9 +1,8 @@
 package p2p
 
 import (
-	cmn "github.com/tendermint/tmlibs/common"
-
-	"github.com/massnetorg/MassNet-wallet/p2p/connection"
+	"massnet.org/mass-wallet/p2p/connection"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 //Reactor is responsible for handling incoming messages of one or more `Channels`

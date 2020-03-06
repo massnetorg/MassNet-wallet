@@ -3,58 +3,120 @@ package wirepb
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"io"
+
+	"massnet.org/mass-wallet/poc"
 )
 
-func (m *BlockHeader) Bytes() []byte {
+func (m *BlockHeader) Write(w io.Writer) (int, error) {
 	var version, height, timestamp [8]byte
 	binary.LittleEndian.PutUint64(version[:], m.Version)
 	binary.LittleEndian.PutUint64(height[:], m.Height)
 	binary.LittleEndian.PutUint64(timestamp[:], uint64(m.Timestamp))
-	banList := make([]byte, 0)
-	for i := 0; i < len(m.BanList); i++ {
-		banList = bytes.Join([][]byte{banList, m.BanList[i].Bytes()}, []byte(""))
+
+	var count int
+	n, err := writeBytes(w, m.ChainID.Bytes(), version[:], height[:], timestamp[:],
+		m.Previous.Bytes(), m.TransactionRoot.Bytes(), m.WitnessRoot.Bytes(),
+		m.ProposalRoot.Bytes(), m.Target.Bytes(), m.Challenge.Bytes(),
+		m.PubKey.Bytes(), m.Proof.Bytes(), m.Signature.Bytes())
+	count += n
+	if err != nil {
+		return count, err
 	}
 
-	return bytes.Join([][]byte{m.ChainID.Bytes(), version[:], height[:], timestamp[:],
-		m.Previous.Bytes(), m.TransactionRoot.Bytes(), m.ProposalRoot.Bytes(), m.Target.Bytes(),
-		m.Challenge.Bytes(), m.PubKey.Bytes(), m.Proof.Bytes(), m.SigQ.Bytes(),
-		m.Sig2.Bytes(), banList}, []byte(""))
+	for i := 0; i < len(m.BanList); i++ {
+		n, err := writeBytes(w, m.BanList[i].Bytes())
+		count += n
+		if err != nil {
+			return count, err
+		}
+	}
+
+	return count, err
+}
+
+func (m *BlockHeader) Bytes() []byte {
+	var buf bytes.Buffer
+	m.Write(&buf)
+	return buf.Bytes()
+}
+
+func (m *BlockHeader) WritePoC(w io.Writer) (int, error) {
+	var version, height, timestamp [8]byte
+	binary.LittleEndian.PutUint64(version[:], m.Version)
+	binary.LittleEndian.PutUint64(height[:], m.Height)
+	binary.LittleEndian.PutUint64(timestamp[:], uint64(m.Timestamp))
+
+	var count int
+	n, err := writeBytes(w, m.ChainID.Bytes(), version[:], height[:], timestamp[:],
+		m.Previous.Bytes(), m.TransactionRoot.Bytes(), m.WitnessRoot.Bytes(),
+		m.ProposalRoot.Bytes(), m.Target.Bytes(), m.Challenge.Bytes(),
+		m.PubKey.Bytes(), m.Proof.Bytes())
+	count += n
+	if err != nil {
+		return count, err
+	}
+
+	for i := 0; i < len(m.BanList); i++ {
+		n, err := writeBytes(w, m.BanList[i].Bytes())
+		count += n
+		if err != nil {
+			return count, err
+		}
+	}
+
+	return count, err
 }
 
 func (m *BlockHeader) BytesPoC() []byte {
-	var version, height, timestamp [8]byte
-	binary.LittleEndian.PutUint64(version[:], m.Version)
-	binary.LittleEndian.PutUint64(height[:], m.Height)
-	binary.LittleEndian.PutUint64(timestamp[:], uint64(m.Timestamp))
-	banList := make([]byte, 0)
-	for i := 0; i < len(m.BanList); i++ {
-		banList = bytes.Join([][]byte{banList, m.BanList[i].Bytes()}, []byte(""))
-	}
-
-	return bytes.Join([][]byte{m.ChainID.Bytes(), version[:], height[:], timestamp[:],
-		m.Previous.Bytes(), m.TransactionRoot.Bytes(), m.ProposalRoot.Bytes(), m.Target.Bytes(),
-		m.Challenge.Bytes(), m.PubKey.Bytes(), m.Proof.Bytes(), m.SigQ.Bytes(),
-		banList}, []byte(""))
+	var buf bytes.Buffer
+	m.WritePoC(&buf)
+	return buf.Bytes()
 }
 
 func (m *BlockHeader) BytesChainID() []byte {
+	var buf bytes.Buffer
 	var version, height, timestamp [8]byte
 	binary.LittleEndian.PutUint64(version[:], m.Version)
 	binary.LittleEndian.PutUint64(height[:], m.Height)
 	binary.LittleEndian.PutUint64(timestamp[:], uint64(m.Timestamp))
-	banList := make([]byte, 0)
+
+	writeBytes(&buf, version[:], height[:], timestamp[:],
+		m.Previous.Bytes(), m.TransactionRoot.Bytes(), m.WitnessRoot.Bytes(),
+		m.ProposalRoot.Bytes(), m.Target.Bytes(), m.Challenge.Bytes(),
+		m.PubKey.Bytes(), m.Proof.Bytes())
+
 	for i := 0; i < len(m.BanList); i++ {
-		banList = bytes.Join([][]byte{banList, m.BanList[i].Bytes()}, []byte(""))
+		writeBytes(&buf, m.BanList[i].Bytes())
 	}
 
-	return bytes.Join([][]byte{version[:], height[:], timestamp[:], m.Previous.Bytes(),
-		m.TransactionRoot.Bytes(), m.ProposalRoot.Bytes(), m.Target.Bytes(),
-		m.Challenge.Bytes(), m.PubKey.Bytes(), m.Proof.Bytes(), m.SigQ.Bytes(),
-		m.Sig2.Bytes(), banList}, []byte(""))
+	return buf.Bytes()
+}
+
+func ProtoToProof(pb *Proof, proof *poc.Proof) error {
+	if pb == nil {
+		return errors.New("nil proto proof")
+	}
+	proof.X = moveBytes(pb.X)
+	proof.XPrime = moveBytes(pb.XPrime)
+	proof.BitLength = int(pb.BitLength)
+	return nil
+}
+
+func ProofToProto(proof *poc.Proof) *Proof {
+	if proof == nil {
+		return nil
+	}
+	return &Proof{
+		X:         proof.X,
+		XPrime:    proof.XPrime,
+		BitLength: uint32(proof.BitLength),
+	}
 }
 
 func (m *Proof) Bytes() []byte {
 	var bl [4]byte
 	binary.LittleEndian.PutUint32(bl[:], uint32(m.BitLength))
-	return bytes.Join([][]byte{m.X, m.XPrime, bl[:]}, []byte(""))
+	return combineBytes(m.X, m.XPrime, bl[:])
 }

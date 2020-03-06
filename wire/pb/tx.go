@@ -3,64 +3,126 @@ package wirepb
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 )
 
-func (m *Tx) Bytes() []byte {
+func (m *Tx) Write(w io.Writer) (int, error) {
+	var count int
+
 	var version [4]byte
-	binary.LittleEndian.PutUint32(version[:], uint32(m.Version))
-	var lockTime [4]byte
-	binary.LittleEndian.PutUint32(lockTime[:], m.LockTime)
-	txIns := make([]byte, 0)
-	for i := 0; i < len(m.TxIn); i++ {
-		txIns = bytes.Join([][]byte{txIns, m.TxIn[i].Bytes()}, []byte(""))
+	binary.LittleEndian.PutUint32(version[:], m.Version)
+	n, err := writeBytes(w, version[:])
+	count += n
+	if err != nil {
+		return count, err
 	}
-	txOuts := make([]byte, 0)
-	for i := 0; i < len(m.TxOut); i++ {
-		txOuts = bytes.Join([][]byte{txOuts, m.TxOut[i].Bytes()}, []byte(""))
+
+	for _, in := range m.TxIn {
+		n, err := writeBytes(w, in.Bytes())
+		count += n
+		if err != nil {
+			return count, err
+		}
 	}
-	return bytes.Join([][]byte{version[:], txIns, txOuts, lockTime[:], m.Payload}, []byte(""))
+
+	for _, out := range m.TxOut {
+		n, err := writeBytes(w, out.Bytes())
+		count += n
+		if err != nil {
+			return count, err
+		}
+	}
+
+	var lockTime [8]byte
+	binary.LittleEndian.PutUint64(lockTime[:], m.LockTime)
+	n, err = writeBytes(w, lockTime[:], m.Payload)
+	count += n
+	if err != nil {
+		return count, err
+	}
+
+	return count, nil
+}
+
+func (m *Tx) Bytes() []byte {
+	var buf bytes.Buffer
+	m.Write(&buf)
+	return buf.Bytes()
+}
+
+func (m *Tx) WriteNoWitness(w io.Writer) (int, error) {
+	var count int
+
+	var version [4]byte
+	binary.LittleEndian.PutUint32(version[:], m.Version)
+	n, err := writeBytes(w, version[:])
+	count += n
+	if err != nil {
+		return count, err
+	}
+
+	for _, in := range m.TxIn {
+		n, err := writeBytes(w, in.BytesNoWitness())
+		count += n
+		if err != nil {
+			return count, err
+		}
+	}
+
+	for _, out := range m.TxOut {
+		n, err := writeBytes(w, out.Bytes())
+		count += n
+		if err != nil {
+			return count, err
+		}
+	}
+
+	var lockTime [8]byte
+	binary.LittleEndian.PutUint64(lockTime[:], m.LockTime)
+	n, err = writeBytes(w, lockTime[:], m.Payload)
+	count += n
+	if err != nil {
+		return count, err
+	}
+
+	return count, nil
 }
 
 func (m *Tx) BytesNoWitness() []byte {
-	var version [4]byte
-	binary.LittleEndian.PutUint32(version[:], uint32(m.Version))
-	var lockTime [4]byte
-	binary.LittleEndian.PutUint32(lockTime[:], m.LockTime)
-	txInsNoWitness := make([]byte, 0)
-	for i := 0; i < len(m.TxIn); i++ {
-		txInsNoWitness = bytes.Join([][]byte{txInsNoWitness, m.TxIn[i].BytesNoWitness()}, []byte(""))
-	}
-	txOuts := make([]byte, 0)
-	for i := 0; i < len(m.TxOut); i++ {
-		txOuts = bytes.Join([][]byte{txOuts, m.TxOut[i].Bytes()}, []byte(""))
-	}
-	return bytes.Join([][]byte{version[:], txInsNoWitness, txOuts, lockTime[:], m.Payload}, []byte(""))
+	var buf bytes.Buffer
+	m.WriteNoWitness(&buf)
+	return buf.Bytes()
 }
 
 func (m *TxIn) Bytes() []byte {
-	var sequence [4]byte
-	binary.LittleEndian.PutUint32(sequence[:], m.Sequence)
-	witness := make([]byte, 0)
-	for i := 0; i < len(m.Witness); i++ {
-		witness = bytes.Join([][]byte{witness, m.Witness[i]}, []byte(""))
+	var buf bytes.Buffer
+
+	writeBytes(&buf, m.PreviousOutPoint.Bytes())
+	for _, witness := range m.Witness {
+		writeBytes(&buf, witness)
 	}
-	return bytes.Join([][]byte{m.PreviousOutPoint.Bytes(), witness, sequence[:]}, []byte(""))
+
+	var sequence [8]byte
+	binary.LittleEndian.PutUint64(sequence[:], m.Sequence)
+	writeBytes(&buf, sequence[:])
+
+	return buf.Bytes()
 }
 
 func (m *TxIn) BytesNoWitness() []byte {
-	var sequence [4]byte
-	binary.LittleEndian.PutUint32(sequence[:], m.Sequence)
-	return bytes.Join([][]byte{m.PreviousOutPoint.Bytes(), sequence[:]}, []byte(""))
+	var sequence [8]byte
+	binary.LittleEndian.PutUint64(sequence[:], m.Sequence)
+	return combineBytes(m.PreviousOutPoint.Bytes(), sequence[:])
 }
 
 func (m *OutPoint) Bytes() []byte {
 	var index [4]byte
 	binary.LittleEndian.PutUint32(index[:], m.Index)
-	return bytes.Join([][]byte{m.Hash.Bytes(), index[:]}, []byte(""))
+	return combineBytes(m.Hash.Bytes(), index[:])
 }
 
 func (m *TxOut) Bytes() []byte {
 	var value [8]byte
 	binary.LittleEndian.PutUint64(value[:], uint64(m.Value))
-	return bytes.Join([][]byte{value[:], m.PkScript}, []byte(""))
+	return combineBytes(value[:], m.PkScript)
 }

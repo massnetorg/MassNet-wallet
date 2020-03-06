@@ -10,7 +10,7 @@
 ### Initialization
 
 ```golang
-logging.Init(path string, level string, age uint32)
+logging.Init(path string, level string, age uint32, disableCPrint bool)
 ```
 
 - `path`: path of log file.
@@ -20,8 +20,8 @@ logging.Init(path string, level string, age uint32)
 ### Logging
 
 ```golang
-logging.CPrint(level uint32, msg string, data LogFormat) // Output to console and file.
-logging.VPrint(level uint32, msg string, data LogFormat) // Output only to file. 
+logging.CPrint(level uint32, msg string, formats ...LogFormat) // Output to console and file.
+logging.VPrint(level uint32, msg string, formats ...LogFormat) // Output only to file. 
 ```
 
 - `level`:`debug`, `info`, `warn`, `error`, `fatal`.

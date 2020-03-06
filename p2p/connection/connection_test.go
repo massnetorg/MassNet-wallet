@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tmlibs/log"
+	"github.com/massnetorg/tendermint/tmlibs/log"
 )
 
 func createMConnection(conn net.Conn) *MConnection {

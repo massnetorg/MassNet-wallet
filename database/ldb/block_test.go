@@ -1,123 +1,136 @@
-package ldb
+package ldb_test
 
 import (
-	"encoding/hex"
 	"testing"
 
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"github.com/stretchr/testify/assert"
+	"massnet.org/mass-wallet/database/ldb"
 )
 
-func TestLevelDb_FetchBlockBySha(t *testing.T) {
-	db, tearDown, err := GetDb("DbTestFetchBlockBySha")
-	if err != nil {
-		t.Errorf("get Db error%v", err)
-	}
+func TestChainDb_InitByGenesisBlock(t *testing.T) {
+	db, tearDown, err := GetDb("DbTest") // already InitByGenesisBlock
+	assert.Nil(t, err)
 	defer tearDown()
-	sha, _, err := db.NewestSha()
-	if err != nil {
-		t.Errorf("get newestSha error: %v", err)
+
+	genesis := blks200[0]
+	blkSha, height, err := db.NewestSha()
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(0), height)
+	assert.Equal(t, blkSha, genesis.Hash())
+}
+
+func TestChainDb_DeleteBlock(t *testing.T) {
+	db, tearDown, err := GetDb("DbTest")
+	assert.Nil(t, err)
+	defer tearDown()
+
+	err = initBlocks(db, 200)
+	assert.Nil(t, err)
+	_, height, err := db.NewestSha()
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(199), height)
+
+	for j := 199; j > 100; j-- {
+		block := blks200[j]
+		err := db.DeleteBlock(block.Hash())
+		assert.Nil(t, err)
+		db.(*ldb.ChainDb).Batch(1).Set(*block.Hash())
+		db.(*ldb.ChainDb).Batch(1).Done()
+		err = db.Commit(*block.Hash())
 	}
-	blk, err := db.FetchBlockBySha(sha)
-	if err != nil {
-		t.Errorf("fetch block error: %v", err)
-	}
-	bys, err := blk.Bytes(wire.Packet)
-	if err != nil {
-		t.Errorf("serialize block error: %v", err)
-	}
-	if hex.EncodeToString(bys) != blkHex3 {
-		t.Error("unmatch block hex")
+
+	newestHash, newestHeight, err := db.NewestSha()
+	assert.Nil(t, err)
+	assert.Equal(t, blks200[100].Height(), newestHeight)
+	assert.Equal(t, blks200[100].Hash().String(), newestHash.String())
+}
+
+func TestChainDb_FetchBlockShaByHeight(t *testing.T) {
+	db, tearDown, err := GetDb("DbTest")
+	assert.Nil(t, err)
+	defer tearDown()
+
+	err = initBlocks(db, 100)
+	assert.Nil(t, err)
+
+	for j := 0; j < 100; j++ {
+		blkSha, err := db.FetchBlockShaByHeight(uint64(j))
+		assert.Nil(t, err)
+		assert.Equal(t, blks200[j].Hash().String(), blkSha.String())
 	}
 }
 
-func TestLevelDb_FetchBlockShaByHeight(t *testing.T) {
-	db, tearDown, err := GetDb("DbTestFetchBlockShaByHeight")
-	if err != nil {
-		t.Errorf("get Db error%v", err)
-	}
+func TestChainDb_FetchBlockBySha(t *testing.T) {
+	db, tearDown, err := GetDb("DbTest")
+	assert.Nil(t, err)
 	defer tearDown()
-	shaNew, _, err := db.NewestSha()
-	if err != nil {
-		t.Errorf("get newestSha error: %v", err)
-	}
-	sha3, err := db.FetchBlockShaByHeight(3)
-	if sha3.String() != shaNew.String() || err != nil {
-		t.Errorf("get FetchBlockShaByHeight error: %v", err)
+
+	err = initBlocks(db, 100)
+	assert.Nil(t, err)
+
+	for i, block := range blks200[1:100] {
+		blk, err := db.FetchBlockBySha(block.Hash())
+		assert.Nil(t, err)
+		assert.Equal(t, uint64(i+1), blk.Height())
 	}
 }
 
-func TestLevelDb_FetchBlockHeightBySha(t *testing.T) {
-	db, tearDown, err := GetDb("DbTestFetchBlockHeightBySha")
-	if err != nil {
-		t.Errorf("get Db error%v", err)
-	}
+func TestChainDb_FetchBlockHeightBySha(t *testing.T) {
+	db, tearDown, err := GetDb("DbTest")
+	assert.Nil(t, err)
 	defer tearDown()
-	shaNew, _, err := db.NewestSha()
-	if err != nil {
-		t.Errorf("get newestSha error: %v", err)
-	}
-	height, err := db.FetchBlockHeightBySha(shaNew)
-	if height != 3 || err != nil {
-		t.Errorf("get FetchBlockHeightBySha error: %v", err)
+
+	err = initBlocks(db, 100)
+	assert.Nil(t, err)
+
+	for _, block := range blks200[1:100] {
+		blkHeight, err := db.FetchBlockHeightBySha(block.Hash())
+		assert.Nil(t, err)
+		assert.Equal(t, blkHeight, block.Height())
 	}
 }
 
-func TestLevelDb_FetchBlockHeaderBySha(t *testing.T) {
-	db, tearDown, err := GetDb("DbTestFetchBlockHeaderBySha")
-	if err != nil {
-		t.Errorf("get Db error%v", err)
-	}
+func TestChainDb_FetchBlockHeaderBySha(t *testing.T) {
+	db, tearDown, err := GetDb("DbTest")
+	assert.Nil(t, err)
 	defer tearDown()
-	shaNew, _, err := db.NewestSha()
-	if err != nil {
-		t.Errorf("get newestSha error: %v", err)
-	}
-	blk, err := db.FetchBlockBySha(shaNew)
-	if err != nil {
-		t.Errorf("fetch block error: %v", err)
-	}
-	blockHeader, err := db.FetchBlockHeaderBySha(shaNew)
-	if blk.MsgBlock().Header.BlockHash() != blockHeader.BlockHash() || err != nil {
-		t.Errorf("FetchBlockHeaderBySha error: %v", err)
+
+	err = initBlocks(db, 100)
+	assert.Nil(t, err)
+
+	for _, block := range blks200[1:100] {
+		header, err := db.FetchBlockHeaderBySha(block.Hash())
+		assert.Nil(t, err)
+		assert.Equal(t, header.Height, block.Height())
 	}
 }
 
-func TestLevelDb_ExistsSha(t *testing.T) {
-	db, tearDown, err := GetDb("DbTestExistsSha")
-	if err != nil {
-		t.Errorf("get Db error%v", err)
-	}
+func TestChainDb_FetchHeightRange(t *testing.T) {
+	db, tearDown, err := GetDb("DbTest")
+	assert.Nil(t, err)
 	defer tearDown()
-	shaNew, _, err := db.NewestSha()
-	if err != nil {
-		t.Errorf("get newestSha error: %v", err)
-	}
-	exist, err := db.ExistsSha(shaNew)
-	if !exist {
-		t.Errorf("cannot find block sha error: %v", err)
+
+	err = initBlocks(db, 100)
+	assert.Nil(t, err)
+
+	hashs, err := db.FetchHeightRange(1, 100)
+	assert.Nil(t, err)
+	for i, block := range blks200[1:100] {
+		assert.Equal(t, block.Hash(), &hashs[i])
 	}
 }
 
-func TestLevelDb_FetchHeightRange(t *testing.T) {
-	db, tearDown, err := GetDb("DbTestFetchHeightRange")
-	if err != nil {
-		t.Errorf("get Db error%v", err)
-	}
+func TestChainDb_ExistsSha(t *testing.T) {
+	db, tearDown, err := GetDb("DbTest")
+	assert.Nil(t, err)
 	defer tearDown()
-	blockList, err := db.FetchHeightRange(0, 2)
-	if len(blockList) != 2 || err != nil {
-		t.Errorf("FetchHeightRange error%v", err)
-	}
-}
 
-func TestLevelDb_FetchAddrIndexTip(t *testing.T) {
-	db, tearDown, err := GetDb("DbTestFetchAddrIndexTip")
-	if err != nil {
-		t.Errorf("get Db error%v", err)
-	}
-	defer tearDown()
-	_, height, err := db.FetchAddrIndexTip()
-	if height != -1 {
-		t.Errorf("FetchAddrIndexTip error: %v", err)
+	err = initBlocks(db, 100)
+	assert.Nil(t, err)
+
+	for _, block := range blks200[1:100] {
+		exist, err := db.ExistsSha(block.Hash())
+		assert.Nil(t, err)
+		assert.True(t, exist)
 	}
 }

@@ -6,9 +6,9 @@ import (
 
 	"math/big"
 
-	"github.com/massnetorg/MassNet-wallet/poc"
-	"github.com/massnetorg/MassNet-wallet/btcec"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/poc"
+	"massnet.org/mass-wallet/pocec"
+	"massnet.org/mass-wallet/wire"
 )
 
 // genesisCoinbaseTx is the coinbase transaction for genesis block
@@ -17,52 +17,42 @@ var genesisCoinbaseTx = wire.MsgTx{
 	TxIn: []*wire.TxIn{
 		{
 			PreviousOutPoint: wire.OutPoint{
-				Hash:  mustDecodeHash("0000000000000000000000000000000000000000000000000000000000000000"),
-				Index: 0xffffffff,
+				Hash:  wire.Hash{},
+				Index: wire.MaxPrevOutIndex,
 			},
-			Sequence: 0xffffffff,
-			Witness:  wire.TxWitness{mustDecodeString("0000000000000000000000000000000000000000000000000000000000000000")},
+			Sequence: wire.MaxTxInSequenceNum,
+			Witness:  wire.TxWitness{},
 		},
 	},
 	TxOut: []*wire.TxOut{
 		{
-			Value:    0x12a05f200,
-			PkScript: mustDecodeString("0014c1514fcc0de63e0558524e0c5669c0821424bb2a"),
+			Value:    0x47868c000,
+			PkScript: mustDecodeString("0020ba60494593fe65bea35fe9e118c129e5478ce660cec07c8ea8a7e2ec841fccd2"),
 		},
 	},
 	LockTime: 0,
-	Payload:  mustDecodeString("000c4d41535320544553544e4554"),
+	Payload:  mustDecodeString("000000000000000000000000"),
 }
 
 var genesisHeader = wire.BlockHeader{
-	ChainID:         mustDecodeHash("f03d58e3ac59d98d51e4c8d101f4aeaaaf170d8074f5f97c8d76f94100e080cd"),
+	ChainID:         mustDecodeHash("5433524b370b149007ba1d06225b5d8e53137a041869834cff5860b02bebc5c7"),
 	Version:         1,
 	Height:          0,
-	Timestamp:       time.Unix(0x5c9c7f00, 0), // 2019-03-28 16:00:00 +0800 CST Beijing, 1553760000
+	Timestamp:       time.Unix(0x5d6b653e, 0), // 2019-09-01 06:29:18 +0000 UTC, 1567319358
 	Previous:        mustDecodeHash("0000000000000000000000000000000000000000000000000000000000000000"),
-	TransactionRoot: mustDecodeHash("db0c4b2eecef52f1681b53413b2f2d4226a9033067b07b8758f4ca7254bb29b8"),
-	ProposalRoot:    mustDecodeHash("32c3867350eec5797cfcc9cd9024f6a9e2dfdc2f5b02b6c6332a1d8a55b6c4a1"),
-	Target:          hexToBigInt("20000000"),
-	Challenge:       hexToBigInt("6841135c02ed85e5a175ba0fa25e44c4bdf08a6abb588237781544bbdc5ee528"),
-	PubKey: &btcec.PublicKey{
-		Curve: btcec.S256(),
-		X:     hexToBigInt("510ac8ee4dda12e2ea6b351e98d2e9b4a092db1be492aaedfdbe5da7195d7bb1"),
-		Y:     hexToBigInt("2e601752a3eda47ea7dc33275d173055846b3f14f24551877ce9df586f9d2af1"),
-	},
+	TransactionRoot: mustDecodeHash("0a084691f90ffd9ac09db47648327b6df15334ad95388badbc9edb963f6f82cb"),
+	WitnessRoot:     mustDecodeHash("0a084691f90ffd9ac09db47648327b6df15334ad95388badbc9edb963f6f82cb"),
+	ProposalRoot:    mustDecodeHash("9663440551fdcd6ada50b1fa1b0003d19bc7944955820b54ab569eb9a7ab7999"),
+	Target:          hexToBigInt("b5e620f48000"), // 200000000000000
+	Challenge:       mustDecodeHash("5eb91b2d9fd6d5920ccc9610f0695509b60ccf764fab693ecab112f2edf1e3f0"),
+	PubKey:          mustDecodePoCPublicKey("02c121b2bb27f8af5b365f1c0d9e02c2044a731aad6d0a6951ab3af506a3792c9c"),
 	Proof: &poc.Proof{
-		X:         mustDecodeString("ab5d05"),
-		X_prime:   mustDecodeString("bda502"),
-		BitLength: 20,
+		X:         mustDecodeString("acc59996"),
+		XPrime:    mustDecodeString("944f0116"),
+		BitLength: 32,
 	},
-	SigQ: &btcec.Signature{
-		R: hexToBigInt("ab825f340cc228783e1c082437a3c725c232ae798c9e530a26df4cdc32f76551"),
-		S: hexToBigInt("594ef8f7dcf79655bc3ef39fa9153761290575419362abb76d856c6d27811f87"),
-	},
-	Sig2: &btcec.Signature{
-		R: hexToBigInt("e35d417c8e9fb91e7426c93092eae8187c3d99c80d086785d3eb8836d4fd46f7"),
-		S: hexToBigInt("3378e12eb92b5a314d284ed11219786a1366d7fac56f5547652bdbe52f251ec9"),
-	},
-	BanList: make([]*btcec.PublicKey, 0),
+	Signature: mustDecodePoCSignature("304402204ab4d572324785f59119a5dce949a47edb5b05cbf065e255510c23bcc9f0c133022027242ece09dee99ef19fa22d72a85a3db0662da1605300ae7610f03eab1d1a79"),
+	BanList:   make([]*pocec.PublicKey, 0),
 }
 
 // genesisBlock defines the genesis block of the block chain which serves as the
@@ -70,17 +60,15 @@ var genesisHeader = wire.BlockHeader{
 var genesisBlock = wire.MsgBlock{
 	Header: genesisHeader,
 	Proposals: wire.ProposalArea{
-		AllCount:        0,
-		PunishmentCount: 0,
-		PunishmentArea:  make([]*wire.Proposal, 0),
-		OtherArea:       make([]*wire.Proposal, 0),
+		PunishmentArea: make([]*wire.FaultPubKey, 0),
+		OtherArea:      make([]*wire.NormalProposal, 0),
 	},
 	Transactions: []*wire.MsgTx{&genesisCoinbaseTx},
 }
 
-var genesisHash = mustDecodeHash("fbe44dbc9605e10edb03a6f860ded0bcdabe8e6f60c8de79f1e6f9d4961afd72")
+var genesisHash = mustDecodeHash("ee26300e0f068114a680a772e080507c0f9c0ca4335c382c42b78e2eafbebaa3")
 
-var genesisChainID = mustDecodeHash("f03d58e3ac59d98d51e4c8d101f4aeaaaf170d8074f5f97c8d76f94100e080cd")
+var genesisChainID = mustDecodeHash("5433524b370b149007ba1d06225b5d8e53137a041869834cff5860b02bebc5c7")
 
 func hexToBigInt(str string) *big.Int {
 	return new(big.Int).SetBytes(mustDecodeString(str))
@@ -100,4 +88,20 @@ func mustDecodeHash(str string) wire.Hash {
 		panic(err)
 	}
 	return *h
+}
+
+func mustDecodePoCPublicKey(str string) *pocec.PublicKey {
+	pub, err := pocec.ParsePubKey(mustDecodeString(str), pocec.S256())
+	if err != nil {
+		panic(err)
+	}
+	return pub
+}
+
+func mustDecodePoCSignature(str string) *pocec.Signature {
+	sig, err := pocec.ParseSignature(mustDecodeString(str), pocec.S256())
+	if err != nil {
+		panic(err)
+	}
+	return sig
 }

@@ -1,30 +1,17 @@
 package netsync
 
 import (
-	"encoding/hex"
-	"errors"
-
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	//log "github.com/sirupsen/logrus"
-	"net"
-	"path"
 	"reflect"
-	"strconv"
-	"strings"
 
-	"github.com/tendermint/go-crypto"
-	cmn "github.com/tendermint/tmlibs/common"
-
-	"github.com/massnetorg/MassNet-wallet/blockchain"
-	"github.com/massnetorg/MassNet-wallet/config"
-	cfg "github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/consensus"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/p2p"
-	"github.com/massnetorg/MassNet-wallet/p2p/discover"
-	"github.com/massnetorg/MassNet-wallet/version"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/blockchain"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/consensus"
+	"massnet.org/mass-wallet/errors"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/p2p"
+	"massnet.org/mass-wallet/wire"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 const (
@@ -40,11 +27,15 @@ type Chain interface {
 	GetBlockByHeight(uint64) (*massutil.Block, error)
 	GetHeaderByHash(*wire.Hash) (*wire.BlockHeader, error)
 	GetHeaderByHeight(uint64) (*wire.BlockHeader, error)
-	// GetTransactionStatus(*wire.Hash) (*bc.TransactionStatus, error)
 	InMainChain(wire.Hash) bool
 	ProcessBlock(*massutil.Block) (bool, error)
-	ValidateTx(*massutil.Tx) (bool, error)
+	ProcessTx(*massutil.Tx) (bool, error)
 	ChainID() *wire.Hash
+}
+
+type TxPool interface {
+	TxDescs() []*blockchain.TxDesc
+	SetNewTxCh(chan *massutil.Tx)
 }
 
 //SyncManager Sync Manager is responsible for the business layer information synchronization
@@ -52,9 +43,9 @@ type SyncManager struct {
 	sw          *p2p.Switch
 	genesisHash wire.Hash
 
-	privKey      crypto.PrivKeyEd25519 // local node's p2p key
-	Chain        Chain
-	txPool       *blockchain.TxPool
+	// privKey      crypto.PrivKeyEd25519 // local node's p2p key
+	chain        Chain
+	txPool       TxPool
 	blockFetcher *blockFetcher
 	blockKeeper  *blockKeeper
 	peers        *peerSet
@@ -73,14 +64,17 @@ func NewSyncManager(config *config.Config, chain Chain, txPool *blockchain.TxPoo
 		return nil, err
 	}
 
-	sw := p2p.NewSwitch(config)
+	sw, err := p2p.NewSwitch(config)
+	if err != nil {
+		return nil, err
+	}
 	peers := newPeerSet(sw)
 	manager := &SyncManager{
-		sw:           sw,
-		genesisHash:  genesisHeader.BlockHash(),
-		txPool:       txPool,
-		Chain:        chain,
-		privKey:      crypto.GenPrivKeyEd25519(),
+		sw:          sw,
+		genesisHash: genesisHeader.BlockHash(),
+		txPool:      txPool,
+		chain:       chain,
+		// privKey:      crypto.GenPrivKeyEd25519(),
 		blockFetcher: newBlockFetcher(chain, peers),
 		blockKeeper:  newBlockKeeper(chain, peers),
 		peers:        peers,
@@ -91,28 +85,27 @@ func NewSyncManager(config *config.Config, chain Chain, txPool *blockchain.TxPoo
 		config:       config,
 	}
 
-	manager.txPool.NewTxCh = manager.newTxCh
+	manager.txPool.SetNewTxCh(manager.newTxCh)
 
 	protocolReactor := NewProtocolReactor(manager, manager.peers)
 	manager.sw.AddReactor("PROTOCOL", protocolReactor)
 
-	// Create & add listener
-	var listenerStatus bool
-	var l p2p.Listener
-	if !config.Network.P2P.VaultMode {
-		p, address := protocolAndAddress(config.Network.P2P.ListenAddress)
-		l, listenerStatus = p2p.NewDefaultListener(p, address, config.Network.P2P.SkipUpnp)
-		manager.sw.AddListener(l)
-
-		discv, err := initDiscover(config, &manager.privKey, l.ExternalAddress().Port)
-		if err != nil {
-			return nil, err
-		}
-		manager.sw.SetDiscv(discv)
-	}
-	manager.sw.SetNodeInfo(manager.makeNodeInfo(listenerStatus))
-	manager.sw.SetNodePrivKey(manager.privKey)
 	return manager, nil
+	// // Create & add listener
+	// var listenerStatus bool
+	// var l p2p.Listener
+	// if !config.Network.P2P.VaultMode {
+	// 	l, listenerStatus = p2p.NewDefaultListener(config.Config)
+	// 	manager.sw.AddListener(l)
+
+	// 	discv, err := initDiscover(config.Config, &manager.privKey, l.ExternalAddress().Port)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	manager.sw.SetDiscv(discv)
+	// }
+	// manager.sw.SetNodeInfo(manager.makeNodeInfo(listenerStatus))
+	// manager.sw.SetNodePrivKey(manager.privKey)
 }
 
 //BestPeer return the highest p2p peerInfo
@@ -134,10 +127,15 @@ func (sm *SyncManager) GetPeerInfos() []*PeerInfo {
 	return sm.peers.getPeerInfos()
 }
 
+//GetPeerInfos return peer info of all peers
+func (sm *SyncManager) PeerCount() int {
+	return sm.peers.getPeerCount()
+}
+
 //IsCaughtUp check wheather the peer finish the sync
 func (sm *SyncManager) IsCaughtUp() bool {
 	peer := sm.peers.bestPeer(consensus.SFFullNode)
-	return peer == nil || peer.Height() <= sm.Chain.BestBlockHeight()
+	return peer == nil || peer.Height() <= sm.chain.BestBlockHeight()
 }
 
 //NodeInfo get P2P peer node info
@@ -153,7 +151,7 @@ func (sm *SyncManager) NodePubKeyS() string {
 //StopPeer try to stop peer by given ID
 func (sm *SyncManager) StopPeer(peerID string) error {
 	if peer := sm.peers.getPeer(peerID); peer == nil {
-		return errors.New("peerId not exist")
+		return errPeerIDNotExists
 	}
 	sm.peers.removePeer(peerID)
 	return nil
@@ -199,9 +197,9 @@ func (sm *SyncManager) handleGetBlockMsg(peer *peer, msg *GetBlockMessage) {
 	var block *massutil.Block
 	var err error
 	if msg.Height != 0 {
-		block, err = sm.Chain.GetBlockByHeight(msg.Height)
+		block, err = sm.chain.GetBlockByHeight(msg.Height)
 	} else {
-		block, err = sm.Chain.GetBlockByHash(msg.GetHash())
+		block, err = sm.chain.GetBlockByHash(msg.GetHash())
 	}
 	if err != nil {
 		logging.CPrint(logging.WARN, "fail on handleGetBlockMsg get block from chain", logging.LogFormat{"err": err})
@@ -218,28 +216,47 @@ func (sm *SyncManager) handleGetBlockMsg(peer *peer, msg *GetBlockMessage) {
 }
 
 func (sm *SyncManager) handleGetBlocksMsg(peer *peer, msg *GetBlocksMessage) {
-	blocks, err := sm.blockKeeper.locateBlocks(msg.GetBlockLocator(), msg.GetStopHash())
-	if err != nil || len(blocks) == 0 {
+	//blocks, err := sm.blockKeeper.locateBlocks(msg.GetBlockLocator(), msg.GetStopHash())
+	//if err != nil || len(blocks) == 0 {
+	//	return
+	//}
+
+	headers, err := sm.blockKeeper.locateHeaders(msg.GetBlockLocator(), msg.GetStopHash(), maxBatchSyncBlocksPerRound)
+	if err != nil || len(headers) == 0 {
 		return
 	}
 
-	totalSize := 0
-	sendBlocks := []*massutil.Block{}
-	for _, block := range blocks {
+	// (size+4)*N+3, 4*2048+3<10000
+	totalSize := 10000
+	sendBlockHashes := []*wire.Hash{}
+	rawBlocks := [][]byte{}
+	for _, header := range headers {
+		headerHash := header.BlockHash()
+		block, err := sm.blockKeeper.chain.GetBlockByHash(&headerHash)
+		if err != nil {
+			// reorganized
+			return
+		}
 		rawData, err := block.Bytes(wire.Packet)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "fail on handleGetBlocksMsg marshal block", logging.LogFormat{"err": err})
 			continue
 		}
 
-		if totalSize+len(rawData) > maxBlockchainResponseSize/2 {
+		if totalSize+len(rawData) > maxBlockchainResponseSize {
+			if len(sendBlockHashes) == 0 {
+				totalSize += len(rawData)
+				sendBlockHashes = append(sendBlockHashes, block.Hash())
+				rawBlocks = append(rawBlocks, rawData)
+			}
 			break
 		}
 		totalSize += len(rawData)
-		sendBlocks = append(sendBlocks, block)
+		sendBlockHashes = append(sendBlockHashes, block.Hash())
+		rawBlocks = append(rawBlocks, rawData)
 	}
 
-	ok, err := peer.sendBlocks(sendBlocks)
+	ok, err := peer.sendBlocks(sendBlockHashes, rawBlocks)
 	if !ok {
 		sm.peers.removePeer(peer.ID())
 	}
@@ -248,8 +265,39 @@ func (sm *SyncManager) handleGetBlocksMsg(peer *peer, msg *GetBlocksMessage) {
 	}
 }
 
+func (sm *SyncManager) handleGetHeaderMsg(peer *peer, msg *GetHeaderMessage) {
+	var header *wire.BlockHeader
+	var err error
+	if msg.Height != 0 {
+		header, err = sm.chain.GetHeaderByHeight(msg.Height)
+	} else {
+		header, err = sm.chain.GetHeaderByHash(msg.GetHash())
+	}
+	if err != nil {
+		logging.CPrint(logging.WARN, "fail on handleGetBlockMsg get block from chain", logging.LogFormat{"err": err})
+		return
+	}
+
+	ok, err := peer.sendHeader(header)
+	if !ok {
+		sm.peers.removePeer(peer.ID())
+	}
+	if err != nil {
+		logging.CPrint(logging.ERROR, "fail on handleGetHeaderMsg sentHeader", logging.LogFormat{"err": err})
+	}
+}
+
+func (sm *SyncManager) handleHeaderMsg(peer *peer, msg *HeaderMessage) {
+	header, err := msg.GetHeader()
+	if err != nil {
+		return
+	}
+
+	sm.blockKeeper.processHeader(peer.ID(), header)
+}
+
 func (sm *SyncManager) handleGetHeadersMsg(peer *peer, msg *GetHeadersMessage) {
-	headers, err := sm.blockKeeper.locateHeaders(msg.GetBlockLocator(), msg.GetStopHash())
+	headers, err := sm.blockKeeper.locateHeaders(msg.GetBlockLocator(), msg.GetStopHash(), maxBlockHeadersPerMsg)
 	if err != nil || len(headers) == 0 {
 		logging.CPrint(logging.DEBUG, "fail on handleGetHeadersMsg locateHeaders", logging.LogFormat{"err": err})
 		return
@@ -288,10 +336,11 @@ func (sm *SyncManager) handleMineBlockMsg(peer *peer, msg *MineBlockMessage) {
 }
 
 func (sm *SyncManager) handleStatusRequestMsg(peer BasePeer) {
-	bestHeader := sm.Chain.BestBlockHeader()
-	genesisBlock, err := sm.Chain.GetBlockByHeight(0)
+	bestHeader := sm.chain.BestBlockHeader()
+	genesisBlock, err := sm.chain.GetBlockByHeight(0)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "fail on handleStatusRequestMsg get genesis", logging.LogFormat{"err": err})
+		return
 	}
 
 	genesisHash := genesisBlock.Hash()
@@ -324,16 +373,12 @@ func (sm *SyncManager) handleTransactionMsg(peer *peer, msg *TransactionMessage)
 		return
 	}
 
-	if isOrphan, err := sm.Chain.ValidateTx(tx); err != nil && isOrphan == false {
-		if merr, ok := err.(blockchain.MpRuleError); ok {
-			if rerr, ok := merr.Err.(blockchain.TxRuleError); ok {
-				if rerr.RejectCode == wire.RejectAlreadyExists {
-					return
-				}
-			}
+	if isOrphan, err := sm.chain.ProcessTx(tx); err != nil && !isOrphan {
+		if err == errors.ErrTxAlreadyExists {
+			return
 		}
-		logging.CPrint(logging.ERROR, "validate tx fail", logging.LogFormat{"err": err, "txid": tx.Hash().String()})
-		sm.peers.addBanScore(peer.ID(), 10, 0, "fail on validate tx transaction")
+		logging.CPrint(logging.ERROR, "process tx fail", logging.LogFormat{"err": err, "txid": tx.Hash().String()})
+		sm.peers.addBanScore(peer.ID(), 10, 0, "fail on process transaction")
 	}
 }
 
@@ -344,6 +389,12 @@ func (sm *SyncManager) processMsg(basePeer BasePeer, msgType byte, msg Blockchai
 	}
 
 	switch msg := msg.(type) {
+	case *GetHeaderMessage:
+		sm.handleGetHeaderMsg(peer, msg)
+
+	case *HeaderMessage:
+		sm.handleHeaderMsg(peer, msg)
+
 	case *GetBlockMessage:
 		sm.handleGetBlockMsg(peer, msg)
 
@@ -388,41 +439,32 @@ func (sm *SyncManager) processMsg(basePeer BasePeer, msgType byte, msg Blockchai
 	}
 }
 
-// Defaults to tcp
-func protocolAndAddress(listenAddr string) (string, string) {
-	p, address := "tcp", listenAddr
-	parts := strings.SplitN(address, "://", 2)
-	if len(parts) == 2 {
-		p, address = parts[0], parts[1]
-	}
-	return p, address
-}
+// //Deprecated
+// func (sm *SyncManager) makeNodeInfo(listenerStatus bool) *p2p.NodeInfo {
+// 	nodeInfo := &p2p.NodeInfo{
+// 		PubKey:  sm.privKey.PubKey().Unwrap().(crypto.PubKeyEd25519),
+// 		Moniker: config.Moniker,
+// 		Network: config.ChainTag,
+// 		Version: version.Version,
+// 		Other:   []string{strconv.FormatUint(uint64(consensus.DefaultServices), 10)},
+// 	}
 
-func (sm *SyncManager) makeNodeInfo(listenerStatus bool) *p2p.NodeInfo {
-	nodeInfo := &p2p.NodeInfo{
-		PubKey:  sm.privKey.PubKey().Unwrap().(crypto.PubKeyEd25519),
-		Moniker: config.Moniker,
-		Network: cfg.ChainTag,
-		Version: version.Version,
-		Other:   []string{strconv.FormatUint(uint64(consensus.DefaultServices), 10)},
-	}
+// 	if !sm.sw.IsListening() {
+// 		return nodeInfo
+// 	}
 
-	if !sm.sw.IsListening() {
-		return nodeInfo
-	}
+// 	p2pListener := sm.sw.Listeners()[0]
 
-	p2pListener := sm.sw.Listeners()[0]
-
-	// We assume that the rpcListener has the same ExternalAddress.
-	// This is probably true because both P2P and RPC listeners use UPnP,
-	// except of course if the api is only bound to localhost
-	if listenerStatus {
-		nodeInfo.ListenAddr = cmn.Fmt("%v:%v", p2pListener.ExternalAddress().IP.String(), p2pListener.ExternalAddress().Port)
-	} else {
-		nodeInfo.ListenAddr = cmn.Fmt("%v:%v", p2pListener.InternalAddress().IP.String(), p2pListener.InternalAddress().Port)
-	}
-	return nodeInfo
-}
+// 	// We assume that the rpcListener has the same ExternalAddress.
+// 	// This is probably true because both P2P and RPC listeners use UPnP,
+// 	// except of course if the api is only bound to localhost
+// 	if listenerStatus {
+// 		nodeInfo.ListenAddr = cmn.Fmt("%v:%v", p2pListener.ExternalAddress().IP.String(), p2pListener.ExternalAddress().Port)
+// 	} else {
+// 		nodeInfo.ListenAddr = cmn.Fmt("%v:%v", p2pListener.InternalAddress().IP.String(), p2pListener.InternalAddress().Port)
+// 	}
+// 	return nodeInfo
+// }
 
 //Start start sync manager service
 func (sm *SyncManager) Start() {
@@ -439,48 +481,16 @@ func (sm *SyncManager) Start() {
 func (sm *SyncManager) Stop() {
 	close(sm.quitSync)
 	sm.sw.Stop()
-}
-
-func initDiscover(config *config.Config, priv *crypto.PrivKeyEd25519, port uint16) (*discover.Network, error) {
-	addr, err := net.ResolveUDPAddr("udp", net.JoinHostPort("0.0.0.0", strconv.FormatUint(uint64(port), 10)))
-	if err != nil {
-		return nil, err
-	}
-
-	conn, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		return nil, err
-	}
-
-	realaddr := conn.LocalAddr().(*net.UDPAddr)
-	ntab, err := discover.ListenUDP(priv, conn, realaddr, path.Join(config.Db.DataDir, "discover.db"), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// add the seeds node to the discover table
-	if config.Network.P2P.Seeds == "" {
-		return ntab, nil
-	}
-	nodes := []*discover.Node{}
-	for _, seed := range strings.Split(config.Network.P2P.Seeds, ",") {
-		version.Status.AddSeed(seed)
-		url := "enode://" + hex.EncodeToString(crypto.Sha256([]byte(seed))) + "@" + seed
-		nodes = append(nodes, discover.MustParseNode(url))
-	}
-	if err = ntab.SetFallbackNodes(nodes); err != nil {
-		return nil, err
-	}
-	return ntab, nil
+	logging.CPrint(logging.INFO, "SyncManager stopped")
 }
 
 func (sm *SyncManager) minedBroadcastLoop() {
 	for {
 		select {
 		case blockHash := <-sm.newBlockCh:
-			block, err := sm.Chain.GetBlockByHash(blockHash)
+			block, err := sm.chain.GetBlockByHash(blockHash)
 			if err != nil {
-				logging.CPrint(logging.ERROR, "fail on get block by hash",
+				logging.CPrint(logging.INFO, "fail on get block by hash",
 					logging.LogFormat{"hash": blockHash})
 				continue
 			}

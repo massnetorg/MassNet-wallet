@@ -2,13 +2,13 @@ package wirepb
 
 import (
 	crand "crypto/rand"
+	"math"
 	"math/rand"
-	"time"
 )
 
 // mockBlock mocks a block with given txCount.
 func mockBlock(txCount int) *Block {
-	txs := make([]*Tx, txCount, txCount)
+	txs := make([]*Tx, txCount)
 	for i := 0; i < txCount; i++ {
 		txs[i] = mockTx()
 	}
@@ -31,62 +31,57 @@ func mockHeader() *BlockHeader {
 		ChainID:         mockHash(),
 		Version:         1,
 		Height:          rand.Uint64(),
-		Timestamp:       rand.Int63(),
+		Timestamp:       rand.Uint64(),
 		Previous:        mockHash(),
 		TransactionRoot: mockHash(),
+		WitnessRoot:     mockHash(),
 		ProposalRoot:    mockHash(),
 		Target:          mockBigInt(),
-		Challenge:       mockBigInt(),
+		Challenge:       mockHash(),
 		PubKey:          mockPublicKey(),
 		Proof: &Proof{
 			X:         mockLenBytes(3),
 			XPrime:    mockLenBytes(3),
-			BitLength: rand.Int31n(20)*2 + 20,
+			BitLength: (rand.Uint32()%20)*2 + 20,
 		},
-		SigQ:    mockSignature(),
-		Sig2:    mockSignature(),
-		BanList: make([]*PublicKey, 0),
+		Signature: mockSignature(),
+		BanList:   make([]*PublicKey, 0),
 	}
 }
 
 func mockBigInt() *BigInt {
 	return &BigInt{
-		RawAbs: mockLenBytes(32),
+		Raw: mockLenBytes(32),
 	}
 }
 
 func mockPublicKey() *PublicKey {
 	return &PublicKey{
-		RawX: mockBigInt(),
-		RawY: mockBigInt(),
+		Raw: mockLenBytes(33),
 	}
 }
 
 func mockSignature() *Signature {
 	return &Signature{
-		RawR: mockBigInt(),
-		RawS: mockBigInt(),
+		Raw: mockLenBytes(72),
 	}
 }
 
 func mockProposalArea() *ProposalArea {
 	punishmentCount := rand.Intn(10)
-	punishments := make([]*Punishment, punishmentCount, punishmentCount)
+	punishments := make([]*Punishment, punishmentCount)
 	for i := range punishments {
 		punishments[i] = mockPunishment()
 	}
 
 	proposalCount := rand.Intn(5)
-	proposals := make([]*Proposal, proposalCount, proposalCount)
+	proposals := make([]*Proposal, proposalCount)
 	for i := range proposals {
 		proposals[i] = mockProposal()
 	}
 
 	pa := new(ProposalArea)
 	pa.Punishments = punishments
-	if punishmentCount == 0 {
-		pa.PlaceHolder = mockPlaceHolder()
-	}
 	pa.OtherProposals = proposals
 
 	return pa
@@ -101,25 +96,16 @@ func mockPunishment() *Punishment {
 	}
 }
 
-func mockPlaceHolder() *Proposal {
-	return &Proposal{
-		Version: 1,
-		Type:    1,
-		Content: mockLenBytes(429 * 2),
-	}
-}
-
 func mockProposal() *Proposal {
 	return &Proposal{
 		Version: 1,
-		Type:    1 + rand.Int31n(10),
+		Type:    1 + rand.Uint32()%10,
 		Content: mockLenBytes(10 + rand.Intn(20)),
 	}
 }
 
 // mockTx mocks a tx (scripts are random bytes).
 func mockTx() *Tx {
-	rand.Seed(time.Now().Unix())
 	return &Tx{
 		Version: 1,
 		TxIn: []*TxIn{
@@ -129,7 +115,7 @@ func mockTx() *Tx {
 					Index: 0xffffffff,
 				},
 				Witness:  [][]byte{mockLenBytes(rand.Intn(50) + 100), mockLenBytes(rand.Intn(50) + 100)},
-				Sequence: 0xffffffff,
+				Sequence: math.MaxUint64,
 			},
 		},
 		TxOut: []*TxOut{
@@ -155,7 +141,7 @@ func mockHash() *Hash {
 
 // mockLenBytes mocks bytes with given length.
 func mockLenBytes(len int) []byte {
-	buf := make([]byte, len, len)
+	buf := make([]byte, len)
 	crand.Read(buf)
 	return buf
 }

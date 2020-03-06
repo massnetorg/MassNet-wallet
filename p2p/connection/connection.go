@@ -9,12 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	//log "github.com/sirupsen/logrus"
-	wire "github.com/tendermint/go-wire"
-	cmn "github.com/tendermint/tmlibs/common"
-	flow "github.com/tendermint/tmlibs/flowrate"
+	"massnet.org/mass-wallet/logging"
+	wire "github.com/massnetorg/tendermint/go-wire"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
+	flow "github.com/massnetorg/tendermint/tmlibs/flowrate"
 )
 
 const (
@@ -236,7 +234,7 @@ func (c *MConnection) flush() {
 func (c *MConnection) _recover() {
 	if r := recover(); r != nil {
 		stack := debug.Stack()
-		err := cmn.StackError{r, stack}
+		err := cmn.StackError{Err: r, Stack: stack}
 		c.stopForError(err)
 	}
 }
@@ -269,14 +267,14 @@ func (c *MConnection) recvRoutine() {
 		// Read more depending on packet type.
 		switch pktType {
 		case packetTypePing:
-			logging.CPrint(logging.DEBUG, "receive Ping", logging.LogFormat{})
+			logging.CPrint(logging.DEBUG, "receive Ping")
 			select {
 			case c.pong <- struct{}{}:
 			default:
 			}
 
 		case packetTypePong:
-			logging.CPrint(logging.DEBUG, "receive Pong", logging.LogFormat{})
+			logging.CPrint(logging.DEBUG, "receive Pong")
 
 		case packetTypeMsg:
 			pkt, n, err := msgPacket{}, int(0), error(nil)
@@ -292,7 +290,7 @@ func (c *MConnection) recvRoutine() {
 
 			channel, ok := c.channelsIdx[pkt.ChannelID]
 			if !ok || channel == nil {
-				logging.CPrint(logging.FATAL, fmt.Sprintf("Unknown channel %X", pkt.ChannelID), logging.LogFormat{})
+				logging.CPrint(logging.FATAL, fmt.Sprintf("Unknown channel %X", pkt.ChannelID))
 			}
 
 			msgBytes, err := channel.recvMsgPacket(pkt)
@@ -309,7 +307,7 @@ func (c *MConnection) recvRoutine() {
 			}
 
 		default:
-			logging.CPrint(logging.FATAL, fmt.Sprintf("Unknown message type %X", pktType), logging.LogFormat{})
+			logging.CPrint(logging.FATAL, fmt.Sprintf("Unknown message type %X", pktType))
 		}
 	}
 }
@@ -357,12 +355,12 @@ func (c *MConnection) sendRoutine() {
 				channel.updateStats()
 			}
 		case <-c.pingTimer.C:
-			logging.CPrint(logging.DEBUG, "send Ping", logging.LogFormat{})
+			logging.CPrint(logging.DEBUG, "send Ping")
 			wire.WriteByte(packetTypePing, c.bufWriter, &n, &err)
 			c.sendMonitor.Update(int(n))
 			c.flush()
 		case <-c.pong:
-			logging.CPrint(logging.DEBUG, "send Pong", logging.LogFormat{})
+			logging.CPrint(logging.DEBUG, "send Pong")
 			wire.WriteByte(packetTypePong, c.bufWriter, &n, &err)
 			c.sendMonitor.Update(int(n))
 			c.flush()

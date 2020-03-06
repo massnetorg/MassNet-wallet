@@ -9,18 +9,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	"github.com/massnetorg/MassNet-wallet/p2p/netutil"
-
-	//log "github.com/sirupsen/logrus"
-	crypto "github.com/tendermint/go-crypto"
-	wire "github.com/tendermint/go-wire"
-
-	"github.com/bytom/common"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/p2p/netutil"
+	crypto "github.com/massnetorg/tendermint/go-crypto"
+	gowire "github.com/massnetorg/tendermint/go-wire"
 )
 
-const Version = 4
+const Version = 4 //TODO: reset it before releasing
 
 // Errors
 var (
@@ -89,7 +84,7 @@ type (
 		Expiration uint64 // Absolute timestamp at which the packet becomes invalid.
 
 		// v5
-		TopicHash    common.Hash
+		TopicHash    Hash
 		TicketSerial uint32
 		WaitPeriods  []uint32
 
@@ -107,7 +102,7 @@ type (
 
 	// findnode is a query for nodes close to the given target.
 	findnodeHash struct {
-		Target     common.Hash
+		Target     Hash
 		Expiration uint64
 		// Ignore additional fields (for forward compatibility).
 		Rest []byte
@@ -134,7 +129,7 @@ type (
 
 	// reply to topicQuery
 	topicNodes struct {
-		Echo  common.Hash
+		Echo  Hash
 		Nodes []rpcNode
 	}
 
@@ -153,7 +148,7 @@ type (
 )
 
 var (
-	versionPrefix     = []byte("bytom discovery")
+	versionPrefix     = []byte("mass discovery")
 	versionPrefixSize = len(versionPrefix)
 	nodeIDSize        = 32
 	sigSize           = 520 / 8
@@ -171,7 +166,7 @@ var maxNeighbors = func() int {
 		var size int
 		var err error
 		b := new(bytes.Buffer)
-		wire.WriteJSON(p, b, &size, &err)
+		gowire.WriteJSON(p, b, &size, &err)
 		if err != nil {
 			// If this ever happens, it will be caught by the unit tests.
 			logging.CPrint(logging.FATAL, "cannot encode", logging.LogFormat{"err": err, "p": p, "b": b, "size": size})
@@ -190,7 +185,7 @@ var maxTopicNodes = func() int {
 		var size int
 		var err error
 		b := new(bytes.Buffer)
-		wire.WriteJSON(p, b, &size, &err)
+		gowire.WriteJSON(p, b, &size, &err)
 		if err != nil {
 			// If this ever happens, it will be caught by the unit tests.
 			logging.CPrint(logging.FATAL, "cannot encode", logging.LogFormat{"err": err, "p": p, "b": b, "size": size})
@@ -252,12 +247,12 @@ type udp struct {
 }
 
 // ListenUDP returns a new table that listens for UDP packets on laddr.
-func ListenUDP(priv *crypto.PrivKeyEd25519, conn conn, realaddr *net.UDPAddr, nodeDBPath string, netrestrict *netutil.Netlist) (*Network, error) {
-	transport, err := listenUDP(priv, conn, realaddr)
+func ListenUDP(priv *crypto.PrivKeyEd25519, conn conn, db NetworkDB, netrestrict *netutil.Netlist) (*Network, error) {
+	transport, err := listenUDP(priv, conn)
 	if err != nil {
 		return nil, err
 	}
-	net, err := newNetwork(transport, priv.PubKey().Unwrap().(crypto.PubKeyEd25519), nodeDBPath, netrestrict)
+	net, err := newNetwork(transport, db, netrestrict)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +262,8 @@ func ListenUDP(priv *crypto.PrivKeyEd25519, conn conn, realaddr *net.UDPAddr, no
 	return net, nil
 }
 
-func listenUDP(priv *crypto.PrivKeyEd25519, conn conn, realaddr *net.UDPAddr) (*udp, error) {
+func listenUDP(priv *crypto.PrivKeyEd25519, conn conn) (*udp, error) {
+	realaddr := conn.LocalAddr().(*net.UDPAddr)
 	return &udp{conn: conn, priv: priv, ourEndpoint: makeEndpoint(realaddr, uint16(realaddr.Port))}, nil
 }
 
@@ -315,9 +311,9 @@ func (t *udp) sendNeighbours(remote *Node, results []*Node) {
 	}
 }
 
-func (t *udp) sendFindnodeHash(remote *Node, target common.Hash) {
+func (t *udp) sendFindnodeHash(remote *Node, target Hash) {
 	t.sendPacket(remote.ID, remote.addr(), byte(findnodeHashPacket), findnodeHash{
-		Target:     common.Hash(target),
+		Target:     Hash(target),
 		Expiration: uint64(time.Now().Add(expiration).Unix()),
 	})
 }
@@ -330,7 +326,7 @@ func (t *udp) sendTopicRegister(remote *Node, topics []Topic, idx int, pong []by
 	})
 }
 
-func (t *udp) sendTopicNodes(remote *Node, queryHash common.Hash, nodes []*Node) {
+func (t *udp) sendTopicNodes(remote *Node, queryHash Hash, nodes []*Node) {
 	p := topicNodes{Echo: queryHash}
 	var sent bool
 	for _, result := range nodes {
@@ -349,8 +345,10 @@ func (t *udp) sendTopicNodes(remote *Node, queryHash common.Hash, nodes []*Node)
 }
 
 func (t *udp) sendPacket(toid NodeID, toaddr *net.UDPAddr, ptype byte, req interface{}) (hash []byte, err error) {
+	//fmt.Println("sendPacket", nodeEvent(ptype), toaddr.String(), toid.String())
 	packet, hash, err := encodePacket(t.priv, ptype, req)
 	if err != nil {
+		//fmt.Println(err)
 		return hash, err
 	}
 	logging.CPrint(logging.DEBUG, "send packet", logging.LogFormat{"nodeEvent": fmt.Sprintf("%v", nodeEvent(ptype)), "to_id": hex.EncodeToString(toid[:8]), "to_addr": toaddr})
@@ -368,19 +366,19 @@ func encodePacket(priv *crypto.PrivKeyEd25519, ptype byte, req interface{}) (p, 
 	b.Write(headSpace)
 	b.WriteByte(ptype)
 	var size int
-	wire.WriteJSON(req, b, &size, &err)
+	gowire.WriteJSON(req, b, &size, &err)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "error encoding packet", logging.LogFormat{"err": err})
 		return nil, nil, err
 	}
 	packet := b.Bytes()
 	nodeID := priv.PubKey().Unwrap().(crypto.PubKeyEd25519)
-	sig := priv.Sign(common.BytesToHash(packet[headSize:]).Bytes())
+	sig := priv.Sign(BytesToHash(packet[headSize:]).Bytes())
 	copy(packet, versionPrefix)
 	copy(packet[versionPrefixSize:], nodeID[:])
 	copy(packet[versionPrefixSize+nodeIDSize:], sig.Bytes())
 
-	hash = common.BytesToHash(packet[versionPrefixSize:]).Bytes()
+	hash = BytesToHash(packet[versionPrefixSize:]).Bytes()
 	return packet, hash, nil
 }
 
@@ -411,6 +409,7 @@ func (t *udp) handlePacket(from *net.UDPAddr, buf []byte) error {
 	pkt := ingressPacket{remoteAddr: from}
 	if err := decodePacket(buf, &pkt); err != nil {
 		logging.CPrint(logging.DEBUG, "handle bad packet", logging.LogFormat{"from": fmt.Sprintf("%v", from), "err": err})
+		//fmt.Println("bad packet", err)
 		return err
 	}
 	t.net.reqReadPacket(pkt)
@@ -428,7 +427,7 @@ func decodePacket(buffer []byte, pkt *ingressPacket) error {
 		return errBadPrefix
 	}
 	pkt.rawData = buf
-	pkt.hash = common.BytesToHash(buf[versionPrefixSize:]).Bytes()
+	pkt.hash = BytesToHash(buf[versionPrefixSize:]).Bytes()
 	pkt.remoteID = ByteID(fromID)
 	switch pkt.ev = nodeEvent(sigdata[0]); pkt.ev {
 	case pingPacket:
@@ -451,9 +450,9 @@ func decodePacket(buffer []byte, pkt *ingressPacket) error {
 		return fmt.Errorf("unknown packet type: %d", sigdata[0])
 	}
 	var err error
-	wire.ReadJSON(pkt.data, sigdata[1:], &err)
+	gowire.ReadJSON(pkt.data, sigdata[1:], &err)
 	if err != nil {
-		logging.CPrint(logging.ERROR, "wire readjson err", logging.LogFormat{"err": err})
+		logging.CPrint(logging.ERROR, "gowire readjson err", logging.LogFormat{"err": err})
 	}
 
 	return err

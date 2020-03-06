@@ -14,15 +14,13 @@ func TestTx(t *testing.T) {
 		tx := mockTx()
 		buf, err := proto.Marshal(tx)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 
 		newTx := new(Tx)
 		err = proto.Unmarshal(buf, newTx)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 
 		// compare tx and newTx

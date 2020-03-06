@@ -12,7 +12,7 @@ const (
 	// SFSPV indicate peer support spv mode
 	SFSPV
 	// DefaultServices is the server that this node support
-	DefaultServices = SFFullNode | SFFastSync | SFSPV
+	DefaultServices = SFFullNode | SFFastSync
 )
 
 // IsEnable check does the flag support the input flag function

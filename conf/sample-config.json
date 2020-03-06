@@ -1,0 +1,33 @@
+{
+  "app": {
+    "profile": "",
+    "cpu_profile": ""
+  },
+  "network": {
+    "p2p": {
+        "seeds": "",
+        "add_peer": null,
+        "skip_upnp": false,
+        "handshake_timeout": 30,
+        "dial_timeout": 3,
+        "listen_address": "tcp://0.0.0.0:43453"
+    },
+    "api": {
+        "host": "localhost",
+        "grpc_port": "9685",
+        "http_port": "9686",
+        "http_cors_addr": ["localhost"],
+        "disable_tls": false,
+        "rpc_cert": "./cert.crt",
+        "rpc_key": "./cert.key"
+    }
+  },
+  "log": {
+    "log_dir": "./logs",
+    "log_level": "info"
+  },
+  "data": {
+    "db_type": "leveldb",
+    "db_dir": "chain"
+  }
+}

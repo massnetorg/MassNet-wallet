@@ -2,116 +2,102 @@ package api
 
 const (
 	// transaction err
-	ErrAPINoTxInfo        = 1101
-	ErrAPINoTxOut         = 1102
-	ErrAPIRawTx           = 1103
-	ErrAPIDuplicateTx     = 1104
-	ErrAPIInsufficient    = 1105
-	ErrAPIFailedToMaxwell = 1106
-	ErrAPIFindingUtxo     = 1107
-	ErrAPIFindingBalance  = 1108
-	ErrAPIEstimateTxFee   = 1109
-	ErrAPIUserTxFee       = 1110
+	ErrAPINoTxInfo           = 1101
+	ErrAPIRawTx              = 1102
+	ErrAPIUserTxFee          = 1103
+	ErrAPIGetStakingTxDetail = 1105
+	ErrAPISignRawTx          = 1106
+	ErrAPIUnspendableUtxo    = 1107
 
 	// block err
 	ErrAPINewestHash          = 1201
-	ErrAPIBlockNotFound       = 1202
-	ErrAPINextBlock           = 1203
-	ErrAPIBlockHashByHeight   = 1204
-	ErrAPIBlockHeaderNotFound = 1205
+	ErrAPIBlockHeaderNotFound = 1202
 
 	// wallet err
-	ErrAPIWalletInternal      = 1301
-	ErrAPICreateRedeemScript  = 1302
-	ErrAPICreatePubKey        = 1303
-	ErrAPINoAddressInWallet   = 1304
-	ErrAPICreateAddress       = 1305
-	ErrAPINoPrivKeyByPubKey   = 1306
-	ErrAPINoScriptByAddress   = 1307
-	ErrAPIImportWallet        = 1308
-	ErrAPIDumpWallet          = 1309
-	ErrAPINoSeedsInWallet     = 1310
-	ErrAPIChangePassword      = 1311
-	ErrAPIDefaultPasswordUsed = 1312
+	ErrAPINoAddressInWallet         = 1301
+	ErrAPIGetAddresses              = 1302
+	ErrAPINoWalletInUse             = 1303
+	ErrAPIInsufficientWalletBalance = 1304
+	ErrAPIUtxoNotExistsInTxIn       = 1305
+	ErrAPIWalletUnready             = 1306
+	ErrAPIGapLimit                  = 1307
+	ErrAPIUnusedAddressLimit        = 1308
 
 	// txScript
-	ErrAPICreatePkScript  = 1401
-	ErrAPISignTx          = 1402
-	ErrAPINewEngine       = 1403
-	ErrAPIExecute         = 1404
-	ErrAPIRejectTx        = 1405
-	ErrAPIExtractPKScript = 1406
+	ErrAPIRejectTx          = 1401
+	ErrAPITxAlreadyExists   = 1402
+	ErrAPINonStandardTxSize = 1403
 
 	// Invalid Parameter
-	ErrAPIInvalidParameter = 1501
-	ErrAPIInvalidLockTime  = 1502
-	ErrAPIInvalidAmount    = 1503
-	ErrAPIInvalidAddress   = 1504
-	ErrAPIInvalidFlag      = 1505
-	ErrAPIInvalidIndex     = 1506
-
-	// Decode, Encode and deserialize err
-	ErrAPIFailedDecodeAddress = 1601
-	ErrAPIDecodeHexString     = 1602
-	ErrAPIShaHashFromStr      = 1603
-	ErrAPIEncode              = 1604
-	ErrAPIDeserialization     = 1605
-	ErrAPIDecodePrivKey       = 1606
-	ErrAPIDisasmScript        = 1607
+	ErrAPIInvalidParameter       = 1501
+	ErrAPIInvalidLockTime        = 1502
+	ErrAPIInvalidAmount          = 1503
+	ErrAPIInvalidAddress         = 1504
+	ErrAPIInvalidFlag            = 1505
+	ErrAPIInvalidTxHex           = 1506
+	ErrAPIInvalidPassphrase      = 1507
+	ErrAPIInvalidOldPassphrase   = 1508
+	ErrAPIInvalidNewPassphrase   = 1509
+	ErrAPIInvalidSeed            = 1510
+	ErrAPIInvalidWalletId        = 1511
+	ErrAPIInvalidKeystoreJson    = 1512
+	ErrAPIInvalidVersion         = 1513
+	ErrAPIDuplicateSeed          = 1514
+	ErrAPIPrivPassSameAsPubPass  = 1515
+	ErrAPIInvalidMnemonic        = 1516
+	ErrAPIInvalidBitSize         = 1517
+	ErrAPIInvalidTxId            = 1518
+	ErrAPIInvalidTxHistoryCount  = 1519
+	ErrAPIMismatchedKeystoreJson = 1520
 
 	// other err
-	ErrAPIUnknownErr = 1701
-	ErrAPINet        = 1702
+	ErrAPIUnknownErr      = 1701
+	ErrAPIQueryDataFailed = 1702
+	ErrAPIAbnormalData    = 1703
 )
 
 var ErrCode = map[uint32]string{
+	ErrAPINoTxInfo:                  "No information available about transaction",
+	ErrAPIGetAddresses:              "Failed to get addresses",
+	ErrAPINoAddressInWallet:         "There is no address in the wallet",
+	ErrAPIInvalidParameter:          "Invalid parameter",
+	ErrAPIInvalidLockTime:           "Invalid locktime",
+	ErrAPIInvalidAmount:             "Invalid amount",
+	ErrAPIInvalidAddress:            "Invalid address",
+	ErrAPIInvalidFlag:               "Invalid flag of sighash parameter",
+	ErrAPIRejectTx:                  "Reject receive transaction",
+	ErrAPINewestHash:                "Failed to get newest hash",
+	ErrAPIRawTx:                     "Failed to create raw transaction",
+	ErrAPIBlockHeaderNotFound:       "Failed to find block header",
+	ErrAPIUnknownErr:                "Unknown error",
+	ErrAPIUserTxFee:                 "Invalid userTxFee",
+	ErrAPIGetStakingTxDetail:        "Failed to query staking tx detail",
+	ErrAPIInvalidPassphrase:         "Invalid passphrase",
+	ErrAPIInvalidOldPassphrase:      "Invalid passphrase",
+	ErrAPIInvalidNewPassphrase:      "Invalid passphrase",
+	ErrAPIInvalidSeed:               "Invalid seed",
+	ErrAPIInvalidWalletId:           "Invalid walletId",
+	ErrAPIInvalidKeystoreJson:       "Invalid keystore json",
+	ErrAPINoWalletInUse:             "No wallet in use",
+	ErrAPIInvalidVersion:            "Invalid version",
+	ErrAPIInsufficientWalletBalance: "Insufficient wallet balance",
+	ErrAPIInvalidTxHex:              "Invalid txHex",
+	ErrAPIUtxoNotExistsInTxIn:       "UTXO of TxIn not exists in the wallet",
+	ErrAPIDuplicateSeed:             "Duplicate seed in the wallet",
+	ErrAPIPrivPassSameAsPubPass:     "New private passphrase same as public passphrase",
+	ErrAPIWalletUnready:             "Wallet is unready, need to wait util wallet imported",
+	ErrAPITxAlreadyExists:           "Transaction already exists",
+	ErrAPINonStandardTxSize:         "Transaction size is larger than max allowed size",
+	ErrAPIInvalidMnemonic:           "Invalid mnemonic",
+	ErrAPIInvalidBitSize:            "Invalid bit size",
+	ErrAPIGapLimit:                  "Too many unused addresses",
+	ErrAPIInvalidTxId:               "Invalid transaction id",
+	ErrAPIInvalidTxHistoryCount:     "Invalid count for transaction history",
+	ErrAPIMismatchedKeystoreJson:    "Keystore json does not match the client or network",
 
-	ErrAPINoTxInfo:            "No information available about transaction",
-	ErrAPIInvalidIndex:        "Invalid OutPoint index",
-	ErrAPINoTxOut:             "Invalid preOutPoint",
-	ErrAPIDuplicateTx:         "OutPoint index has been spent",
-	ErrAPIInsufficient:        "Insufficient balance",
-	ErrAPIFailedToMaxwell:     "Failed convert the amount",
-	ErrAPIFindingUtxo:         "Failed to find Utxo",
-	ErrAPIFindingBalance:      "Failed to find balance",
-	ErrAPIWalletInternal:      "Error in wallet internal",
-	ErrAPICreateRedeemScript:  "Failed to create redeem script",
-	ErrAPICreatePubKey:        "Failed to create pubkey",
-	ErrAPICreateAddress:       "Failed to create address",
-	ErrAPINoAddressInWallet:   "There is no such address in the wallet",
-	ErrAPIInvalidParameter:    "Invalid parameter",
-	ErrAPIInvalidLockTime:     "Invalid locktime",
-	ErrAPIInvalidAmount:       "Invalid amount",
-	ErrAPIInvalidAddress:      "Invalid address",
-	ErrAPIInvalidFlag:         "Invalid sighash parameter",
-	ErrAPICreatePkScript:      "Failed to create pkScript",
-	ErrAPIFailedDecodeAddress: "Failed to decode address",
-	ErrAPIDecodeHexString:     "Argument must be hexadecimal string",
-	ErrAPIShaHashFromStr:      "Failed to decode hash from string",
-	ErrAPIEncode:              "Failed to encode data",
-	ErrAPIDeserialization:     "Failed to deserialize",
-	ErrAPIDecodePrivKey:       "Failed to decode WIF for the privkey",
-	ErrAPIDisasmScript:        "Failed to disasm script to string",
-	ErrAPINet:                 "Mismatched network",
-	ErrAPINoPrivKeyByPubKey:   "No privkey for the pubkey found",
-	ErrAPINoScriptByAddress:   "No redeem script for the address found",
-	ErrAPISignTx:              "Failed to sign transaction",
-	ErrAPINewEngine:           "Failed to create new engine",
-	ErrAPIExecute:             "Failed to execute engine",
-	ErrAPIRejectTx:            "Reject receive transaction",
-	ErrAPIExtractPKScript:     "Failed to extract info from pkScript",
-	ErrAPINewestHash:          "Failed to get newest hash",
-	ErrAPIBlockNotFound:       "Failed to find block",
-	ErrAPIRawTx:               "Failed to create raw transaction",
-	ErrAPINextBlock:           "No next block",
-	ErrAPIBlockHashByHeight:   "Failed to get block hash by height",
-	ErrAPIBlockHeaderNotFound: "Failed to find block header",
-	ErrAPIUnknownErr:          "Unknown error",
-	ErrAPIImportWallet:        "Failed to import wallet",
-	ErrAPIDumpWallet:          "Failed to dump wallet",
-	ErrAPIEstimateTxFee:       "Failed to estimateTxFee",
-	ErrAPIUserTxFee:           "Invalid userTxFee",
-	ErrAPINoSeedsInWallet:     "No seeds",
-	ErrAPIChangePassword:      "Failed to change password",
-	ErrAPIDefaultPasswordUsed: "Failed to check defaultPassword used",
+	ErrAPISignRawTx:          "Failed to sign raw transaction",
+	ErrAPIQueryDataFailed:    "Query for data failed",
+	ErrAPIAbnormalData:       "Abnormal data",
+	ErrAPIUnusedAddressLimit: "Too many unused address",
+	ErrAPIUnspendableUtxo:    "Unspendable utxo",
 }

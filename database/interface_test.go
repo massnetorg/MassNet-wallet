@@ -1,19 +1,14 @@
-// Modified for MassNet
-// Copyright (c) 2013-2014 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package database_test
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
-	"github.com/massnetorg/MassNet-wallet/database"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
-
 	"github.com/davecgh/go-spew/spew"
+	"massnet.org/mass-wallet/database"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
 
 // testContext is used to store context information about a running test which
@@ -28,7 +23,7 @@ type testContext struct {
 	t           *testing.T
 	dbType      string
 	db          database.Db
-	blockHeight int32
+	blockHeight uint64
 	blockHash   *wire.Hash
 	block       *massutil.Block
 	useSpends   bool
@@ -37,7 +32,7 @@ type testContext struct {
 // testInsertBlock ensures InsertBlock conforms to the interface contract.
 func testInsertBlock(tc *testContext) bool {
 	// The block must insert without any errors.
-	newHeight, err := tc.db.InsertBlock(tc.block)
+	err := tc.db.SubmitBlock(tc.block)
 	if err != nil {
 		tc.t.Errorf("InsertBlock (%s): failed to insert block #%d (%s) "+
 			"err %v", tc.dbType, tc.blockHeight, tc.blockHash, err)
@@ -45,11 +40,11 @@ func testInsertBlock(tc *testContext) bool {
 	}
 
 	// The returned height must be the expected value.
-	if newHeight != tc.blockHeight {
-		tc.t.Errorf("InsertBlock (%s): height mismatch got: %v, "+
-			"want: %v", tc.dbType, newHeight, tc.blockHeight)
-		return false
-	}
+	//if newHeight != tc.blockHeight {
+	//	tc.t.Errorf("InsertBlock (%s): height mismatch got: %v, "+
+	//		"want: %v", tc.dbType, newHeight, tc.blockHeight)
+	//	return false
+	//}
 
 	return true
 }
@@ -215,7 +210,7 @@ func testFetchBlockShaByHeight(tc *testContext) bool {
 
 func testFetchBlockShaByHeightErrors(tc *testContext) bool {
 	// Invalid heights must error and return a nil hash.
-	tests := []int32{-1, tc.blockHeight + 1, tc.blockHeight + 2}
+	tests := []uint64{math.MaxUint64, tc.blockHeight + 1, tc.blockHeight + 2}
 	for i, wantHeight := range tests {
 		hashFromDb, err := tc.db.FetchBlockShaByHeight(wantHeight)
 		if err == nil {

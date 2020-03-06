@@ -5,8 +5,8 @@ import (
 	"io"
 	"testing"
 
-	crypto "github.com/tendermint/go-crypto"
-	cmn "github.com/tendermint/tmlibs/common"
+	crypto "github.com/massnetorg/tendermint/go-crypto"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 type dummyConn struct {
@@ -98,6 +98,7 @@ func TestSecretConnectionReadWrite(t *testing.T) {
 			// In parallel, handle reads and writes
 			cmn.Parallel(
 				func() {
+					defer nodeConn.PipeWriter.Close()
 					// Node writes
 					for _, nodeWrite := range nodeWrites {
 						n, err := nodeSecretConn.Write([]byte(nodeWrite))
@@ -110,9 +111,9 @@ func TestSecretConnectionReadWrite(t *testing.T) {
 							return
 						}
 					}
-					nodeConn.PipeWriter.Close()
 				},
 				func() {
+					defer nodeConn.PipeReader.Close()
 					// Node reads
 					readBuffer := make([]byte, dataMaxSize)
 					for {
@@ -125,7 +126,6 @@ func TestSecretConnectionReadWrite(t *testing.T) {
 						}
 						*nodeReads = append(*nodeReads, string(readBuffer[:n]))
 					}
-					nodeConn.PipeReader.Close()
 				})
 		}
 	}

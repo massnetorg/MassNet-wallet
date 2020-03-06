@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2016 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -8,7 +7,7 @@ package txscript
 import (
 	"sync"
 
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/wire"
 )
 
 // TxSigHashes houses the partial set of sighashes introduced within BIP0143.

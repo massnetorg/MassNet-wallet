@@ -3,11 +3,9 @@ package netsync
 import (
 	"math/rand"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	//log "github.com/sirupsen/logrus"
-
-	"github.com/massnetorg/MassNet-wallet/massutil"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
 
 const (
@@ -40,7 +38,7 @@ func (sm *SyncManager) txBroadcastLoop() {
 		case newTx := <-sm.newTxCh:
 			if err := sm.peers.broadcastTx(newTx); err != nil {
 				logging.CPrint(logging.ERROR, "broadcast new tx error", logging.LogFormat{"err": err})
-				return
+				continue
 			}
 		case <-sm.quitSync:
 			return
@@ -69,7 +67,8 @@ func (sm *SyncManager) txSyncLoop() {
 		sendTxs := []*massutil.Tx{}
 		for i := 0; i < len(msg.txs) && totalSize < txSyncPackSize; i++ {
 			sendTxs = append(sendTxs, msg.txs[i])
-			totalSize += uint64(msg.txs[i].MsgTx().SerializeSize())
+			txBytes, _ := msg.txs[i].Bytes(wire.Packet)
+			totalSize += uint64(len(txBytes))
 		}
 
 		if len(msg.txs) == len(sendTxs) {

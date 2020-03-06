@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -38,6 +37,7 @@ func (e ErrScriptNotCanonical) Error() string {
 // 		// Handle the error.
 // 		return
 // 	}
+// 	fmt.Printf("Final multi-sig script: %x\n", script)
 type ScriptBuilder struct {
 	script []byte
 	err    error
@@ -118,6 +118,7 @@ func (b *ScriptBuilder) addData(data []byte) *ScriptBuilder {
 	// can represent the length of the data.
 	if dataLen < OP_PUSHDATA1 {
 		b.script = append(b.script, byte((OP_DATA_1-1)+dataLen))
+		//fmt.Printf("txscript/scriptbuilder.go#L130: append length to b.script, returns %v\n", b.script)
 	} else if dataLen <= 0xff {
 		b.script = append(b.script, OP_PUSHDATA1, byte(dataLen))
 	} else if dataLen <= 0xffff {
@@ -134,6 +135,7 @@ func (b *ScriptBuilder) addData(data []byte) *ScriptBuilder {
 
 	// Append the actual data.
 	b.script = append(b.script, data...)
+	//fmt.Printf("txscript/scriptbuilder.go#L147: append data to b.script, returns %v\n", b.script)
 
 	return b
 }
@@ -221,7 +223,7 @@ func (b *ScriptBuilder) AddInt64(val int64) *ScriptBuilder {
 	return b.AddData(scriptNum(val).Bytes())
 }
 
-// Add this func because block height between 1 and 16 can not be encoded correctly
+// AddCoinbaseHeight is used because block height between 1 and 16 can not be encoded correctly
 func (b *ScriptBuilder) AddCoinbaseHeight(val int64) *ScriptBuilder {
 	if b.err != nil {
 		return b
@@ -245,6 +247,8 @@ func (b *ScriptBuilder) AddCoinbaseHeight(val int64) *ScriptBuilder {
 	}
 
 	data := scriptNum(val).Bytes()
+
+	//fmt.Printf("txscript/scriptbuilder.go#L260: coinbase height in bytes is %v\n", data)
 
 	// The following codes are equivalent to b.AddData(scriptNum(val).Bytes())
 
@@ -280,6 +284,7 @@ func (b *ScriptBuilder) AddCoinbaseHeight(val int64) *ScriptBuilder {
 	// can represent the length of the data.
 	if dataLen <= 8 {
 		b.script = append(b.script, byte((OP_DATA_1-1)+dataLen))
+		//fmt.Printf("txscript/scriptbuilder.go#L296: append length to b.script, returns %v\n", b.script)
 	} else {
 		str := fmt.Sprintf("adding an invalid coinbase height, which consists of more than 8 bytes (%d bytes)",
 			dataLen)
@@ -289,6 +294,7 @@ func (b *ScriptBuilder) AddCoinbaseHeight(val int64) *ScriptBuilder {
 
 	// Append the actual data.
 	b.script = append(b.script, data...)
+	//fmt.Printf("txscript/scriptbuilder.go#L306: append data to b.script, returns %v\n", b.script)
 
 	return b
 }

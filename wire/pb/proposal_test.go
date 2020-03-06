@@ -13,15 +13,13 @@ func TestProposalArea(t *testing.T) {
 		pa := mockProposalArea()
 		buf, err := proto.Marshal(pa)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 
 		newPa := new(ProposalArea)
 		err = proto.Unmarshal(buf, newPa)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 
 		// compare pa and newPa

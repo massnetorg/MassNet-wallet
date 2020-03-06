@@ -17,6 +17,7 @@ const (
 	WarnLevel  = "warn"
 	InfoLevel  = "info"
 	DebugLevel = "debug"
+	TraceLevel = "trace"
 )
 const (
 	//PANIC log level
@@ -41,7 +42,7 @@ const (
 	MsgFormatMulti
 )
 
-//LogFormat is to log format
+// LogFormat is to log format
 type LogFormat = map[string]interface{}
 
 type emptyWriter struct{}
@@ -50,8 +51,26 @@ func (ew emptyWriter) Write(p []byte) (int, error) {
 	return 0, nil
 }
 
-var clog *logrus.Logger
-var vlog *logrus.Logger
+type Logger struct {
+	*logrus.Logger
+	//CallRelation to show stack list
+	CallRelation uint32
+}
+
+func NewLogger() *Logger {
+	return &Logger{
+		Logger: logrus.New(),
+	}
+}
+
+// SetCallList to set CallList
+func (logger *Logger) SetCallRelation(button uint32) {
+	logger.CallRelation = button
+}
+
+// logger pointer must be initialized, else would panic.
+var clog *Logger
+var vlog *Logger
 
 func convertLevel(level string) logrus.Level {
 	switch level {
@@ -67,28 +86,34 @@ func convertLevel(level string) logrus.Level {
 		return logrus.InfoLevel
 	case DebugLevel:
 		return logrus.DebugLevel
+	case TraceLevel:
+		return logrus.TraceLevel
 	default:
 		return logrus.InfoLevel
 	}
 }
 
 // Init loggers
-func Init(path, filename string, level string, age uint32) {
+func Init(path, filename string, level string, age uint32, disableCPrint bool) {
 	fileHooker := NewFileRotateHooker(path, filename, age, nil)
 
-	clog = logrus.New()
-	LoadFunctionHooker(clog)
-	clog.Hooks.Add(fileHooker)
-	clog.Out = os.Stdout
-	clog.Formatter = &logrus.TextFormatter{FullTimestamp: true}
-	clog.Level = convertLevel(level)
-
-	vlog = logrus.New()
+	vlog = NewLogger()
 	LoadFunctionHooker(vlog)
 	vlog.Hooks.Add(fileHooker)
 	vlog.Out = &emptyWriter{}
 	vlog.Formatter = &logrus.TextFormatter{FullTimestamp: true}
 	vlog.Level = convertLevel(level)
+
+	if !disableCPrint {
+		clog = NewLogger()
+		LoadFunctionHooker(clog)
+		clog.Hooks.Add(fileHooker)
+		clog.Out = os.Stdout
+		clog.Formatter = &logrus.TextFormatter{FullTimestamp: true}
+		clog.Level = convertLevel(level)
+	} else {
+		clog = vlog
+	}
 
 	vlog.WithFields(logrus.Fields{
 		"path":  path,
@@ -96,7 +121,7 @@ func Init(path, filename string, level string, age uint32) {
 	}).Info("Logger Configuration.")
 }
 
-//GetGID return gid
+// GetGID return gid
 func GetGID() uint64 {
 	b := make([]byte, 64)
 	b = b[:runtime.Stack(b, false)]
@@ -106,12 +131,12 @@ func GetGID() uint64 {
 	return n
 }
 
-//CPrint into stdout + log
-func CPrint(level uint32, msg string, data LogFormat) {
+// CPrint into stdout + log
+func CPrint(level uint32, msg string, formats ...LogFormat) {
 	if clog == nil {
-		Init("/tmp", "tmp-mass.log", "info", 0)
+		Init("/tmp", "tmp-mass.log", "info", 0, false)
 	}
-	data["tid"] = GetGID()
+	data := mergeLogFormats(formats...)
 	switch level {
 	case PANIC:
 		{
@@ -163,12 +188,12 @@ func CPrint(level uint32, msg string, data LogFormat) {
 	}
 }
 
-//VPrint into log
-func VPrint(level uint32, msg string, data LogFormat) {
+// VPrint into log
+func VPrint(level uint32, msg string, formats ...LogFormat) {
 	if vlog == nil {
-		Init("/tmp", "tmp-mass.log", "info", 0)
+		Init("/tmp", "tmp-mass.log", "info", 0, false)
 	}
-	data["tid"] = GetGID()
+	data := mergeLogFormats(formats...)
 	switch level {
 	case PANIC:
 		{
@@ -209,7 +234,7 @@ func VPrint(level uint32, msg string, data LogFormat) {
 	case TRACE:
 		{
 			vlog.SetCallRelation(MsgFormatSingle)
-			vlog.WithFields(data).Trace(msg) //TODO: need match logrus
+			vlog.WithFields(data).Trace(msg)
 			break
 		}
 	default:
@@ -218,4 +243,21 @@ func VPrint(level uint32, msg string, data LogFormat) {
 			vlog.WithFields(data).Error(msg)
 		}
 	}
+}
+
+// mergeLogFormats merges LogFormats.
+// Same key would be covered by later-presented values.
+func mergeLogFormats(formats ...LogFormat) LogFormat {
+	format := LogFormat{}
+	for _, data := range formats {
+		if data == nil {
+			continue
+		}
+		for k, v := range data {
+			vv := v
+			format[k] = vv
+		}
+	}
+	format["tid"] = GetGID()
+	return format
 }

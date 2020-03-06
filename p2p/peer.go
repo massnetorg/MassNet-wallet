@@ -6,17 +6,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
 	"github.com/pkg/errors"
-	//log "github.com/sirupsen/logrus"
-	gocrypto "github.com/tendermint/go-crypto"
-	gowire "github.com/tendermint/go-wire"
-	cmn "github.com/tendermint/tmlibs/common"
-
-	"github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/consensus"
-	"github.com/massnetorg/MassNet-wallet/p2p/connection"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/consensus"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/p2p/connection"
+	gocrypto "github.com/massnetorg/tendermint/go-crypto"
+	gowire "github.com/massnetorg/tendermint/go-wire"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 // peerConn contains the raw connection and its config.
@@ -42,6 +39,7 @@ func DefaultPeerConfig(config *config.Config) *PeerConfig {
 	}
 }
 
+// Peer represent a mass network node
 type Peer struct {
 	cmn.BaseService
 	*NodeInfo
@@ -148,7 +146,10 @@ func (pc *peerConn) HandshakeTimeout(ourNodeInfo *NodeInfo, timeout time.Duratio
 		func() {
 			var n int
 			gowire.ReadBinary(peerNodeInfo, pc.conn, maxNodeInfoSize, &n, &err2)
-			logging.CPrint(logging.INFO, "peer handshake", logging.LogFormat{"peer_node_info": peerNodeInfo})
+			logging.CPrint(logging.INFO, "receive peer handshake", logging.LogFormat{
+				"peer_node_info": peerNodeInfo,
+				"remoteAddr":     pc.conn.RemoteAddr().String(),
+			})
 		})
 	if err1 != nil {
 		return peerNodeInfo, errors.Wrap(err1, "Error during handshake/write")
@@ -221,7 +222,7 @@ func createMConnection(conn net.Conn, p *Peer, reactorsByCh map[byte]Reactor, ch
 	onReceive := func(chID byte, msgBytes []byte) {
 		reactor := reactorsByCh[chID]
 		if reactor == nil {
-			logging.CPrint(logging.FATAL, fmt.Sprintf("Unknown channel %X", chID), logging.LogFormat{})
+			logging.CPrint(logging.FATAL, fmt.Sprintf("Unknown channel %X", chID))
 		}
 		reactor.Receive(chID, p, msgBytes)
 	}

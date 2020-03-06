@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -7,16 +6,14 @@ package txscript
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
-	"errors"
 	"fmt"
-	"github.com/massnetorg/MassNet-wallet/logging"
 	"math/big"
 
-	"github.com/massnetorg/MassNet-wallet/btcec"
-	"github.com/massnetorg/MassNet-wallet/wire"
-
-	"github.com/massnetorg/MassNet-wallet/massutil"
+	"github.com/btcsuite/btcd/btcec"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/wire"
 )
 
 // halforder is used to tame ECDSA malleability (see BIP0062).
@@ -24,23 +21,24 @@ var halfOrder = new(big.Int).Rsh(btcec.S256().N, 1)
 
 // Engine is the virtual machine that executes scripts.
 type Engine struct {
-	scripts         [][]parsedOpcode
-	scriptIdx       int
-	scriptOff       int
-	lastCodeSep     int
-	dstack          stack // data stack
-	astack          stack // alt stack
-	tx              wire.MsgTx
-	txIdx           int
-	condStack       []int
-	savedFirstStack [][]byte // save the redeemscript for LocktimeScripthash
-	numOps          int
-	flags           ScriptFlags
-	sigCache        *SigCache
-	hashCache       *TxSigHashes
-	witnessVersion  int
-	witnessProgram  []byte
-	inputAmount     int64
+	scripts     [][]parsedOpcode
+	scriptIdx   int
+	scriptOff   int
+	lastCodeSep int
+	dstack      stack // data stack
+	astack      stack // alt stack
+	tx          wire.MsgTx
+	txIdx       int
+	condStack   []int
+	// savedFirstStack [][]byte
+	numOps         int
+	flags          ScriptFlags
+	sigCache       *SigCache
+	hashCache      *TxSigHashes
+	witnessVersion int
+	witnessProgram []byte
+	witnessExtProg []parsedOpcode // witness extension program
+	inputAmount    int64
 }
 
 //addScript only to test
@@ -195,7 +193,7 @@ func (vm *Engine) CheckErrorCondition(finalScript bool) error {
 	if err != nil {
 		return err
 	}
-	if v == false {
+	if !v {
 		/// Log interesting data.
 		dis0, _ := vm.DisasmScript(0)
 		dis1, _ := vm.DisasmScript(1)
@@ -218,6 +216,8 @@ func (vm *Engine) Step() (done bool, err error) {
 		return true, err
 	}
 	opcode := &vm.scripts[vm.scriptIdx][vm.scriptOff]
+	vm.scriptOff++
+
 	// Execute the opcode while taking into account several things such as
 	// disabled opcodes, illegal opcodes, maximum allowed operations per
 	// script, maximum script element sizes, and conditionals.
@@ -225,6 +225,7 @@ func (vm *Engine) Step() (done bool, err error) {
 	if err != nil {
 		return true, err
 	}
+
 	// The number of elements in the combination of the data and alt stacks
 	// must not exceed the maximum number of stack elements allowed.
 	if vm.dstack.Depth()+vm.astack.Depth() > maxStackSize {
@@ -232,7 +233,6 @@ func (vm *Engine) Step() (done bool, err error) {
 	}
 
 	// Prepare for next instruction.
-	vm.scriptOff++
 	if vm.scriptOff >= len(vm.scripts[vm.scriptIdx]) {
 		// Illegal to have an `if' that straddles two scripts.
 		if err == nil && len(vm.condStack) != 0 {
@@ -244,24 +244,38 @@ func (vm *Engine) Step() (done bool, err error) {
 
 		vm.numOps = 0 // number of ops is per script.
 		vm.scriptOff = 0
-		if vm.scriptIdx == 1 && vm.witnessVersion >= 10 {
+		if vm.scriptIdx == 0 && vm.witnessProgram != nil {
 			vm.scriptIdx++
-			// Check script ran successfully and pull the script
-			// out of the first stack and execute that.
-			err := vm.CheckErrorCondition(false)
-			if err != nil {
+
+			if vm.dstack.Depth() != 2 && vm.dstack.Depth() != 3 {
+				return false, ErrStackUnderflow
+			}
+			_ = vm.dstack.DropN(vm.dstack.Depth())
+			witness := vm.tx.TxIn[vm.txIdx].Witness
+			if err := vm.verifyWitnessProgram(witness); err != nil {
 				return false, err
 			}
-			//push the redeemScript into stack
-			pops, err := parseScript(vm.witnessProgram)
-			if err != nil {
-				return false, err
-			}
-			vm.scripts = append(vm.scripts, pops)
-			vm.SetStack(vm.savedFirstStack[1:])
 		} else {
 			vm.scriptIdx++
 		}
+
+		// vm.scriptIdx++
+		// if vm.scriptIdx == 2 && vm.witnessVersion >= 10 {
+		// 	// Check script ran successfully and pull the script
+		// 	// out of the first stack and execute that.
+		// 	err := vm.CheckErrorCondition(false)
+		// 	if err != nil {
+		// 		return false, err
+		// 	}
+		// 	//push the redeemScript into stack
+		// 	pops, err := parseScript(vm.witnessProgram)
+		// 	if err != nil {
+		// 		return false, err
+		// 	}
+		// 	vm.scripts = append(vm.scripts, pops)
+		// 	vm.SetStack(vm.savedFirstStack[1:])
+		// }
+
 		// there are zero length scripts in the wild
 		if vm.scriptIdx < len(vm.scripts) && vm.scriptOff >= len(vm.scripts[vm.scriptIdx]) {
 			vm.scriptIdx++
@@ -278,14 +292,12 @@ func (vm *Engine) Step() (done bool, err error) {
 // for successful validation or an error if one occurred.
 func (vm *Engine) Execute() (err error) {
 	done := false
-	i := 0
-	for done != true {
+	for !done {
 		dis, err := vm.DisasmPC()
 		logging.CPrint(logging.TRACE, "stepping", logging.LogFormat{
 			"script0": dis,
 			"error":   err})
 		done, err = vm.Step()
-		i = i + 1
 		if err != nil {
 			return err
 		}
@@ -308,12 +320,12 @@ func (vm *Engine) subScript() []parsedOpcode {
 // checkHashTypeEncoding returns whether or not the passed hashtype adheres to
 // the strict encoding requirements if enabled.
 func (vm *Engine) checkHashTypeEncoding(hashType SigHashType) error {
-	if !vm.hasFlag(ScriptVerifyStrictEncoding) {
-		return nil
-	}
+	//if !vm.hasFlag(ScriptVerifyStrictEncoding) {
+	//	return nil
+	//}
 	sigHashType := hashType & ^SigHashAnyOneCanPay
 	if sigHashType < SigHashAll || sigHashType > SigHashSingle {
-		return fmt.Errorf("invalid hashtype: 0x%x\n", hashType)
+		return fmt.Errorf("invalid hashtype: 0x%x", hashType)
 	}
 	return nil
 }
@@ -324,9 +336,9 @@ func (vm *Engine) checkPubKeyEncoding(pubKey []byte) error {
 	if vm.isWitnessVersionActive(0) && !btcec.IsCompressedPubKey(pubKey) {
 		return ErrWitnessPubKeyType
 	}
-	if !vm.hasFlag(ScriptVerifyStrictEncoding) {
-		return nil
-	}
+	//if !vm.hasFlag(ScriptVerifyStrictEncoding) {
+	//	return nil
+	//}
 
 	if len(pubKey) == 33 && (pubKey[0] == 0x02 || pubKey[0] == 0x03) {
 		// Compressed
@@ -495,83 +507,130 @@ func (vm *Engine) SetStack(data [][]byte) {
 	setStack(&vm.dstack, data)
 }
 
+// verifyWitnessProgram validates the stored witness program using the passed
+// witness as input.
+func (vm *Engine) verifyWitnessProgram(witness [][]byte) error {
+	if !vm.isWitnessVersionActive(0) {
+		return ErrDiscourageUpgradableWitnessProgram
+	}
+
+	// Additionally, The witness stack MUST NOT be empty at
+	// this point.
+	if len(witness) != 2 {
+		return ErrWitnessLength
+	}
+
+	// When the witness is empty the result is necessarily an error
+	// since the stack would end up being
+	// empty which is equivalent to a false top element.  Thus, just return
+	// the relevant error now as an optimization.
+	if len(witness[0]) == 0 || len(witness[1]) == 0 {
+		return ErrWitnessLength
+	}
+
+	// Ensure that the serialized pkScript at the end of
+	// the witness stack matches the witness program.
+	witnessHash := sha256.Sum256(witness[1])
+	if !bytes.Equal(witnessHash[:], vm.witnessProgram) {
+		return ErrWitnessProgramMismatch
+	}
+
+	switch len(vm.witnessExtProg) {
+	case 0:
+		// standard P2WSH, do nothing
+	case 1:
+		// staking tx
+		if len(vm.witnessExtProg[0].data) == WitnessV0FrozenPeriodDataSize {
+			// the evaluation locktime for OP_CHECKSEQUENCEVERIFY MUST BE frozenPeriod+1
+			frozenPeriod, err := makeScriptNum(vm.witnessExtProg[0].data, vm.dstack.verifyMinimalData, 9)
+			if err != nil {
+				return err
+			}
+			if frozenPeriod < 0 || frozenPeriod+1 < 0 {
+				return fmt.Errorf("invalid frozen period: %d", frozenPeriod)
+			}
+			frozenPeriod++
+			buf := make([]byte, 8)
+			binary.LittleEndian.PutUint64(buf, uint64(frozenPeriod))
+
+			pkScript, err := NewScriptBuilder().AddData(buf).AddOp(OP_CHECKSEQUENCEVERIFY).AddOp(OP_DROP).Script()
+			if err != nil {
+				return err
+			}
+			pops, err := parseScript(pkScript)
+			if err != nil {
+				return err
+			}
+			vm.scripts = append(vm.scripts, pops)
+			break
+		}
+
+		// binding tx
+		if len(vm.witnessExtProg[0].data) == WitnessV0PoCPubKeyHashDataSize {
+			// do nothing
+			break
+		}
+		// else error occurs
+		fallthrough
+	default:
+		return ErrWitnessExtProgUnknown
+	}
+
+	for _, script := range witness {
+		if len(script) > maxScriptSize {
+			return ErrScriptTooBig
+		}
+		// With all the validity checks passed, parse the
+		// script into individual op-codes so w can execute it
+		// as the next script.
+		pops, err := parseScript(script)
+		if err != nil {
+			return err
+		}
+
+		// The hash matched successfully, so use the witness as
+		// the stack, and set the redeemScript to be the next
+		// script executed.
+		vm.scripts = append(vm.scripts, pops)
+	}
+
+	// All elements within the witness stack must not be greater
+	// than the maximum bytes which are allowed to be pushed onto
+	// the stack.
+	for _, witElement := range vm.GetStack() {
+		if len(witElement) > MaxScriptElementSize {
+			return ErrStackElementTooBig
+		}
+	}
+
+	return nil
+}
+
 // NewEngine returns a new script engine for the provided public key script,
 // transaction, and input index.  The flags modify the behavior of the script
 // engine according to the description provided by each flag.
-func NewEngine(scriptPubKey []byte, tx *wire.MsgTx, txIdx int, flags ScriptFlags,
+func NewEngine(pkScript []byte, tx *wire.MsgTx, txIdx int, flags ScriptFlags,
 	sigCache *SigCache, hashCache *TxSigHashes, inputAmount int64) (*Engine, error) {
 	// The provided transaction input index must refer to a valid input.
 	if txIdx < 0 || txIdx >= len(tx.TxIn) {
 		return nil, ErrStackInvalidIndex
 	}
-	//scriptSig := tx.TxIn[txIdx].SignatureScript
-	witnessSig := tx.TxIn[txIdx].Witness[0]
-	witnessRedeemScript := tx.TxIn[txIdx].Witness[1]
-	// When both the signature script and public key script are empty the
-	// result is necessarily an error since the stack would end up being
-	// empty which is equivalent to a false top element.  Thus, just return
-	// the relevant error now as an optimization.
-	if len(witnessSig) == 0 || len(witnessRedeemScript) == 0 {
-		return nil, ErrStackInvalidIndex
+
+	if len(pkScript) == 0 {
+		return nil, ErrWitnessUnexpected
 	}
 
 	vm := Engine{flags: flags, sigCache: sigCache, hashCache: hashCache,
 		inputAmount: inputAmount}
 
-	// The signature script must only contain data pushes when the
-	// associated flag is set.
-	if !IsPushOnlyScript(witnessSig) {
-		return nil, ErrStackNonPushOnly
-	}
-	//vm.dstack.verifyMinimalData = true
-	//vm.astack.verifyMinimalData = true
-	// The engine stores the scripts in parsed form using a slice.  This
-	// allows multiple scripts to be executed in sequence.  For example,
-	// with a pay-to-script-hash transaction, there will be ultimately be
-	// a third script to execute.
-	if IsPayToWitnessScriptHash(scriptPubKey) {
-		var witProgram []byte
-		witProgram = scriptPubKey
-		if witProgram != nil {
-			var err error
-			vm.witnessVersion, vm.witnessProgram, err = ExtractWitnessProgramInfo(witProgram)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			// If we didn't find a witness program in either the
-			// pkScript or as a datapush within the sigScript, then
-			// there MUST NOT be any witness data associated with
-			// the input being validated.
-			if vm.witnessProgram == nil && len(tx.TxIn[txIdx].Witness) != 0 {
-				return nil, ErrWitnessUnexpected
-			}
-		}
-		witnessHash := massutil.Hash160(witnessRedeemScript)
-		if !bytes.Equal(witnessHash, vm.witnessProgram) {
-			return nil, ErrWitnessProgramMismatch
-		}
-	} else if IsPayToLocktimeScriptHash(scriptPubKey) {
-		pops, err := parseScript(scriptPubKey)
-		if err != nil {
-			return nil, err
-		}
-		buf := pops[0].data
-		x := int(binary.LittleEndian.Uint64(buf))
-		if x > wire.SequenceLockTimeIsSeconds || x < wire.MinLockHeight {
-			return nil, errors.New("only block height lock higher than 1000 is supported")
-		}
-		vm.witnessVersion = 10
-		vm.witnessProgram = scriptPubKey
-		vm.savedFirstStack = tx.TxIn[txIdx].Witness
-	} else {
-		return nil, errors.New("nonstandard pkScript")
-	}
-	scripts := [][]byte{witnessSig, witnessRedeemScript}
+	// vm.dstack.verifyMinimalData = true
+	// vm.astack.verifyMinimalData = true
+
+	scripts := [][]byte{pkScript}
 	vm.scripts = make([][]parsedOpcode, len(scripts))
 	for i, scr := range scripts {
 		if len(scr) > maxScriptSize {
-			return nil, ErrStackElementTooBig
+			return nil, ErrScriptTooBig
 		}
 		var err error
 		vm.scripts[i], err = parseScript(scr)
@@ -579,6 +638,82 @@ func NewEngine(scriptPubKey []byte, tx *wire.MsgTx, txIdx int, flags ScriptFlags
 			return nil, err
 		}
 	}
+
+	if isWitnessProgram(vm.scripts[0]) {
+
+		var err error
+		vm.witnessVersion, vm.witnessProgram, vm.witnessExtProg, err = extractWitnessProgramInfo(vm.scripts[0])
+		if err != nil {
+			return nil, err
+		}
+		if vm.witnessProgram == nil && len(tx.TxIn[txIdx].Witness) != 0 {
+			return nil, ErrWitnessUnexpected
+		}
+	} /* else {
+		return nil, ErrwitnessProgramFormat
+	} */
+
+	// // The engine stores the scripts in parsed form using a slice.  This
+	// // allows multiple scripts to be executed in sequence.  For example,
+	// // with a pay-to-script-hash transaction, there will be ultimately be
+	// // a third script to execute.
+
+	// if isWitnessScriptHash(pops) {
+	// 	// var witProgram []byte
+	// 	// witProgram = pkScript
+	// 	// if witProgram != nil {
+	// 	// 	var err error
+	// 	// 	vm.witnessVersion, vm.witnessProgram, err = ExtractWitnessProgramInfo(witProgram)
+	// 	// 	if err != nil {
+	// 	// 		return nil, err
+	// 	// 	}
+	// 	// } else {
+	// 	// 	// If we didn't find a witness program in either the
+	// 	// 	// pkScript or as a datapush within the sigScript, then
+	// 	// 	// there MUST NOT be any witness data associated with
+	// 	// 	// the input being validated.
+	// 	// 	if vm.witnessProgram == nil && len(tx.TxIn[txIdx].Witness) != 0 {
+	// 	// 		return nil, ErrWitnessUnexpected
+	// 	// 	}
+	// 	// }
+	// 	vm.witnessVersion, vm.witnessProgram, err = extractWitnessProgramInfo(pops)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	witnessHash := massutil.Hash160(witnessRedeemScript)
+	// 	if !bytes.Equal(witnessHash, vm.witnessProgram) {
+	// 		return nil, ErrWitnessProgramMismatch
+	// 	}
+	// } else if isWitnessStakingScript(pops) {
+	// 	x := binary.LittleEndian.Uint64(pops[0].data)
+	// 	if !wire.IsValidFrozenPeriod(x) {
+	// 		return nil, ErrLockValue
+	// 	}
+	// 	vm.witnessVersion = 10
+	// 	vm.witnessProgram = pkScript
+	// 	vm.savedFirstStack = tx.TxIn[txIdx].Witness
+	// } else if isWitnessBindingScript(pops) {
+	// 	vm.witnessVersion = asSmallInt(pops[0].opcode)
+	// 	vm.witnessProgram = pops[1].data
+	// 	witnessHash := massutil.Hash160(witnessRedeemScript)
+	// 	if !bytes.Equal(witnessHash, vm.witnessProgram) {
+	// 		return nil, ErrWitnessProgramMismatch
+	// 	}
+	// } else {
+	// 	return nil, errors.New("nonstandard pkScript")
+	// }
+	// scripts := [][]byte{witnessSig, witnessRedeemScript}
+	// vm.scripts = make([][]parsedOpcode, len(scripts))
+	// for i, scr := range scripts {
+	// 	if len(scr) > maxScriptSize {
+	// 		return nil, ErrStackElementTooBig
+	// 	}
+	// 	var err error
+	// 	vm.scripts[i], err = parseScript(scr)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// }
 	vm.tx = *tx
 	vm.txIdx = txIdx
 

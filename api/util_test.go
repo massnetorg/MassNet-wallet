@@ -5,11 +5,18 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	pb "github.com/massnetorg/MassNet-wallet/api/proto"
+	"massnet.org/mass-wallet/massutil/safetype"
+
+	"github.com/stretchr/testify/assert"
+	"massnet.org/mass-wallet/api"
+	pb "massnet.org/mass-wallet/api/proto"
+	"massnet.org/mass-wallet/consensus"
+	"massnet.org/mass-wallet/massutil"
 )
 
 var (
@@ -44,9 +51,9 @@ func (a addrAndBalanceList) Swap(i, j int) {
 }
 
 func (a addrAndBalanceList) Less(i, j int) bool {
-	if a[i].Balance < a[j].Balance {
+	if a[i].Total < a[j].Total {
 		return true
-	} else if a[i].Balance > a[j].Balance {
+	} else if a[i].Total > a[j].Total {
 		return false
 	}
 
@@ -68,9 +75,10 @@ func TestSortAddrAndBalanceList(t *testing.T) {
 	var maxValue = strCount / 2
 	tests := make(addrAndBalanceList, 5, 5)
 	for i := range tests {
+		amt, _ := api.AmountToString(int64(rand.Intn(maxValue) + 1))
 		tests[i] = &pb.AddressAndBalance{
 			Address: strArr[i],
-			Balance: float64(rand.Intn(maxValue) + 1),
+			Total:   amt,
 		}
 	}
 	t.Log(tests)
@@ -85,4 +93,121 @@ func TestSortAddrAndBalanceList(t *testing.T) {
 			t.Errorf("expect %s, got %s", answer, s)
 		}
 	}
+}
+
+func TestAmountToString(t *testing.T) {
+	s, err := api.AmountToString(12345678)
+	assert.Nil(t, err)
+	assert.Equal(t, "0.12345678", s)
+
+	s, err = api.AmountToString(1)
+	assert.Nil(t, err)
+	assert.Equal(t, "0.00000001", s)
+
+	s, err = api.AmountToString(123456789)
+	assert.Nil(t, err)
+	assert.Equal(t, "1.23456789", s)
+
+	s, err = api.AmountToString(123456700)
+	assert.Nil(t, err)
+	assert.Equal(t, "1.234567", s)
+
+	s, err = api.AmountToString(1234500)
+	assert.Nil(t, err)
+	assert.Equal(t, "0.012345", s)
+
+	s, err = api.AmountToString(123450)
+	assert.Nil(t, err)
+	assert.Equal(t, "0.0012345", s)
+
+	s, err = api.AmountToString(0)
+	assert.Nil(t, err)
+	assert.Equal(t, "0", s)
+
+	_, err = api.AmountToString(massutil.MaxAmount().IntValue())
+	assert.Nil(t, err)
+
+	s, err = api.AmountToString(-1)
+	assert.Equal(t, safetype.ErrUint128Underflow, err)
+
+	s, err = api.AmountToString(massutil.MaxAmount().IntValue() + 1)
+	assert.NotNil(t, err)
+	assert.True(t, strings.HasPrefix(err.Error(), "amount is out of range:"))
+}
+
+func TestStringToAmount(t *testing.T) {
+	n, err := api.StringToAmount("123456")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(12345600000000), n.UintValue())
+
+	n, err = api.StringToAmount("123456.")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(12345600000000), n.UintValue())
+
+	n, err = api.StringToAmount(".12345678")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(12345678), n.UintValue())
+
+	n, err = api.StringToAmount("0.")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(0), n.UintValue())
+
+	n, err = api.StringToAmount("1.")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(100000000), n.UintValue())
+
+	n, err = api.StringToAmount(".0")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(0), n.UintValue())
+
+	n, err = api.StringToAmount(".1")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(10000000), n.UintValue())
+
+	n, err = api.StringToAmount(".01")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(1000000), n.UintValue())
+
+	n, err = api.StringToAmount(".00000001")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(1), n.UintValue())
+
+	n, err = api.StringToAmount(".99999999")
+	assert.Nil(t, err)
+	assert.Equal(t, uint64(99999999), n.UintValue())
+
+	n, err = api.StringToAmount(".000000001")
+	assert.NotNil(t, err)
+	assert.Equal(t, "precision is too high", err.Error())
+
+	sInt := strconv.FormatInt(int64(consensus.MaxMass+1), 10)
+	n, err = api.StringToAmount(sInt + ".00000000")
+	assert.NotNil(t, err)
+	assert.Equal(t, "integral part is out of range", err.Error())
+
+	sInt = strconv.FormatInt(int64(consensus.MaxMass), 10)
+	n, err = api.StringToAmount(sInt + ".00000000")
+	assert.Nil(t, err)
+	assert.Equal(t, consensus.MaxMass*consensus.MaxwellPerMass, n.UintValue())
+
+	sInt = strconv.FormatInt(int64(consensus.MaxMass), 10)
+	n, err = api.StringToAmount(sInt + ".00000001")
+	assert.Equal(t, massutil.ErrMaxAmount, err)
+
+	n, err = api.StringToAmount("-1.")
+	assert.NotNil(t, err)
+	assert.Equal(t, "integral part is out of range", err.Error())
+
+	n, err = api.StringToAmount("1.-1000001")
+	assert.NotNil(t, err)
+	assert.Equal(t, "illegal number format", err.Error())
+
+	n, err = api.StringToAmount("1.100.")
+	assert.NotNil(t, err)
+	assert.Equal(t, "illegal number format", err.Error())
+
+	n, err = api.StringToAmount(".100.")
+	assert.NotNil(t, err)
+	assert.Equal(t, "illegal number format", err.Error())
+
 }

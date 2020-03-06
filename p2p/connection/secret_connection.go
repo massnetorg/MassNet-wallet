@@ -10,15 +10,13 @@ import (
 	"net"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ripemd160"
-
-	crypto "github.com/tendermint/go-crypto"
-	wire "github.com/tendermint/go-wire"
-	cmn "github.com/tendermint/tmlibs/common"
+	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/tendermint/go-crypto"
+	"github.com/massnetorg/tendermint/go-wire"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 const (
@@ -215,7 +213,7 @@ func genEphKeys() (ephPub, ephPriv *[32]byte) {
 	var err error
 	ephPub, ephPriv, err = box.GenerateKey(crand.Reader)
 	if err != nil {
-		logging.CPrint(logging.FATAL, "Could not generate ephemeral keypairs", logging.LogFormat{})
+		logging.CPrint(logging.FATAL, "Could not generate ephemeral keypairs")
 	}
 	return
 }
@@ -239,11 +237,13 @@ func signChallenge(challenge *[32]byte, locPrivKey crypto.PrivKeyEd25519) (signa
 func shareAuthSignature(sc *SecretConnection, pubKey crypto.PubKeyEd25519, signature crypto.SignatureEd25519) (*authSigMessage, error) {
 	var recvMsg authSigMessage
 	var err1, err2 error
+	var msgBytesLen, recvMsgLen int
 
 	cmn.Parallel(
 		func() {
 			msgBytes := wire.BinaryBytes(authSigMessage{pubKey.Wrap(), signature.Wrap()})
 			_, err1 = sc.Write(msgBytes)
+			msgBytesLen = len(msgBytes)
 		},
 		func() {
 			readBuffer := make([]byte, authSigMsgSize)
@@ -253,9 +253,16 @@ func shareAuthSignature(sc *SecretConnection, pubKey crypto.PubKeyEd25519, signa
 			}
 			n := int(0) // not used.
 			recvMsg = wire.ReadBinary(authSigMessage{}, bytes.NewBuffer(readBuffer), authSigMsgSize, &n, &err2).(authSigMessage)
+			recvMsgLen = n
 		},
 	)
 
+	logging.CPrint(logging.INFO, "shareAuthSignature errors", logging.LogFormat{
+		"err1":          err1,
+		"err2":          err2,
+		"msg_bytes_len": msgBytesLen,
+		"recv_msg_len":  recvMsgLen,
+	})
 	if err1 != nil {
 		return nil, err1
 	}
@@ -278,6 +285,7 @@ func shareEphPubKey(conn io.ReadWriteCloser, locEphPub *[32]byte) (remEphPub *[3
 		},
 	)
 
+	logging.CPrint(logging.INFO, "shareEphPubKey errors", logging.LogFormat{"err1": err1, "err2": err2})
 	if err1 != nil {
 		return nil, err1
 	}

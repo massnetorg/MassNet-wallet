@@ -11,13 +11,13 @@ import (
 )
 
 type functionHooker struct {
-	innerLogger *logrus.Logger
+	innerLogger *Logger
 	file        string
 }
 
 func (h *functionHooker) fire(entry *logrus.Entry) {
-	pc, _, _, ok := runtime.Caller(7) //TODO: need match logrus
-	if ok == false {
+	pc, _, _, ok := runtime.Caller(7) // TODO: need match logrus
+	if !ok {
 		return
 	}
 
@@ -35,7 +35,7 @@ func (h *functionHooker) fire(entry *logrus.Entry) {
 }
 func (h *functionHooker) fires(entry *logrus.Entry) {
 	for i := 7; i < 10; i++ {
-		pc, _, _, ok := runtime.Caller(i) //TODO: need match logrus
+		pc, _, _, ok := runtime.Caller(i) // TODO: need match logrus
 		if false == ok {
 			break
 		}
@@ -58,8 +58,6 @@ func (h *functionHooker) Fire(entry *logrus.Entry) error {
 		h.fires(entry)
 	} else if h.innerLogger.CallRelation == MsgFormatSingle {
 		h.fire(entry)
-	} else {
-
 	}
 	return nil
 }
@@ -72,11 +70,12 @@ func (h *functionHooker) Levels() []logrus.Level {
 		logrus.WarnLevel,
 		logrus.InfoLevel,
 		logrus.DebugLevel,
+		logrus.TraceLevel,
 	}
 }
 
 // LoadFunctionHooker loads a function hooker to the logger
-func LoadFunctionHooker(logger *logrus.Logger) {
+func LoadFunctionHooker(logger *Logger) {
 	_, file, _, ok := runtime.Caller(1)
 	if !ok {
 		file = "unknown"

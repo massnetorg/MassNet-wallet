@@ -39,6 +39,7 @@ func NewFileRotateHooker(path, filename string, age uint32, formatter logrus.For
 	}
 
 	hook := lfshook.NewHook(lfshook.WriterMap{
+		logrus.TraceLevel: writer,
 		logrus.DebugLevel: writer,
 		logrus.InfoLevel:  writer,
 		logrus.WarnLevel:  writer,

@@ -47,9 +47,12 @@ bin/
 .idea/
 .DS_Store
 .vscode/
+.VSCodeCounter/
 
 # Test files
 test/
+testdata_space*/
+mining/space*/
 testConfig.json
 address/test.go
 address/test_test.go
@@ -57,6 +60,8 @@ test_*/
 wallet/testWallets
 txscript/data/testWallets
 database/ldb/testData
+blockchain/blocks.cache
+blockchain/testdata
 
 # Wallet generated
 userData/
@@ -69,3 +74,4 @@ test_profile/
 
 # report for make test
 test.report
+lint.report

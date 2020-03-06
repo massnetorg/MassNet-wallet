@@ -1,179 +1,17 @@
-// Modified for MassNet
-// Copyright (c) 2013-2014 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package blockchain
 
 import (
 	"container/list"
-	"errors"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sort"
-	"sync"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/btcec"
-	"github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	"github.com/massnetorg/MassNet-wallet/chainindexer"
-	"github.com/massnetorg/MassNet-wallet/database"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/txscript"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
-
-const (
-	maxOrphanBlocks = 100
-	minMemoryNodes  = 2000
-)
-
-// ErrIndexAlreadyInitialized describes an error that indicates the block index
-// is already initialized.
-var ErrIndexAlreadyInitialized = errors.New("the block index can only be " +
-	"initialized before it has been modified")
-
-type blockNode struct {
-	inMainChain bool
-	parent      *blockNode
-	children    []*blockNode
-
-	version    uint64
-	hash       *wire.Hash
-	parentHash *wire.Hash
-	height     int32
-	timestamp  time.Time
-	target     *big.Int
-	capSum     *big.Int
-}
-
-// Ancestor returns the ancestor block node at the provided height by following
-// the chain backwards from this node.  The returned block will be nil when a
-// height is requested that is after the height of the passed node or is less
-// than zero.
-//
-// This function is safe for concurrent access.
-func (node *blockNode) Ancestor(height int32) *blockNode {
-	if height < 0 || height > node.height {
-		return nil
-	}
-
-	n := node
-	for ; n != nil && n.height != height; n = n.parent {
-		// Intentionally left blank
-	}
-
-	return n
-}
-
-// newBlockNode returns a new block node for the given block header.  It is
-// completely disconnected from the chain and the capSum value is just the work
-// for the passed block.  The work sum is updated accordingly when the node is
-// inserted into a chain.
-func newBlockNode(blockHeader *wire.BlockHeader, blockSha *wire.Hash, height int32) *blockNode {
-	// Make a copy of the hash so the node doesn't keep a reference to part
-	// of the full block/block header preventing it from being garbage
-	// collected.
-	prevHash := blockHeader.Previous
-	banList := make([]*btcec.PublicKey, 0, len(blockHeader.BanList))
-	copy(banList, blockHeader.BanList)
-	node := blockNode{
-		hash:       blockSha,
-		parentHash: &prevHash,
-		capSum:     new(big.Int).Set(blockHeader.Target),
-		height:     height,
-		version:    blockHeader.Version,
-		target:     blockHeader.Target,
-		timestamp:  blockHeader.Timestamp,
-	}
-	return &node
-}
-
-// addChildrenWork adds the passed work amount to all children all the way
-// down the chain.  It is used primarily to allow a new node to be dynamically
-// inserted from the database into the memory chain prior to nodes we already
-// have and update their work values accordingly.
-func addChildrenWork(node *blockNode, work *big.Int) {
-	for _, childNode := range node.children {
-		childNode.capSum.Add(childNode.capSum, work)
-		addChildrenWork(childNode, work)
-	}
-}
-
-// removeChildNode deletes node from the provided slice of child block
-// nodes.  It ensures the final pointer reference is set to nil to prevent
-// potential memory leaks.  The original slice is returned unmodified if node
-// is invalid or not in the slice.
-func removeChildNode(children []*blockNode, node *blockNode) []*blockNode {
-	if node == nil {
-		return children
-	}
-
-	for i := 0; i < len(children); i++ {
-		if children[i].hash.IsEqual(node.hash) {
-			copy(children[i:], children[i+1:])
-			children[len(children)-1] = nil
-			return children[:len(children)-1]
-		}
-	}
-	return children
-}
-
-type chainInfo struct {
-	genesisBlock *massutil.Block
-	genesisHash  wire.Hash
-	genesisTime  time.Time
-	chainID      wire.Hash
-}
-
-type BlockChain struct {
-	db                  database.Db
-	checkpointsByHeight map[int32]*config.Checkpoint
-	notifications       NotificationCallback
-	info                *chainInfo
-	root                *blockNode
-	bestChain           *blockNode
-	index               map[wire.Hash]*blockNode
-	depNodes            map[wire.Hash][]*blockNode
-	blockCache          map[wire.Hash]*massutil.Block
-	noVerify            bool
-	noCheckpoints       bool
-	nextCheckpoint      *config.Checkpoint
-	checkpointBlock     *massutil.Block
-	sigCache            *txscript.SigCache
-	hashCache           *txscript.HashCache
-
-	orphanBlockPool *OrphanBlockPool
-	TxPool          *TxPool
-	addrIndexer     *chainindexer.AddrIndexer
-
-	nodeLock   sync.RWMutex
-	accessLock sync.Mutex
-}
-
-// DisableVerify provides a mechanism to disable transaction script validation
-// which you DO NOT want to do in production as it could allow double spends
-// and othe undesirable things.  It is provided only for debug purposes since
-// script validation is extremely intensive and when debugging it is sometimes
-// nice to quickly get the chain.
-func (b *BlockChain) DisableVerify(disable bool) {
-	b.noVerify = disable
-}
-
-// HaveBlock returns whether or not the chain instance has the block represented
-// by the passed hash.  This includes checking the various places a block can
-// be like part of the main chain, on a side chain, or in the orphan pool.
-//
-// This function is NOT safe for concurrent access.
-func (b *BlockChain) HaveBlock(hash *wire.Hash) (bool, error) {
-	exists, err := b.blockExists(hash)
-	if err != nil {
-		return false, err
-	}
-	return b.orphanBlockPool.IsKnownOrphan(hash) || exists, nil
-}
 
 // SequenceLock represents the converted relative lock-time in seconds, and
 // absolute block-height for a transaction input's relative lock-times.
@@ -183,7 +21,7 @@ func (b *BlockChain) HaveBlock(hash *wire.Hash) (bool, error) {
 // 'BlockHeight' has been reached.
 type SequenceLock struct {
 	Seconds     int64
-	BlockHeight int32
+	BlockHeight uint64
 }
 
 // CalcSequenceLock computes a relative lock-time SequenceLock for the passed
@@ -195,61 +33,87 @@ type SequenceLock struct {
 // the candidate transaction to be included in a block.
 //
 // This function is safe for concurrent access.
-func (b *BlockChain) CalcSequenceLock(tx *massutil.Tx, txStore TxStore) (*SequenceLock, error) {
-	return b.calcSequenceLock(b.bestChain, tx, txStore)
+func (chain *Blockchain) CalcSequenceLock(tx *massutil.Tx, txStore TxStore) (*SequenceLock, error) {
+	return chain.calcSequenceLock(chain.blockTree.bestBlockNode(), tx, txStore)
 }
 
 // calcSequenceLock computes the relative lock-times for the passed
 // transaction. See the exported version, CalcSequenceLock for further details.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) calcSequenceLock(node *blockNode, tx *massutil.Tx, txStore TxStore) (*SequenceLock, error) {
-	sequenceLock := &SequenceLock{Seconds: -1, BlockHeight: -1}
+func (chain *Blockchain) calcSequenceLock(node *BlockNode, tx *massutil.Tx, txStore TxStore) (*SequenceLock, error) {
+	// A value of -1 for each relative lock type represents a relative time
+	// lock value that will allow a transaction to be included in a block
+	// at any given height or time. This value is returned as the relative
+	// lock time in the case that BIP 68 is disabled, or has not yet been
+	// activated.
+	sequenceLock := &SequenceLock{Seconds: 0, BlockHeight: 0}
 	mTx := tx.MsgTx()
-	nextHeight := node.height + 1
-
+	// Grab the next height from the PoV of the passed BlockNode to use for
+	// inputs present in the mempool.
+	nextHeight := node.Height + 1
 	if IsCoinBase(tx) {
 		return sequenceLock, nil
 	}
-
 	for txInIndex, txIn := range mTx.TxIn {
 		utxo := txStore[txIn.PreviousOutPoint.Hash]
 		if utxo == nil {
-			str := fmt.Sprintf("output %v referenced from "+
-				"transaction %s:%d either does not exist or "+
-				"has already been spent", txIn.PreviousOutPoint,
-				tx.Hash(), txInIndex)
-			return sequenceLock, ruleError(ErrMissingTxOut, str)
+			logging.CPrint(logging.ERROR, "referenced transaction either does not exist or has already been spent",
+				logging.LogFormat{"referenced transaction ": txIn.PreviousOutPoint, "transaction": tx.Hash(), "index": txInIndex})
+			return sequenceLock, ErrMissingTx
+		}
+		// If the input height is set to the mempool height, then we
+		// assume the transaction makes it into the next block when
+		// evaluating its sequence blocks.
+		coinHeight := utxo.BlockHeight
+		if coinHeight == mempoolHeight {
+			coinHeight = nextHeight
 		}
 
-		inputHeight := utxo.BlockHeight
-		if inputHeight == 0x7fffffff {
-			inputHeight = nextHeight
-		}
-
+		// Given a sequence number, we apply the relative time lock
+		// mask in order to obtain the time lock delta required before
+		// this input can be spent.
 		sequenceNum := txIn.Sequence
-		relativeLock := int64(sequenceNum & wire.SequenceLockTimeMask)
+		relativeLock := sequenceNum & wire.SequenceLockTimeMask
 
 		switch {
-
+		// Relative time locks are disabled for this input, so we can
+		// skip any further calculation.
 		case sequenceNum&wire.SequenceLockTimeDisabled == wire.SequenceLockTimeDisabled:
 			continue
-
 		case sequenceNum&wire.SequenceLockTimeIsSeconds == wire.SequenceLockTimeIsSeconds:
-			prevInputHeight := inputHeight - 1
+			// This input requires a relative time lock expressed
+			// in seconds before it can be spent.  Therefore, we
+			// need to query for the block prior to the one in
+			// which this input was included within so we can
+			// compute the past median time for the block prior to
+			// the one which included this referenced output.
+			prevInputHeight := coinHeight - 1
 			if prevInputHeight < 0 {
 				prevInputHeight = 0
 			}
 			blockNode := node.Ancestor(prevInputHeight)
-			medianTime, _ := b.calcPastMedianTime(blockNode)
+			medianTime, _ := chain.calcPastMedianTime(blockNode)
+			//medianTime := BlockNode.CalcPastMedianTime()
+
+			// Time based relative time-locks as defined by BIP 68
+			// have a time granularity of RelativeLockSeconds, so
+			// we shift left by this amount to convert to the
+			// proper relative time-lock. We also subtract one from
+			// the relative lock to maintain the original lockTime
+			// semantics.
 			timeLockSeconds := (relativeLock << wire.SequenceLockTimeGranularity) - 1
-			timeLock := medianTime.Unix() + timeLockSeconds
+			timeLock := medianTime.Unix() + int64(timeLockSeconds)
 			if timeLock > sequenceLock.Seconds {
 				sequenceLock.Seconds = timeLock
 			}
-
 		default:
-			blockHeight := inputHeight + int32(relativeLock-1)
+			// The relative lock-time for this input is expressed
+			// in blocks so we calculate the relative offset from
+			// the input's height as its converted absolute
+			// lock-time. We subtract one from the relative lock in
+			// order to maintain the original lockTime semantics.
+			blockHeight := coinHeight + relativeLock - 1
 			if blockHeight > sequenceLock.BlockHeight {
 				sequenceLock.BlockHeight = blockHeight
 			}
@@ -259,287 +123,75 @@ func (b *BlockChain) calcSequenceLock(node *blockNode, tx *massutil.Tx, txStore 
 	return sequenceLock, nil
 }
 
-// GenerateInitialIndex is an optional function which generates the required
-// number of initial block nodes in an optimized fashion.  This is optional
-// because the memory block index is sparse and previous nodes are dynamically
-// loaded as needed.  However, during initial startup (when there are no nodes
-// in memory yet), dynamically loading all of the required nodes on the fly in
-// the usual way is much slower than preloading them.
-//
-// This function can only be called once and it must be called before any nodes
-// are added to the block index.  ErrIndexAlreadyInitialized is returned if
-// the former is not the case.  In practice, this means the function should be
-// called directly after New.
-func (b *BlockChain) GenerateInitialIndex() error {
-	if b.root != nil {
-		return ErrIndexAlreadyInitialized
+// LockTimeToSequence converts the passed relative locktime to a sequence
+// number in accordance to BIP-68.
+// See: https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki
+//  * (Compatibility)
+func LockTimeToSequence(isSeconds bool, locktime uint64) uint64 {
+	// If we're expressing the relative lock time in blocks, then the
+	// corresponding sequence number is simply the desired input age.
+	if !isSeconds {
+		return locktime
 	}
 
-	_, endHeight, err := b.db.NewestSha()
-	if err != nil {
-		return err
-	}
-
-	startHeight := endHeight - minMemoryNodes
-	if startHeight < 0 {
-		startHeight = 0
-	}
-
-	for start := startHeight; start <= endHeight; {
-		hashList, err := b.db.FetchHeightRange(start, endHeight+1)
-		if err != nil {
-			return err
-		}
-
-		if len(hashList) == 0 {
-			break
-		}
-
-		for _, hash := range hashList {
-			hashCopy := hash
-			node, err := b.loadBlockNode(&hashCopy)
-			if err != nil {
-				return err
-			}
-
-			b.bestChain = node
-		}
-
-		start += int32(len(hashList))
-	}
-
-	return nil
-}
-
-// loadBlockNode loads the block identified by hash from the block database,
-// creates a block node from it, and updates the memory block chain accordingly.
-// It is used mainly to dynamically load previous blocks from database as they
-// are needed to avoid needing to put the entire block chain in memory.
-func (b *BlockChain) loadBlockNode(hash *wire.Hash) (*blockNode, error) {
-	blockHeader, err := b.db.FetchBlockHeaderBySha(hash)
-	if err != nil {
-		return nil, err
-	}
-	blockHeight, err := b.db.FetchBlockHeightBySha(hash)
-	if err != nil {
-		return nil, err
-	}
-
-	node := newBlockNode(blockHeader, hash, blockHeight)
-	node.inMainChain = true
-
-	// Add the node to the chain.
-	// There are several possibilities here:
-	//  1) This node is a child of an existing block node
-	//  2) This node is the parent of one or more nodes
-	//  3) Neither 1 or 2 is true, and this is not the first node being
-	//     added to the tree which implies it's an orphan block and
-	//     therefore is an error to insert into the chain
-	//  4) Neither 1 or 2 is true, but this is the first node being added
-	//     to the tree, so it's the root.
-	prevHash := &blockHeader.Previous
-	if parentNode, ok := b.index[*prevHash]; ok {
-		// Case 1 -- This node is a child of an existing block node.
-		// Update the node's work sum with the sum of the parent node's
-		// work sum and this node's work, append the node as a child of
-		// the parent node and set this node's parent to the parent
-		// node.
-		node.capSum = node.capSum.Add(parentNode.capSum, node.capSum)
-		parentNode.children = append(parentNode.children, node)
-		node.parent = parentNode
-
-	} else if childNodes, ok := b.depNodes[*hash]; ok {
-		// Case 2 -- This node is the parent of one or more nodes.
-		// Connect this block node to all of its children and update
-		// all of the children (and their children) with the new work
-		// sums.
-		for _, childNode := range childNodes {
-			childNode.parent = node
-			node.children = append(node.children, childNode)
-			addChildrenWork(childNode, node.capSum)
-			b.root = node
-		}
-
-	} else {
-		// Case 3 -- The node does't have a parent and is not the parent
-		// of another node.  This is only acceptable for the first node
-		// inserted into the chain.  Otherwise it means an arbitrary
-		// orphan block is trying to be loaded which is not allowed.
-		if b.root != nil {
-			str := "loadBlockNode: attempt to insert orphan block %v"
-			return nil, fmt.Errorf(str, hash)
-		}
-
-		// Case 4 -- This is the root since it's the first and only node.
-		b.root = node
-	}
-
-	// Add the new node to the indices for faster lookups.
-	b.index[*hash] = node
-	b.depNodes[*prevHash] = append(b.depNodes[*prevHash], node)
-
-	return node, nil
-}
-
-// getPrevNodeFromBlock returns a block node for the block previous to the
-// passed block (the passed block's parent).  When it is already in the memory
-// block chain, it simply returns it.  Otherwise, it loads the previous block
-// from the block database, creates a new block node from it, and returns it.
-// The returned node will be nil if the genesis block is passed.
-func (b *BlockChain) getPrevNodeFromBlock(block *massutil.Block) (*blockNode, error) {
-	prevHash := &block.MsgBlock().Header.Previous
-	if prevHash.IsEqual(zeroHash) {
-		return nil, nil
-	}
-
-	if bn, ok := b.index[*prevHash]; ok {
-		return bn, nil
-	}
-
-	prevBlockNode, err := b.loadBlockNode(prevHash)
-	if err != nil {
-		return nil, err
-	}
-	return prevBlockNode, nil
-}
-
-// getPrevNodeFromNode returns a block node for the block previous to the
-// passed block node (the passed block node's parent).  When the node is already
-// connected to a parent, it simply returns it.  Otherwise, it loads the
-// associated block from the database to obtain the previous hash and uses that
-// to dynamically create a new block node and return it.  The memory block
-// chain is updated accordingly.  The returned node will be nil if the genesis
-// block is passed.
-func (b *BlockChain) getPrevNodeFromNode(node *blockNode) (*blockNode, error) {
-	if node.parent != nil {
-		return node.parent, nil
-	}
-
-	if node.hash.IsEqual(config.ChainParams.GenesisHash) {
-		return nil, nil
-	}
-
-	prevBlockNode, err := b.loadBlockNode(node.parentHash)
-	if err != nil {
-		return nil, err
-	}
-
-	return prevBlockNode, nil
-}
-
-// removeBlockNode removes the passed block node from the memory chain by
-// unlinking all of its children and removing it from the the node and
-// dependency indices.
-func (b *BlockChain) removeBlockNode(node *blockNode) error {
-	if node.parent != nil {
-		return fmt.Errorf("removeBlockNode must be called with a "+
-			" node at the front of the chain - node %v", node.hash)
-	}
-
-	delete(b.index, *node.hash)
-
-	for _, child := range node.children {
-		child.parent = nil
-	}
-	node.children = nil
-
-	prevHash := node.parentHash
-	if children, ok := b.depNodes[*prevHash]; ok {
-		b.depNodes[*prevHash] = removeChildNode(children, node)
-		if len(b.depNodes[*prevHash]) == 0 {
-			delete(b.depNodes, *prevHash)
-		}
-	}
-
-	return nil
-}
-
-// pruneBlockNodes removes references to old block nodes which are no longer
-// needed so they may be garbage collected.  In order to validate block rules
-// and choose the best chain, only a portion of the nodes which form the block
-// chain are needed in memory.  This function walks the chain backwards from the
-// current best chain to find any nodes before the first needed block node.
-func (b *BlockChain) pruneBlockNodes() error {
-	if b.bestChain == nil {
-		return nil
-	}
-
-	newRootNode := b.bestChain
-	for i := int32(0); i < minMemoryNodes-1 && newRootNode != nil; i++ {
-		newRootNode = newRootNode.parent
-	}
-
-	if newRootNode == nil || newRootNode.parent == nil {
-		return nil
-	}
-
-	deleteNodes := list.New()
-	for node := newRootNode.parent; node != nil; node = node.parent {
-		deleteNodes.PushFront(node)
-	}
-
-	for e := deleteNodes.Front(); e != nil; e = e.Next() {
-		node := e.Value.(*blockNode)
-		err := b.removeBlockNode(node)
-		if err != nil {
-			return err
-		}
-	}
-
-	b.root = newRootNode
-
-	return nil
-}
-
-// isMajorityVersion determines if a previous number of blocks in the chain
-// starting with startNode are at least the minimum passed version.
-func (b *BlockChain) isMajorityVersion(minVer uint64, startNode *blockNode,
-	numRequired uint64) bool {
-
-	numFound := uint64(0)
-	iterNode := startNode
-	for i := uint64(0); i < config.ChainParams.BlockUpgradeNumToCheck &&
-		numFound < numRequired && iterNode != nil; i++ {
-		if iterNode.version >= minVer {
-			numFound++
-		}
-
-		var err error
-		iterNode, err = b.getPrevNodeFromNode(iterNode)
-		if err != nil {
-			break
-		}
-	}
-
-	return numFound >= numRequired
+	// Set the 22nd bit which indicates the lock time is in seconds, then
+	// shift the locktime over by 9 since the time granularity is in
+	// 512-second intervals (2^9). This results in a max lock-time of
+	// 33,553,920 seconds, or 1.1 years.
+	return wire.SequenceLockTimeIsSeconds |
+		locktime>>wire.SequenceLockTimeGranularity
 }
 
 // calcPastMedianTime calculates the median time of the previous few blocks
 // prior to, and including, the passed block node.  It is primarily used to
 // validate new blocks have sane timestamps.
-func (b *BlockChain) calcPastMedianTime(startNode *blockNode) (time.Time, error) {
+func (chain *Blockchain) calcPastMedianTime(startNode *BlockNode) (time.Time, error) {
+	// Genesis block.
 	if startNode == nil {
-		return b.info.genesisTime, nil
+		return chain.info.genesisTime, nil
 	}
 
+	// Create a slice of the previous few block timestamps used to calculate
+	// the median per the number defined by the constant medianTimeBlocks.
 	timestamps := make([]time.Time, medianTimeBlocks)
 	numNodes := 0
 	iterNode := startNode
 	for i := 0; i < medianTimeBlocks && iterNode != nil; i++ {
-		timestamps[i] = iterNode.timestamp
+		timestamps[i] = iterNode.Timestamp
 		numNodes++
 
+		// Get the previous block node.  This function is used over
+		// simply accessing iterNode.Parent directly as it will
+		// dynamically create previous block nodes as needed.  This
+		// helps allow only the pieces of the chain that are needed
+		// to remain in memory.
 		var err error
-		iterNode, err = b.getPrevNodeFromNode(iterNode)
+		iterNode, err = chain.getPrevNodeFromNode(iterNode)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "getPrevNodeFromNode", logging.LogFormat{"err": err, "iterNode": iterNode})
+			//	log.Errorf("getPrevNodeFromNode: %v", err)
 			return time.Time{}, err
 		}
 	}
 
+	// Prune the slice to the actual number of available timestamps which
+	// will be fewer than desired near the beginning of the block chain
+	// and sort them.
 	timestamps = timestamps[:numNodes]
 	sort.Sort(timeSorter(timestamps))
 
+	// NOTE: bitcoind incorrectly calculates the median for even numbers of
+	// blocks.  A true median averages the middle two elements for a set
+	// with an even number of elements in it.   Since the constant for the
+	// previous number of blocks to be used is odd, this is only an issue
+	// for a few blocks near the beginning of the chain.  I suspect this is
+	// an optimization even though the result is slightly wrong for a few
+	// of the first blocks since after the first few blocks, there will
+	// always be an odd number of blocks in the set per the constant.
+	//
+	// This code follows suit to ensure the same rules are used as bitcoind
+	// however, be aware that should the medianTimeBlocks constant ever be
+	// changed to an even number, this code will be wrong.
 	medianTimestamp := timestamps[numNodes/2]
 	return medianTimestamp, nil
 }
@@ -549,8 +201,8 @@ func (b *BlockChain) calcPastMedianTime(startNode *blockNode) (time.Time, error)
 // used to ensure new blocks have sane timestamps.
 //
 // This function is NOT safe for concurrent access.
-func (b *BlockChain) CalcPastMedianTime() (time.Time, error) {
-	return b.calcPastMedianTime(b.bestChain)
+func (chain *Blockchain) CalcPastMedianTime() (time.Time, error) {
+	return chain.calcPastMedianTime(chain.blockTree.bestBlockNode())
 }
 
 // getReorganizeNodes finds the fork point between the main chain and the passed
@@ -560,23 +212,31 @@ func (b *BlockChain) CalcPastMedianTime() (time.Time, error) {
 // returned list of block nodes) in order to reorganize the chain such that the
 // passed node is the new end of the main chain.  The lists will be empty if the
 // passed node is not on a side chain.
-func (b *BlockChain) getReorganizeNodes(node *blockNode) (*list.List, *list.List) {
+func (chain *Blockchain) getReorganizeNodes(node *BlockNode) (*list.List, *list.List) {
+	// Nothing to detach or attach if there is no node.
 	attachNodes := list.New()
 	detachNodes := list.New()
 	if node == nil {
 		return detachNodes, attachNodes
 	}
 
+	// Find the fork point (if any) adding each block to the list of nodes
+	// to attach to the main tree.  Push them onto the list in reverse order
+	// so they are attached in the appropriate order when iterating the list
+	// later.
 	ancestor := node
-	for ; ancestor.parent != nil; ancestor = ancestor.parent {
-		if ancestor.inMainChain {
+	for ; ancestor.Parent != nil; ancestor = ancestor.Parent {
+		if ancestor.InMainChain {
 			break
 		}
 		attachNodes.PushFront(ancestor)
 	}
 
-	for n := b.bestChain; n != nil && n.parent != nil; n = n.parent {
-		if n.hash.IsEqual(ancestor.hash) {
+	// Start from the end of the main chain and work backwards until the
+	// common ancestor adding each block to the list of nodes to detach from
+	// the main chain.
+	for n := chain.blockTree.bestBlockNode(); n != nil && n.Parent != nil; n = n.Parent {
+		if n.Hash.IsEqual(ancestor.Hash) {
 			break
 		}
 		detachNodes.PushBack(n)
@@ -587,75 +247,104 @@ func (b *BlockChain) getReorganizeNodes(node *blockNode) (*list.List, *list.List
 
 // connectBlock handles connecting the passed node/block to the end of the main
 // (best) chain.
-func (b *BlockChain) connectBlock(node *blockNode, block *massutil.Block) error {
+// TODO: perform benchmark test here
+func (chain *Blockchain) connectBlock(node *BlockNode, block *massutil.Block) error {
+	// Make sure it's extending the end of the best chain.
 	prevHash := &block.MsgBlock().Header.Previous
-	if b.bestChain != nil && !prevHash.IsEqual(b.bestChain.hash) {
-		return fmt.Errorf("connectBlock must be called with a block " +
-			"that extends the main chain")
+	if !prevHash.IsEqual(chain.blockTree.bestBlockNode().Hash) {
+		return errConnectMainChain
 	}
 
-	_, err := b.db.InsertBlock(block)
+	txInputStore, err := chain.fetchInputTransactions(node, block)
 	if err != nil {
 		return err
 	}
+	// Insert the block into the database which houses the main chain.
+	if err = chain.db.SubmitBlock(block); err != nil {
+		return err
+	}
+	if err = chain.addrIndexer.SyncAttachBlock(block, txInputStore); err != nil {
+		return err
+	}
+	if err = chain.db.Commit(*node.Hash); err != nil {
+		return err
+	}
 
-	node.inMainChain = true
-	b.index[*node.hash] = node
-	b.depNodes[*prevHash] = append(b.depNodes[*prevHash], node)
-	b.bestChain = node
+	// Add the new node to the memory main chain
+	node.InMainChain = true
 
-	b.connectNotification(block)
+	// This node is now the end of the best chain.
+	chain.blockTree.setBestBlockNode(node)
+
+	// Expand banListTree
+	if ok, hashA, hashB := chain.dmd.applyBlockNode(node); !ok {
+		if err := chain.submitFaultPubKeyFromHash(hashA, hashB); err == nil {
+			logging.CPrint(logging.INFO, "faultPubKey submitted to ProposalPool",
+				logging.LogFormat{
+					"hashA":     hashA,
+					"hashB":     hashB,
+					"pubKey":    hex.EncodeToString(node.PubKey.SerializeCompressed()),
+					"bitLength": node.Proof.BitLength,
+					"height":    node.Height,
+				})
+		} else {
+			logging.CPrint(logging.ERROR, "fail to submit FaultPubKey", logging.LogFormat{
+				"err":   err,
+				"hashA": hashA,
+				"hashB": hashB,
+			})
+		}
+	}
+
+	// wait for other modules to attach block
+	chain.attachBlock(block)
 
 	return nil
 }
 
-func (b *BlockChain) connectNotification(block *massutil.Block) {
-	for _, tx := range block.Transactions()[1:] {
-		b.TxPool.RemoveTransaction(tx, false)
-		b.TxPool.RemoveDoubleSpends(tx)
-		b.TxPool.RemoveOrphan(tx.Hash())
-		b.TxPool.ProcessOrphans(tx.Hash())
-	}
-	if config.AddrIndex && b.addrIndexer.IsCaughtUp() {
-		b.addrIndexer.UpdateAddressIndex(block)
-	}
+func (chain *Blockchain) attachBlock(block *massutil.Block) {
+	chain.proposalPool.SyncAttachBlock(block)
+	chain.txPool.SyncAttachBlock(block)
+	return
 }
 
 // disconnectBlock handles disconnecting the passed node/block from the end of
 // the main (best) chain.
-func (b *BlockChain) disconnectBlock(node *blockNode, block *massutil.Block) error {
-	if b.bestChain == nil || !node.hash.IsEqual(b.bestChain.hash) {
-		return fmt.Errorf("disconnectBlock must be called with the " +
-			"block at the end of the main chain")
+func (chain *Blockchain) disconnectBlock(node *BlockNode, block *massutil.Block) error {
+	// Make sure the node being disconnected is the end of the best chain.
+	if !node.Hash.IsEqual(chain.blockTree.bestBlockNode().Hash) {
+		return errDisconnectMainChain
 	}
 
-	prevNode, err := b.getPrevNodeFromNode(node)
-	if err != nil {
+	// Remove the block from the database which houses the main chain.
+
+	if err := chain.db.DeleteBlock(node.Hash); err != nil {
+		return err
+	}
+	if err := chain.addrIndexer.SyncDetachBlock(block); err != nil {
+		return err
+	}
+	if err := chain.db.Commit(*node.Hash); err != nil {
 		return err
 	}
 
-	err = b.db.DropAfterBlockBySha(prevNode.hash)
-	if err != nil {
-		return err
-	}
+	// Put block in the side chain cache.
+	node.InMainChain = false
+	chain.blockCache.addBlock(block)
 
-	node.inMainChain = false
-	b.blockCache[*node.hash] = block
-	b.bestChain = node.parent
+	// This node's Parent is now the end of the best chain.
+	chain.blockTree.setBestBlockNode(node.Parent)
 
-	b.disconnectNotification(block)
+	// detach block from other modules
+	chain.detachBlock(block)
 
 	return nil
 }
 
-func (b *BlockChain) disconnectNotification(block *massutil.Block) {
-	for _, tx := range block.Transactions()[1:] {
-		_, err := b.TxPool.MaybeAcceptTransaction(tx,
-			false, false)
-		if err != nil {
-			b.TxPool.RemoveTransaction(tx, true)
-		}
-	}
+func (chain *Blockchain) detachBlock(block *massutil.Block) {
+	chain.proposalPool.SyncDetachBlock(block)
+	chain.txPool.SyncDetachBlock(block)
+	return
 }
 
 // reorganizeChain reorganizes the block chain by disconnecting the nodes in the
@@ -665,173 +354,212 @@ func (b *BlockChain) disconnectNotification(block *massutil.Block) {
 // disconnected must be in reverse order (think of popping them off
 // the end of the chain) and nodes the are being attached must be in forwards
 // order (think pushing them onto the end of the chain).
-func (b *BlockChain) reorganizeChain(detachNodes, attachNodes *list.List, flags BehaviorFlags) error {
+//
+// The flags modify the behavior of this function as follows:
+//  - BFDryRun: Only the checks which ensure the reorganize can be completed
+//    successfully are performed.  The chain is not reorganized.
+func (chain *Blockchain) reorganizeChain(detachNodes, attachNodes *list.List, flags BehaviorFlags) error {
+	// Ensure all of the needed side chain blocks are in the cache.
 	for e := attachNodes.Front(); e != nil; e = e.Next() {
-		n := e.Value.(*blockNode)
-		if _, exists := b.blockCache[*n.hash]; !exists {
-			return fmt.Errorf("block %v is missing from the side "+
-				"chain block cache", n.hash)
-		}
-	}
-
-	for e := attachNodes.Front(); e != nil; e = e.Next() {
-		n := e.Value.(*blockNode)
-		block := b.blockCache[*n.hash]
-		err := b.checkConnectBlock(n, block)
-		if err != nil {
+		n := e.Value.(*BlockNode)
+		if _, err := chain.blockCache.getBlock(n.Hash); err != nil {
 			return err
 		}
 	}
 
-	if flags&BFDryRun == BFDryRun {
-		return nil
+	// Perform several checks to verify each block that needs to be attached
+	// to the main chain can be connected without violating any rules and
+	// without actually connecting the block.
+	//
+	// NOTE: bitcoind does these checks directly when it connects a block.
+	// The downside to that approach is that if any of these checks fail
+	// after disconnecting some blocks or attaching others, all of the
+	// operations have to be rolled back to get the chain back into the
+	// state it was before the rule violation (or other failure).  There are
+	// at least a couple of ways accomplish that rollback, but both involve
+	// tweaking the chain.  This approach catches these issues before ever
+	// modifying the chain.
+	for e := attachNodes.Front(); e != nil; e = e.Next() {
+		n := e.Value.(*BlockNode)
+		block, _ := chain.blockCache.getBlock(n.Hash)
+		if err := chain.checkConnectBlock(n, block); err != nil {
+			return err
+		}
 	}
 
-	b.nodeLock.Lock()
-	defer b.nodeLock.Unlock()
+	chain.l.Lock()
+	defer chain.l.Unlock()
+	// Disconnect blocks from the main chain.
 	for e := detachNodes.Front(); e != nil; e = e.Next() {
-		n := e.Value.(*blockNode)
-		block, err := b.db.FetchBlockBySha(n.hash)
+		n := e.Value.(*BlockNode)
+		block, err := chain.db.FetchBlockBySha(n.Hash)
 		if err != nil {
 			return err
 		}
-		err = b.disconnectBlock(n, block)
+		err = chain.disconnectBlock(n, block)
 		if err != nil {
 			return err
 		}
 	}
 
+	// Connect the new best chain blocks.
 	for e := attachNodes.Front(); e != nil; e = e.Next() {
-		n := e.Value.(*blockNode)
-		block := b.blockCache[*n.hash]
-		err := b.connectBlock(n, block)
-		if err != nil {
+		n := e.Value.(*BlockNode)
+		block, _ := chain.blockCache.getBlock(n.Hash)
+		if err := chain.connectBlock(n, block); err != nil {
 			return err
 		}
-		delete(b.blockCache, *n.hash)
+		// Do not delete, there's no need for this
+		// chain.blockCache.delete(n.Hash)
 	}
 
-	firstAttachNode := attachNodes.Front().Value.(*blockNode)
-	forkNode, err := b.getPrevNodeFromNode(firstAttachNode)
-	if err == nil {
-		logging.CPrint(logging.INFO, "REORGANIZE: Chain forks", logging.LogFormat{"forkNode": forkNode.hash})
+	// Log the point where the chain forked.
+	firstAttachNode := attachNodes.Front().Value.(*BlockNode)
+	forkNode, err := chain.getPrevNodeFromNode(firstAttachNode)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "fail to get pre node of forked chain", logging.LogFormat{
+			"err":                 err,
+			"first_attach_height": firstAttachNode.Height,
+			"first_attach_hash":   firstAttachNode.Hash,
+		})
+		return err
 	}
 
-	firstDetachNode := detachNodes.Front().Value.(*blockNode)
-	lastAttachNode := attachNodes.Back().Value.(*blockNode)
-	logging.CPrint(logging.INFO, "REORGANIZE", logging.LogFormat{
-		"old_best_chain_head": firstDetachNode.hash,
-	})
-	logging.CPrint(logging.INFO, "REORGANIZE", logging.LogFormat{
-		"new_best_chain_head": lastAttachNode.hash,
+	// Log the old and new best chain heads.
+	firstDetachNode := detachNodes.Front().Value.(*BlockNode)
+	lastAttachNode := attachNodes.Back().Value.(*BlockNode)
+	logging.CPrint(logging.INFO, "REORGANIZE: Chain forks", logging.LogFormat{
+		"fork_hash":       forkNode.Hash,
+		"fork_height":     forkNode.Height,
+		"old_best_hash":   firstDetachNode.Hash,
+		"old_best_height": firstDetachNode.Height,
+		"new_best_hash":   lastAttachNode.Hash,
+		"new_best_height": lastAttachNode.Height,
 	})
 
 	return nil
 }
 
-// connectBestChain handles connecting the passed block to the chain while
-// respecting proper chain selection according to the chain with the most
-// proof of work.  In the typical case, the new block simply extends the main
-// chain.  However, it may also be extending (or creating) a side chain (fork)
-// which may or may not end up becoming the main chain depending on which fork
-// cumulatively has the most proof of work.
-func (b *BlockChain) connectBestChain(node *blockNode, block *massutil.Block, flags BehaviorFlags) error {
-	fastAdd := flags&BFFastAdd == BFFastAdd
-	dryRun := flags&BFDryRun == BFDryRun
-
-	if b.bestChain == nil || node.parent.hash.IsEqual(b.bestChain.hash) {
-		if !fastAdd {
-			err := b.checkConnectBlock(node, block)
-			if err != nil {
-				return err
-			}
+func (chain *Blockchain) connectBestChain(node *BlockNode, block *massutil.Block, flags BehaviorFlags) error {
+	// extend block on current best chain
+	if node.Parent.Hash.IsEqual(chain.blockTree.bestBlockNode().Hash) {
+		// Perform several checks to verify the block can be connected
+		// to the main chain (including whatever reorganization might
+		// be necessary to get this node to the main chain) without
+		// violating any rules and without actually connecting the
+		// block.
+		var err error
+		if err = chain.checkConnectBlock(node, block); err != nil {
+			return err
 		}
 
-		if dryRun {
-			return nil
+		// Connect the block to the main chain.
+		chain.l.Lock()
+		if err = chain.connectBlock(node, block); err != nil {
+			return err
 		}
+		// Connect the Parent node to this node.
+		if err = chain.blockTree.attachBlockNode(node); err != nil {
+			return err
+		}
+		chain.l.Unlock()
 
-		b.nodeLock.Lock()
-		defer b.nodeLock.Unlock()
-		err := b.connectBlock(node, block)
+		// Broadcast new block on best chain
+		chain.cond.Broadcast()
+
+		err = chain.notifyBlockConnected(block)
 		if err != nil {
 			return err
 		}
 
-		if node.parent != nil {
-			node.parent.children = append(node.parent.children, node)
-		}
-
 		return nil
 	}
-	if fastAdd {
-		logging.CPrint(logging.WARN, "fastAdd set in the side chain case?", logging.LogFormat{
-			"block": block.Hash(),
-		})
+
+	// extend block on certain side chain, and decide new best chain
+	logging.CPrint(logging.DEBUG, "adding block to side chain cache", logging.LogFormat{
+		"block": node.Hash,
+	})
+	chain.blockCache.addBlock(block)
+	node.InMainChain = false
+	if err := chain.blockTree.attachBlockNode(node); err != nil {
+		return err
 	}
 
-	if !dryRun {
-		logging.CPrint(logging.DEBUG, "Adding block to side chain cache", logging.LogFormat{
-			"block": node.hash,
-		})
-	}
-	b.blockCache[*node.hash] = block
-	b.index[*node.hash] = node
-
-	node.inMainChain = false
-	node.parent.children = append(node.parent.children, node)
-
-	if dryRun {
-		defer func() {
-			children := node.parent.children
-			children = removeChildNode(children, node)
-			node.parent.children = children
-
-			delete(b.index, *node.hash)
-			delete(b.blockCache, *node.hash)
-		}()
-	}
-
-	if ok, _ := b.IsPotentialNewBestChain(node); !ok {
-		if dryRun {
-			return nil
-		}
-
+	// We're extending (or creating) a side chain, but
+	// this new side chain is not enough to make it the new chain.
+	if ok, _ := chain.isPotentialNewBestChain(node); !ok {
+		// Find the fork point.
 		fork := node
-		for ; fork.parent != nil; fork = fork.parent {
-			if fork.inMainChain {
+		for ; fork.Parent != nil; fork = fork.Parent {
+			if fork.InMainChain {
 				break
 			}
 		}
 
-		if fork.hash.IsEqual(node.parent.hash) {
+		// Log information about how the block is forking the chain.
+		if fork.Hash.IsEqual(node.Parent.Hash) {
 			logging.CPrint(logging.INFO, "FORK: Block forks the chain at height, but does not cause a reorganize",
 				logging.LogFormat{
-					"block":  node.hash,
-					"height": fork.height,
-					"fork":   fork.hash,
+					"block_height": node.Height,
+					"block_hash":   node.Hash,
+					"fork_height":  fork.Height,
+					"fork_hash":    fork.Hash,
 				})
 		} else {
 			logging.CPrint(logging.INFO, "EXTEND FORK: Block extends a side chain which forks the chain",
 				logging.LogFormat{
-					"block":  node.hash,
-					"height": fork.height,
-					"fork":   fork.hash,
+					"block_height": node.Height,
+					"block_hash":   node.Hash,
+					"fork_height":  fork.Height,
+					"fork_hash":    fork.Hash,
 				})
+		}
+
+		// Expand banListTree
+		if ok, hashA, hashB := chain.dmd.applyBlockNode(node); !ok {
+			if err := chain.submitFaultPubKeyFromHash(hashA, hashB); err == nil {
+				logging.CPrint(logging.INFO, "faultPubKey submitted to ProposalPool",
+					logging.LogFormat{
+						"hashA":     hashA,
+						"hashB":     hashB,
+						"pubKey":    hex.EncodeToString(node.PubKey.SerializeCompressed()),
+						"bitLength": node.Proof.BitLength,
+						"height":    node.Height,
+					})
+			} else {
+				logging.CPrint(logging.ERROR, "fail to submit FaultPubKey", logging.LogFormat{
+					"err":   err,
+					"hashA": hashA,
+					"hashB": hashB,
+				})
+			}
 		}
 
 		return nil
 	}
 
-	detachNodes, attachNodes := b.getReorganizeNodes(node)
+	// We're extending (or creating) a side chain and the cumulative work
+	// for this new side chain is more than the old best chain, so this side
+	// chain needs to become the main chain.  In order to accomplish that,
+	// find the common ancestor of both sides of the fork, disconnect the
+	// blocks that form the (now) old fork from the main chain, and attach
+	// the blocks that form the new chain to the main chain starting at the
+	// common ancestor (the point where the chain forked).
+	detachNodes, attachNodes := chain.getReorganizeNodes(node)
 
-	if !dryRun {
-		logging.CPrint(logging.INFO, "REORGANIZE: Block is causing a reorganize.", logging.LogFormat{
-			"Block": node.hash,
-		})
+	// Reorganize the chain.
+	logging.CPrint(logging.INFO, "reorganize: block is causing a reorganize.", logging.LogFormat{
+		"block": node.Hash,
+	})
+	err := chain.reorganizeChain(detachNodes, attachNodes, flags)
+	if err != nil {
+		return err
 	}
 
-	err := b.reorganizeChain(detachNodes, attachNodes, flags)
+	// Broadcast new block on best chain
+	chain.cond.Broadcast()
+
+	err = chain.notifyBlockConnected(block)
 	if err != nil {
 		return err
 	}
@@ -839,170 +567,79 @@ func (b *BlockChain) connectBestChain(node *blockNode, block *massutil.Block, fl
 	return nil
 }
 
-// IsPotentialNewBestChain returns whether or not the side chain can be a new
+// isPotentialNewBestChain returns whether or not the side chain can be a new
 // best chain. The Boolean is valid only when error is nil.
-func (b *BlockChain) IsPotentialNewBestChain(sideChain *blockNode) (bool, error) {
-	bestChain := b.bestChain
+func (chain *Blockchain) isPotentialNewBestChain(sideChain *BlockNode) (bool, error) {
+	// Create a copy of bestChain pointer
+	bestChain := chain.blockTree.bestBlockNode()
+	// These two chains must be valid
 	if sideChain == nil || bestChain == nil {
 		return false, fmt.Errorf("figure potential best chain: Cannot decide invalid chain")
 	}
-
-	if sideChain.capSum.Cmp(bestChain.capSum) != 0 {
-		if sideChain.capSum.Cmp(bestChain.capSum) < 0 {
+	// Step 1: Check CapSum, the larger the better
+	if sideChain.CapSum.Cmp(bestChain.CapSum) != 0 {
+		if sideChain.CapSum.Cmp(bestChain.CapSum) < 0 {
 			return false, nil
 		}
 		return true, nil
 	}
-
-	if sideChain.timestamp.Unix() != bestChain.timestamp.Unix() {
-		if sideChain.timestamp.Unix() > bestChain.timestamp.Unix() {
+	// Step 2: Check timestamp, the earlier the better
+	if sideChain.Timestamp.Unix() != bestChain.Timestamp.Unix() {
+		if sideChain.Timestamp.Unix() > bestChain.Timestamp.Unix() {
 			return false, nil
 		}
 		return true, nil
 	}
-
-	if new(big.Int).SetBytes(sideChain.hash.Bytes()).Cmp(new(big.Int).SetBytes(bestChain.hash.Bytes())) < 0 {
+	// Step 3: Check quality, choose the better one.
+	if sideChain.Quality.Cmp(bestChain.Quality) != 0 {
+		if sideChain.Quality.Cmp(bestChain.Quality) > 0 {
+			return true, nil
+		}
+		return false, nil
+	}
+	// Step 4: Tie Break, choose small block hash.
+	if new(big.Int).SetBytes(sideChain.Hash.Bytes()).Cmp(new(big.Int).SetBytes(bestChain.Hash.Bytes())) < 0 {
 		return true, nil
 	}
-
 	return false, nil
 }
 
-// GetBlockTimestamp
-func (b *BlockChain) GetBlockTimestamp(hash wire.Hash) time.Time {
-	b.accessLock.Lock()
-	defer b.accessLock.Unlock()
-
-	return b.index[hash].timestamp
-}
-
-// GetBestChainHash
-func (b *BlockChain) GetBestChainHash() *wire.Hash {
-	b.accessLock.Lock()
-	defer b.accessLock.Unlock()
-
-	return b.bestChain.hash
-}
-
-func (b *BlockChain) GetBestChainHeader() *wire.BlockHeader {
-	b.nodeLock.RLock()
-	defer b.nodeLock.RUnlock()
-
-	sha := b.bestChain.hash
-	bh, err := b.db.FetchBlockHeaderBySha(sha)
+// RetrievePunishment retrieves faultPks from database, sending them to memPool.
+func (chain *Blockchain) RetrievePunishment() ([]*wire.FaultPubKey, error) {
+	logging.CPrint(logging.DEBUG, "retrieving punishment pubKeys, this may take a while")
+	fpks, err := chain.db.FetchAllPunishment()
 	if err != nil {
-		logging.CPrint(logging.ERROR, "b.BlockChain.GetBestChainHeader() cannot fetch bestBlockHeader",
-			logging.LogFormat{"blockHash": sha.String()})
-		return wire.NewEmptyBlockHeader()
-	}
-	return bh
-}
-
-func (b *BlockChain) GetBestChainHeight() uint64 {
-	return uint64(b.bestChain.height)
-}
-
-func (b *BlockChain) InMainChain(hash wire.Hash) bool {
-	if bn, exists := b.index[hash]; exists {
-		return bn.inMainChain
-	}
-	height, err := b.db.FetchBlockHeightBySha(&hash)
-	if err != nil {
-		return false
-	}
-	dbHash, err := b.db.FetchBlockShaByHeight(height)
-	if err != nil {
-		return false
-	}
-	return *dbHash == hash
-}
-
-// GetBlockByHash return a block by given hash
-func (b *BlockChain) GetBlockByHash(hash *wire.Hash) (*massutil.Block, error) {
-	return b.db.FetchBlockBySha(hash)
-}
-
-// GetBlockByHeight return a block header by given height
-func (b *BlockChain) GetBlockByHeight(height uint64) (*massutil.Block, error) {
-	b.nodeLock.RLock()
-	defer b.nodeLock.RUnlock()
-	hash, err := b.db.FetchBlockShaByHeight(int32(height))
-	if err != nil {
-		return nil, err
-	}
-	return b.GetBlockByHash(hash)
-}
-
-func (b *BlockChain) NewestSha() (sha *wire.Hash, height uint64, err error) {
-	b.nodeLock.RLock()
-	defer b.nodeLock.RUnlock()
-	sha, blkHeight, err := b.db.NewestSha()
-	return sha, uint64(blkHeight), err
-}
-
-func (b *BlockChain) ChainID() *wire.Hash {
-	return wire.NewHashFromHash(b.info.chainID)
-}
-
-func New(db database.Db, sigCache *txscript.SigCache, hashCache *txscript.HashCache, txpool *TxPool, addrIndexer *chainindexer.AddrIndexer) (*BlockChain, error) {
-	var checkpointsByHeight map[int32]*config.Checkpoint
-	if len(config.ChainParams.Checkpoints) > 0 {
-		checkpointsByHeight = make(map[int32]*config.Checkpoint)
-		for i := range config.ChainParams.Checkpoints {
-			checkpoint := &config.ChainParams.Checkpoints[i]
-			checkpointsByHeight[int32(checkpoint.Height)] = checkpoint
-		}
-	}
-
-	b := &BlockChain{
-		db:                  db,
-		sigCache:            sigCache,
-		hashCache:           hashCache,
-		checkpointsByHeight: checkpointsByHeight,
-		root:                nil,
-		bestChain:           nil,
-		index:               make(map[wire.Hash]*blockNode),
-		depNodes:            make(map[wire.Hash][]*blockNode),
-		blockCache:          make(map[wire.Hash]*massutil.Block),
-		orphanBlockPool:     newOrphanBlockPool(),
-		TxPool:              txpool,
-		addrIndexer:         addrIndexer,
-	}
-
-	b.TxPool.BlockChain = b
-	b.addrIndexer.Chain = b
-
-	err := b.GenerateInitialIndex()
-	if err != nil {
+		logging.CPrint(logging.ERROR, "fail on retrieving punishments from database", logging.LogFormat{
+			"err": err,
+		})
 		return nil, err
 	}
 
-	genesisHash, err := b.db.FetchBlockShaByHeight(0)
-	if err != nil {
-		return nil, err
-	}
-	genesisBlock, err := b.db.FetchBlockBySha(genesisHash)
-	if err != nil {
-		return nil, err
-	}
-	b.info = &chainInfo{
-		genesisBlock: genesisBlock,
-		genesisHash:  *genesisBlock.Hash(),
-		genesisTime:  genesisBlock.MsgBlock().Header.Timestamp,
-		chainID:      genesisBlock.MsgBlock().Header.ChainID,
+	for i, fpk := range fpks {
+		logging.CPrint(logging.DEBUG, "punishment pubKey", logging.LogFormat{
+			"index":             i,
+			"punishment pubKey": hex.EncodeToString(fpk.PubKey.SerializeCompressed()),
+		})
 	}
 
-	return b, nil
+	return fpks, nil
 }
 
-func (b *BlockChain) Start() {
-	if config.AddrIndex {
-		b.addrIndexer.Start()
+func (chain *Blockchain) RetrieveFaultPks() {
+	logging.CPrint(logging.DEBUG, "retrieving banned pubKeys, this may take a while")
+	fpkList, heightList, err := chain.db.FetchAllFaultPks()
+	if err != nil {
+		logging.CPrint(logging.ERROR, "fail on retrieving faultPks from database", logging.LogFormat{
+			"err": err,
+		})
+		return
 	}
-}
-
-func (b *BlockChain) Stop() {
-	if config.AddrIndex {
-		b.addrIndexer.Stop()
+	for i, fpk := range fpkList {
+		logging.CPrint(logging.DEBUG, "banned pubKey", logging.LogFormat{
+			"index":         i,
+			"Banned pubKey": hex.EncodeToString(fpk.PubKey.SerializeCompressed()),
+			"height":        heightList[i],
+		})
 	}
+	return
 }

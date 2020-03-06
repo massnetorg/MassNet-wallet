@@ -3,36 +3,83 @@ package wirepb
 import (
 	"bytes"
 	"encoding/binary"
+	"io"
 )
 
+func (m *ProposalArea) Write(w io.Writer) (int, error) {
+	var count int
+
+	for _, punishment := range m.Punishments {
+		n, err := punishment.Write(w)
+		count += n
+		if err != nil {
+			return count, err
+		}
+	}
+
+	for _, proposal := range m.OtherProposals {
+		n, err := proposal.Write(w)
+		count += n
+		if err != nil {
+			return count, err
+		}
+	}
+
+	return count, nil
+}
+
 func (m *ProposalArea) Bytes() []byte {
-	punishments := make([]byte, 0)
-	for i := 0; i < len(m.Punishments); i++ {
-		punishments = bytes.Join([][]byte{punishments, m.Punishments[i].Bytes()}, []byte(""))
+	var buf bytes.Buffer
+	m.Write(&buf)
+	return buf.Bytes()
+}
+
+func (m *Punishment) Write(w io.Writer) (int, error) {
+	var version [4]byte
+	binary.LittleEndian.PutUint32(version[:], uint32(m.Version))
+	var mType [4]byte
+	binary.LittleEndian.PutUint32(mType[:], uint32(m.Type))
+
+	var count int
+
+	n, err := writeBytes(w, version[:], mType[:])
+	count += n
+	if err != nil {
+		return count, err
 	}
-	placeholder := make([]byte, 0)
-	if len(m.Punishments) == 0 {
-		placeholder = m.PlaceHolder.Bytes()
+
+	n, err = m.TestimonyA.Write(w)
+	count += n
+	if err != nil {
+		return count, err
 	}
-	proposals := make([]byte, 0)
-	for i := 0; i < len(m.OtherProposals); i++ {
-		proposals = bytes.Join([][]byte{proposals, m.OtherProposals[i].Bytes()}, []byte(""))
+
+	n, err = m.TestimonyB.Write(w)
+	count += n
+	if err != nil {
+		return count, err
 	}
-	return bytes.Join([][]byte{punishments, placeholder, proposals}, []byte(""))
+
+	return count, nil
 }
 
 func (m *Punishment) Bytes() []byte {
+	var buf bytes.Buffer
+	m.Write(&buf)
+	return buf.Bytes()
+}
+
+func (m *Proposal) Write(w io.Writer) (int, error) {
 	var version [4]byte
 	binary.LittleEndian.PutUint32(version[:], uint32(m.Version))
 	var mType [4]byte
 	binary.LittleEndian.PutUint32(mType[:], uint32(m.Type))
-	return bytes.Join([][]byte{version[:], mType[:], m.TestimonyA.Bytes(), m.TestimonyB.Bytes()}, []byte(""))
+
+	return writeBytes(w, version[:], mType[:], m.Content)
 }
 
 func (m *Proposal) Bytes() []byte {
-	var version [4]byte
-	binary.LittleEndian.PutUint32(version[:], uint32(m.Version))
-	var mType [4]byte
-	binary.LittleEndian.PutUint32(mType[:], uint32(m.Type))
-	return bytes.Join([][]byte{version[:], mType[:], m.Content}, []byte(""))
+	var buf bytes.Buffer
+	m.Write(&buf)
+	return buf.Bytes()
 }

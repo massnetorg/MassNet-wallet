@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -8,16 +7,15 @@ package txscript
 import (
 	"bytes"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash"
 
-	"github.com/massnetorg/MassNet-wallet/btcec"
-	"github.com/massnetorg/MassNet-wallet/wire"
-
-	"github.com/btcsuite/fastsha256"
-	"github.com/btcsuite/golangcrypto/ripemd160"
+	"github.com/btcsuite/btcd/btcec"
+	"golang.org/x/crypto/ripemd160"
+	"massnet.org/mass-wallet/wire"
 )
 
 // An opcode defines the information related to a txscript opcode.  opfunc if
@@ -215,7 +213,7 @@ const (
 	OP_CHECKMULTISIGVERIFY = 0xaf // 175
 	OP_NOP1                = 0xb0 // 176
 	OP_NOP2                = 0xb1 // 177
-	OP_CHECKLOCKTIMEVERIFY = 0xb1 // 177 - A-KA OP_NOP2
+	OP_CHECKLOCKTIMEVERIFY = 0xb1 // 177 - AKA OP_NOP2
 	OP_NOP3                = 0xb2 // 178
 	OP_CHECKSEQUENCEVERIFY = 0xb2 // 178 - AKA OP_NOP3
 	OP_NOP4                = 0xb3 // 179
@@ -1000,7 +998,7 @@ func opcodeVerify(op *parsedOpcode, vm *Engine) error {
 		return err
 	}
 
-	if verified != true {
+	if !verified {
 		return ErrStackVerifyFailed
 	}
 	return nil
@@ -1013,17 +1011,17 @@ func opcodeReturn(op *parsedOpcode, vm *Engine) error {
 }
 
 // verifyLockTime is a helper function used to validate locktimes.
-func verifyLockTime(txLockTime, threshold, lockTime int64) error {
+func verifyLockTime(txLockTime, threshold, lockTime uint64) error {
 	// The lockTimes in both the script and transaction must be of the same
 	// type.
 	if !((txLockTime < threshold && lockTime < threshold) ||
 		(txLockTime >= threshold && lockTime >= threshold)) {
-		return fmt.Errorf("mismatched locktime types -- tx locktime "+
+		return fmt.Errorf("[CSV] mismatched locktime types -- tx locktime "+
 			"%d, stack locktime %d", txLockTime, lockTime)
 	}
 
 	if lockTime > txLockTime {
-		return fmt.Errorf("locktime requirement not satisfied -- "+
+		return fmt.Errorf("[CSV] locktime requirement not satisfied -- "+
 			"locktime is greater than the transaction locktime: "+
 			"%d > %d", lockTime, txLockTime)
 
@@ -1037,16 +1035,6 @@ func verifyLockTime(txLockTime, threshold, lockTime int64) error {
 // ScriptVerifyCheckLockTimeVerify is not set, the code continues as if OP_NOP2
 // were executed.
 func opcodeCheckLockTimeVerify(op *parsedOpcode, vm *Engine) error {
-	// If the ScriptVerifyCheckLockTimeVerify script flag is not set, treat
-	// opcode as OP_NOP2 instead.
-	if !vm.hasFlag(ScriptVerifyCheckLockTimeVerify) {
-		if vm.hasFlag(ScriptDiscourageUpgradableNops) {
-			return errors.New("OP_NOP2 reserved for soft-fork " +
-				"upgrades")
-		}
-		return nil
-	}
-
 	// The current transaction locktime is a uint32 resulting in a maximum
 	// locktime of 2^32-1 (the year 2106).  However, scriptNums are signed
 	// and therefore a standard 4-byte scriptNum would only support up to a
@@ -1117,15 +1105,6 @@ func opcodeCheckLockTimeVerify(op *parsedOpcode, vm *Engine) error {
 // ScriptVerifyCheckSequenceVerify is not set, the code continues as if OP_NOP3
 // were executed.
 func opcodeCheckSequenceVerify(op *parsedOpcode, vm *Engine) error {
-	// If the ScriptVerifyCheckSequenceVerify script flag is not set, treat
-	// opcode as OP_NOP3 instead.
-	if !vm.hasFlag(ScriptVerifyCheckSequenceVerify) {
-		if vm.hasFlag(ScriptDiscourageUpgradableNops) {
-			return errors.New("OP_NOP3 reserved for soft-fork upgrades")
-		}
-		return nil
-	}
-
 	// The current transaction sequence is a uint32 resulting in a maximum
 	// sequence of 2^32-1.  However, scriptNums are signed and therefore a
 	// standard 4-byte scriptNum would only support up to a maximum of
@@ -1139,7 +1118,7 @@ func opcodeCheckSequenceVerify(op *parsedOpcode, vm *Engine) error {
 	if err != nil {
 		return err
 	}
-	stackSequence, err := makeScriptNum(so, vm.dstack.verifyMinimalData, 8)
+	stackSequence, err := makeScriptNum(so, vm.dstack.verifyMinimalData, 9)
 	if err != nil {
 		return err
 	}
@@ -1151,12 +1130,12 @@ func opcodeCheckSequenceVerify(op *parsedOpcode, vm *Engine) error {
 		return fmt.Errorf("negative locktime: %d", stackSequence)
 	}
 
-	sequence := int64(stackSequence)
+	sequence := uint64(stackSequence)
 
 	// To provide for future soft-fork extensibility, if the
 	// operand has the disabled lock-time flag set,
 	// CHECKSEQUENCEVERIFY behaves as a NOP.
-	if sequence&int64(wire.SequenceLockTimeDisabled) != 0 {
+	if sequence&wire.SequenceLockTimeDisabled != 0 {
 		return nil
 	}
 
@@ -1170,15 +1149,14 @@ func opcodeCheckSequenceVerify(op *parsedOpcode, vm *Engine) error {
 	// consensus constrained. Testing that the transaction's sequence
 	// number does not have this bit set prevents using this property
 	// to get around a CHECKSEQUENCEVERIFY check.
-	txSequence := int64(vm.tx.TxIn[vm.txIdx].Sequence)
-	if txSequence&int64(wire.SequenceLockTimeDisabled) != 0 {
+	txSequence := vm.tx.TxIn[vm.txIdx].Sequence
+	if txSequence&wire.SequenceLockTimeDisabled != 0 {
 		return fmt.Errorf("transaction sequence has sequence "+
 			"locktime disabled bit set: 0x%x", txSequence)
 	}
 
 	// Mask off non-consensus bits before doing comparisons.
-	lockTimeMask := int64(wire.SequenceLockTimeIsSeconds |
-		wire.SequenceLockTimeMask)
+	lockTimeMask := wire.SequenceLockTimeIsSeconds | wire.SequenceLockTimeMask
 	return verifyLockTime(txSequence&lockTimeMask,
 		wire.SequenceLockTimeIsSeconds, sequence&lockTimeMask)
 }
@@ -1898,7 +1876,7 @@ func opcodeSha256(op *parsedOpcode, vm *Engine) error {
 		return err
 	}
 
-	hash := fastsha256.Sum256(buf)
+	hash := sha256.Sum256(buf)
 	vm.dstack.PushByteArray(hash[:])
 	return nil
 }
@@ -1913,7 +1891,7 @@ func opcodeHash160(op *parsedOpcode, vm *Engine) error {
 		return err
 	}
 
-	hash := fastsha256.Sum256(buf)
+	hash := sha256.Sum256(buf)
 	vm.dstack.PushByteArray(calcHash(hash[:], ripemd160.New()))
 	return nil
 }
@@ -2017,13 +1995,13 @@ func opcodeCheckSig(op *parsedOpcode, vm *Engine) error {
 	}
 
 	var signature *btcec.Signature
-	if vm.hasFlag(ScriptVerifyStrictEncoding) ||
-		vm.hasFlag(ScriptVerifyDERSignatures) {
+	//if vm.hasFlag(ScriptVerifyStrictEncoding) ||
+	//	vm.hasFlag(ScriptVerifyDERSignatures) {
 
-		signature, err = btcec.ParseDERSignature(sigBytes, btcec.S256())
-	} else {
-		signature, err = btcec.ParseSignature(sigBytes, btcec.S256())
-	}
+	signature, err = btcec.ParseDERSignature(sigBytes, btcec.S256())
+	//} else {
+	//	signature, err = btcec.ParseSignature(sigBytes, btcec.S256())
+	//}
 	if err != nil {
 		vm.dstack.PushBool(false)
 		return nil
@@ -2043,7 +2021,7 @@ func opcodeCheckSig(op *parsedOpcode, vm *Engine) error {
 		valid = signature.Verify(hash, pubKey)
 	}
 
-	if !valid && vm.hasFlag(ScriptVerifyNullFail) && len(sigBytes) > 0 {
+	if !valid && len(sigBytes) > 0 {
 		return ErrNullFail
 	}
 
@@ -2077,6 +2055,12 @@ type parsedSigInfo struct {
 // public keys, followed by that many entries as raw data representing the public
 // keys, followed by the integer number of signatures, followed by that many
 // entries as raw data representing the signatures.
+//
+// Due to a bug in the original Satoshi client implementation, an additional
+// dummy argument is also required by the consensus rules, although it is not
+// used.  The dummy value SHOULD be an OP_0, although that is not required by
+// the consensus rules.  When the ScriptStrictMultiSig flag is set, it must be
+// OP_0.
 //
 // All of the aforementioned stack items are replaced with a bool which
 // indicates if the requisite number of signatures were successfully verified.
@@ -2194,15 +2178,15 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 
 			// Parse the signature.
 			var err error
-			if vm.hasFlag(ScriptVerifyStrictEncoding) ||
-				vm.hasFlag(ScriptVerifyDERSignatures) {
+			//if vm.hasFlag(ScriptVerifyStrictEncoding) ||
+			//	vm.hasFlag(ScriptVerifyDERSignatures) {
 
-				parsedSig, err = btcec.ParseDERSignature(signature,
-					btcec.S256())
-			} else {
-				parsedSig, err = btcec.ParseSignature(signature,
-					btcec.S256())
-			}
+			parsedSig, err = btcec.ParseDERSignature(signature,
+				btcec.S256())
+			//} else {
+			//	parsedSig, err = btcec.ParseSignature(signature,
+			//		btcec.S256())
+			//}
 			sigInfo.parsed = true
 			if err != nil {
 				continue
@@ -2268,7 +2252,7 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 		}
 	}
 
-	if !success && vm.hasFlag(ScriptVerifyNullFail) {
+	if !success {
 		for _, sig := range signatures {
 			if len(sig.signature) > 0 {
 				return ErrNullFail

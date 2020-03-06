@@ -9,12 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	//log "github.com/sirupsen/logrus"
-
-	"github.com/bytom/common"
-	"github.com/bytom/crypto"
+	"massnet.org/mass-wallet/logging"
 )
 
 const (
@@ -137,7 +132,7 @@ type ticketStore struct {
 
 	searchTopicMap        map[Topic]searchTopic
 	nextTopicQueryCleanup AbsTime
-	queriesSent           map[*Node]map[common.Hash]sentQuery
+	queriesSent           map[*Node]map[Hash]sentQuery
 }
 
 type searchTopic struct {
@@ -163,7 +158,7 @@ func newTicketStore() *ticketStore {
 		nodes:          make(map[*Node]*ticket),
 		nodeLastReq:    make(map[*Node]reqInfo),
 		searchTopicMap: make(map[Topic]searchTopic),
-		queriesSent:    make(map[*Node]map[common.Hash]sentQuery),
+		queriesSent:    make(map[*Node]map[Hash]sentQuery),
 	}
 }
 
@@ -433,7 +428,7 @@ func (s *ticketStore) removeTicketRef(ref ticketRef) {
 		}
 	}
 	if idx == -1 {
-		logging.CPrint(logging.FATAL, "idx == -1", logging.LogFormat{})
+		logging.CPrint(logging.FATAL, "idx == -1")
 	}
 	list = append(list[:idx], list[idx+1:]...)
 	if len(list) != 0 {
@@ -449,7 +444,7 @@ func (s *ticketStore) removeTicketRef(ref ticketRef) {
 }
 
 type lookupInfo struct {
-	target       common.Hash
+	target       Hash
 	topic        Topic
 	radiusLookup bool
 }
@@ -499,7 +494,7 @@ func (s *ticketStore) searchLookupDone(lookup lookupInfo, nodes []*Node, query f
 			if s.canQueryTopic(n, lookup.topic) {
 				hash := query(n, lookup.topic)
 				if hash != nil {
-					s.addTopicQuery(common.BytesToHash(hash), n, lookup)
+					s.addTopicQuery(BytesToHash(hash), n, lookup)
 				}
 			}
 			//}
@@ -507,7 +502,7 @@ func (s *ticketStore) searchLookupDone(lookup lookupInfo, nodes []*Node, query f
 	}
 }
 
-func (s *ticketStore) adjustWithTicket(now AbsTime, targetHash common.Hash, t *ticket) {
+func (s *ticketStore) adjustWithTicket(now AbsTime, targetHash Hash, t *ticket) {
 	for i, topic := range t.topics {
 		if tt, ok := s.radius[topic]; ok {
 			tt.adjustWithTicket(now, targetHash, ticketRef{t, i})
@@ -547,6 +542,7 @@ func (s *ticketStore) addTicket(localTime AbsTime, pingHash []byte, ticket *tick
 		}
 		if float64(wait) < float64(keepTicketConst)+float64(keepTicketExp)*rnd {
 			// use the ticket to register this topic
+			//fmt.Println("addTicket", ticket.node.ID[:8], ticket.node.addr().String(), ticket.serial, ticket.pong)
 			s.addTicketRef(ticketRef{ticket, topicIdx})
 		}
 	}
@@ -579,11 +575,11 @@ func (s *ticketStore) canQueryTopic(node *Node, topic Topic) bool {
 	return true
 }
 
-func (s *ticketStore) addTopicQuery(hash common.Hash, node *Node, lookup lookupInfo) {
+func (s *ticketStore) addTopicQuery(hash Hash, node *Node, lookup lookupInfo) {
 	now := Now()
 	qq := s.queriesSent[node]
 	if qq == nil {
-		qq = make(map[common.Hash]sentQuery)
+		qq = make(map[Hash]sentQuery)
 		s.queriesSent[node] = qq
 	}
 	qq[hash] = sentQuery{sent: now, lookup: lookup}
@@ -608,8 +604,9 @@ func (s *ticketStore) cleanupTopicQueries(now AbsTime) {
 	s.nextTopicQueryCleanup = now + AbsTime(topicQueryTimeout)
 }
 
-func (s *ticketStore) gotTopicNodes(from *Node, hash common.Hash, nodes []rpcNode) (timeout bool) {
+func (s *ticketStore) gotTopicNodes(from *Node, hash Hash, nodes []rpcNode) (timeout bool) {
 	now := Now()
+	//fmt.Println("got", from.addr().String(), hash, len(nodes))
 	qq := s.queriesSent[from]
 	if qq == nil {
 		return true
@@ -625,6 +622,7 @@ func (s *ticketStore) gotTopicNodes(from *Node, hash common.Hash, nodes []rpcNod
 	s.radius[q.lookup.topic].adjust(now, q.lookup.target, from.sha, inside)
 	chn := s.searchTopicMap[q.lookup.topic].foundChn
 	if chn == nil {
+		//fmt.Println("no channel")
 		return false
 	}
 	for _, node := range nodes {
@@ -664,7 +662,7 @@ type topicRadiusBucket struct {
 	weights    [trCount]float64
 	lastTime   AbsTime
 	value      float64
-	lookupSent map[common.Hash]AbsTime
+	lookupSent map[Hash]AbsTime
 }
 
 func (b *topicRadiusBucket) update(now AbsTime) {
@@ -700,7 +698,7 @@ func (b *topicRadiusBucket) adjust(now AbsTime, inside float64) {
 }
 
 func newTopicRadius(t Topic) *topicRadius {
-	topicHash := crypto.Sha256Hash([]byte(t))
+	topicHash := Sha3256Hash([]byte(t))
 	topicHashPrefix := binary.BigEndian.Uint64(topicHash[0:8])
 
 	return &topicRadius{
@@ -711,7 +709,7 @@ func newTopicRadius(t Topic) *topicRadius {
 	}
 }
 
-func (r *topicRadius) getBucketIdx(addrHash common.Hash) int {
+func (r *topicRadius) getBucketIdx(addrHash Hash) int {
 	prefix := binary.BigEndian.Uint64(addrHash[0:8])
 	var log2 float64
 	if prefix != r.topicHashPrefix {
@@ -728,7 +726,7 @@ func (r *topicRadius) getBucketIdx(addrHash common.Hash) int {
 	return bucket
 }
 
-func (r *topicRadius) targetForBucket(bucket int) common.Hash {
+func (r *topicRadius) targetForBucket(bucket int) Hash {
 	min := math.Pow(2, 64-float64(bucket+1)/radiusBucketsPerBit)
 	max := math.Pow(2, 64-float64(bucket)/radiusBucketsPerBit)
 	a := uint64(min)
@@ -738,7 +736,7 @@ func (r *topicRadius) targetForBucket(bucket int) common.Hash {
 		xor = ^uint64(0)
 	}
 	prefix := r.topicHashPrefix ^ xor
-	var target common.Hash
+	var target Hash
 	binary.BigEndian.PutUint64(target[0:8], prefix)
 	globalRandRead(target[8:])
 	return target
@@ -760,7 +758,7 @@ func globalRandRead(b []byte) {
 	}
 }
 
-func (r *topicRadius) isInRadius(addrHash common.Hash) bool {
+func (r *topicRadius) isInRadius(addrHash Hash) bool {
 	nodePrefix := binary.BigEndian.Uint64(addrHash[0:8])
 	dist := nodePrefix ^ r.topicHashPrefix
 	return dist < r.radius
@@ -791,7 +789,7 @@ func (r *topicRadius) chooseLookupBucket(a, b int) int {
 			rnd--
 		}
 	}
-	logging.CPrint(logging.FATAL, "should never happen", logging.LogFormat{})
+	logging.CPrint(logging.FATAL, "should never happen")
 	panic(nil) // should never happen
 }
 
@@ -825,7 +823,9 @@ func (r *topicRadius) recalcRadius() (radius uint64, radiusLookup int) {
 		r.buckets[i].update(now)
 		v += r.buckets[i].weights[trOutside] - r.buckets[i].weights[trInside]
 		r.buckets[i].value = v
+		//fmt.Printf("%v %v | ", v, r.buckets[i].weights[trNoAdjust])
 	}
+	//fmt.Println()
 	slopeCross := -1
 	for i, b := range r.buckets {
 		v := b.value
@@ -855,7 +855,7 @@ func (r *topicRadius) recalcRadius() (radius uint64, radiusLookup int) {
 	lookupRight := -1
 	if slopeCross != maxBucket && (minRadBucket <= maxBucket || r.needMoreLookups(maxBucket+lookupWidth, len(r.buckets)-1, maxValue)) {
 		for len(r.buckets) <= maxBucket+lookupWidth {
-			r.buckets = append(r.buckets, topicRadiusBucket{lookupSent: make(map[common.Hash]AbsTime)})
+			r.buckets = append(r.buckets, topicRadiusBucket{lookupSent: make(map[Hash]AbsTime)})
 		}
 		lookupRight = r.chooseLookupBucket(maxBucket, maxBucket+lookupWidth-1)
 	}
@@ -872,6 +872,8 @@ func (r *topicRadius) recalcRadius() (radius uint64, radiusLookup int) {
 			}
 		}
 	}
+
+	//fmt.Println("mb", maxBucket, "sc", slopeCross, "mrb", minRadBucket, "ll", lookupLeft, "lr", lookupRight, "mv", maxValue)
 
 	if radiusLookup == -1 {
 		// no more radius lookups needed at the moment, return a radius
@@ -912,13 +914,13 @@ func (r *topicRadius) nextTarget(forceRegular bool) lookupInfo {
 	}
 
 	prefix := r.topicHashPrefix ^ rnd
-	var target common.Hash
+	var target Hash
 	binary.BigEndian.PutUint64(target[0:8], prefix)
 	globalRandRead(target[8:])
 	return lookupInfo{target: target, topic: r.topic, radiusLookup: false}
 }
 
-func (r *topicRadius) adjustWithTicket(now AbsTime, targetHash common.Hash, t ticketRef) {
+func (r *topicRadius) adjustWithTicket(now AbsTime, targetHash Hash, t ticketRef) {
 	wait := t.t.regTime[t.idx] - t.t.issueTime
 	inside := float64(wait)/float64(targetWaitTime) - 0.5
 	if inside > 1 {
@@ -930,8 +932,9 @@ func (r *topicRadius) adjustWithTicket(now AbsTime, targetHash common.Hash, t ti
 	r.adjust(now, targetHash, t.t.node.sha, inside)
 }
 
-func (r *topicRadius) adjust(now AbsTime, targetHash, addrHash common.Hash, inside float64) {
+func (r *topicRadius) adjust(now AbsTime, targetHash, addrHash Hash, inside float64) {
 	bucket := r.getBucketIdx(addrHash)
+	//fmt.Println("adjust", bucket, len(r.buckets), inside)
 	if bucket >= len(r.buckets) {
 		return
 	}

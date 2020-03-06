@@ -1,111 +1,57 @@
 package blockchain
 
 import (
-	"sync"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/blockchain/orphanpool"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
 
+const (
+	// maxOrphanBlocks is the maximum number of orphan blocks that can be
+	// queued.
+	maxOrphanBlocks = 100
+)
+
+// orphanBlock represents a block that we don't yet have the Parent for.  It
+// is a normal block plus an expiration time to prevent caching the orphan
+// forever.
 type orphanBlock struct {
 	block      *massutil.Block
 	expiration time.Time
 }
 
+func (blk *orphanBlock) OrphanPoolID() string {
+	return blk.block.Hash().String()
+}
+
 type OrphanBlockPool struct {
-	orphans      map[wire.Hash]*orphanBlock
 	prevOrphans  map[wire.Hash][]*orphanBlock
+	pool         *orphanpool.AbstractOrphanPool
 	oldestOrphan *orphanBlock
-	orphanLock   sync.RWMutex
 }
 
 func newOrphanBlockPool() *OrphanBlockPool {
 	return &OrphanBlockPool{
-		orphans:      make(map[wire.Hash]*orphanBlock),
 		prevOrphans:  make(map[wire.Hash][]*orphanBlock),
+		pool:         orphanpool.NewAbstractOrphanPool(),
 		oldestOrphan: nil,
 	}
-}
-
-// IsKnownOrphan returns whether the passed hash is currently a known orphan.
-// Keep in mind that only a limited number of orphans are held onto for a
-// limited amount of time, so this function must not be used as an absolute
-// way to test if a block is an orphan block.  A full block (as opposed to just
-// its hash) must be passed to ProcessBlock for that purpose.  However, calling
-// ProcessBlock with an orphan that already exists results in an error, so this
-// function provides a mechanism for a caller to intelligently detect *recent*
-// duplicate orphans and react accordingly.
-//
-// This function is safe for concurrent access.
-func (ors *OrphanBlockPool) IsKnownOrphan(hash *wire.Hash) bool {
-	ors.orphanLock.RLock()
-	defer ors.orphanLock.RUnlock()
-
-	if _, exists := ors.orphans[*hash]; exists {
-		return true
-	}
-
-	return false
-}
-
-// GetOrphanRoot returns the head of the chain for the provided hash from the
-// map of orphan blocks.
-//
-// This function is safe for concurrent access.
-func (ors *OrphanBlockPool) GetOrphanRoot(hash *wire.Hash) *wire.Hash {
-	ors.orphanLock.RLock()
-	defer ors.orphanLock.RUnlock()
-
-	orphanRoot := hash
-	prevHash := hash
-	for {
-		orphan, exists := ors.orphans[*prevHash]
-		if !exists {
-			break
-		}
-		orphanRoot = prevHash
-		prevHash = &orphan.block.MsgBlock().Header.Previous
-	}
-
-	return orphanRoot
 }
 
 // removeOrphanBlock removes the passed orphan block from the orphan pool and
 // previous orphan index.
 func (ors *OrphanBlockPool) removeOrphanBlock(orphan *orphanBlock) {
-	ors.orphanLock.Lock()
-	defer ors.orphanLock.Unlock()
-
 	orphanHash := orphan.block.Hash()
-	delete(ors.orphans, *orphanHash)
-
-	prevHash := &orphan.block.MsgBlock().Header.Previous
-	orphans := ors.prevOrphans[*prevHash]
-	for i := 0; i < len(orphans); i++ {
-		hash := orphans[i].block.Hash()
-		if hash.IsEqual(orphanHash) {
-			copy(orphans[i:], orphans[i+1:])
-			orphans[len(orphans)-1] = nil
-			orphans = orphans[:len(orphans)-1]
-			i--
-		}
-	}
-	ors.prevOrphans[*prevHash] = orphans
-
-	if len(ors.prevOrphans[*prevHash]) == 0 {
-		delete(ors.prevOrphans, *prevHash)
-	}
+	ors.pool.Fetch(orphanHash.String())
 }
 
-// addOrphanBlock adds the passed block (which is already determined to be
-// an orphan prior calling this function) to the orphan pool.  It lazily cleans
-// up any expired blocks so a separate cleanup poller doesn't need to be run.
-// It also imposes a maximum limit on the number of outstanding orphan
-// blocks and will remove the oldest received orphan block if the limit is
-// exceeded.
 func (ors *OrphanBlockPool) addOrphanBlock(block *massutil.Block) {
-	for _, oBlock := range ors.orphans {
+	// Remove expired orphan blocks.
+	for _, entry := range ors.pool.Items() {
+		oBlock := entry.(*orphanBlock)
+
 		if time.Now().After(oBlock.expiration) {
 			ors.removeOrphanBlock(oBlock)
 			continue
@@ -116,23 +62,34 @@ func (ors *OrphanBlockPool) addOrphanBlock(block *massutil.Block) {
 		}
 	}
 
-	if len(ors.orphans)+1 > maxOrphanBlocks {
+	// Limit orphan blocks to prevent memory exhaustion.
+	if ors.pool.Count()+1 > maxOrphanBlocks {
 		ors.removeOrphanBlock(ors.oldestOrphan)
 		ors.oldestOrphan = nil
 	}
 
-	ors.orphanLock.Lock()
-	defer ors.orphanLock.Unlock()
-
+	// Insert the block into the orphan map with an expiration time
+	// 1 hour from now.
 	expiration := time.Now().Add(time.Hour)
 	oBlock := &orphanBlock{
 		block:      block,
 		expiration: expiration,
 	}
-	ors.orphans[*block.Hash()] = oBlock
-
-	prevHash := &block.MsgBlock().Header.Previous
-	ors.prevOrphans[*prevHash] = append(ors.prevOrphans[*prevHash], oBlock)
-
+	ors.pool.Put(oBlock, []string{block.MsgBlock().Header.Previous.String()})
 	return
+}
+
+func (ors *OrphanBlockPool) isOrphanInPool(hash *wire.Hash) bool {
+	return ors.pool.Has(hash.String())
+}
+
+func (ors *OrphanBlockPool) getOrphansByPrevious(hash *wire.Hash) []*orphanBlock {
+	subs := ors.pool.ReadSubs(hash.String())
+	orphans := make([]*orphanBlock, len(subs))
+
+	for i, sub := range subs {
+		orphans[i] = sub.(*orphanBlock)
+	}
+
+	return orphans
 }

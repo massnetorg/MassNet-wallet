@@ -1,16 +1,13 @@
-// Modified for MassNet
-// Copyright (c) 2013-2015 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package wire
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 
-	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
+	wirepb "massnet.org/mass-wallet/wire/pb"
 )
 
 // HashSize is the array size used to store sha hashes.  See Hash.
@@ -23,18 +20,23 @@ const MaxHashStringSize = HashSize * 2
 // string that has too many characters.
 var ErrHashStrSize = fmt.Errorf("max hash string length is %v bytes", MaxHashStringSize)
 
+// Hash is used in several of the mass messages and common structures.  It
+// typically represents the double sha256 of data.
 type Hash [HashSize]byte
+
+type WitnessRedeemScriptHash [sha256.Size]byte
 
 // String returns the Hash as the hexadecimal string of the byte-reversed
 // hash.
 func (hash Hash) String() string {
-	for i := 0; i < HashSize/2; i++ {
-		hash[i], hash[HashSize-1-i] = hash[HashSize-1-i], hash[i]
-	}
 	return hex.EncodeToString(hash[:])
 }
 
 // Bytes returns the bytes which represent the hash as a byte slice.
+//
+// NOTE: This makes a copy of the bytes and should have probably been named
+// CloneBytes.  It is generally cheaper to just slice the hash directly thereby
+// reusing the same bytes rather than calling this method.
 func (hash *Hash) Bytes() []byte {
 	newHash := make([]byte, HashSize)
 	copy(newHash, hash[:])
@@ -115,19 +117,19 @@ func Decode(dst *Hash, src string) error {
 	}
 
 	// Hex decode the source bytes to a temporary destination.
-	var reversedHash Hash
-	_, err := hex.Decode(reversedHash[HashSize-hex.DecodedLen(len(srcBytes)):], srcBytes)
+	var result Hash
+	_, err := hex.Decode(result[HashSize-hex.DecodedLen(len(srcBytes)):], srcBytes)
 	if err != nil {
 		return err
 	}
 
-	// Reverse copy from the temporary hash to destination.  Because the
-	// temporary was zeroed, the written result will be correctly padded.
-	for i, b := range reversedHash[:HashSize/2] {
-		dst[i], dst[HashSize-1-i] = reversedHash[HashSize-1-i], b
-	}
+	copy((*dst)[:], result[:])
 
 	return nil
+}
+
+func (hash Hash) Ptr() *Hash {
+	return &hash
 }
 
 // ToProto get proto Hash from Hash
@@ -141,17 +143,22 @@ func (hash *Hash) ToProto() *wirepb.Hash {
 }
 
 // FromProto load proto Hash into wire Hash
-func (hash *Hash) FromProto(pb *wirepb.Hash) {
+func (hash *Hash) FromProto(pb *wirepb.Hash) error {
+	if pb == nil {
+		return errors.New("nil proto hash")
+	}
 	binary.BigEndian.PutUint64(hash[0:8], pb.S0)
 	binary.BigEndian.PutUint64(hash[8:16], pb.S1)
 	binary.BigEndian.PutUint64(hash[16:24], pb.S2)
 	binary.BigEndian.PutUint64(hash[24:32], pb.S3)
-	return
+	return nil
 }
 
 // NewHashFromProto get Hash From proto Hash
-func NewHashFromProto(pb *wirepb.Hash) *Hash {
+func NewHashFromProto(pb *wirepb.Hash) (*Hash, error) {
 	hash := new(Hash)
-	hash.FromProto(pb)
-	return hash
+	if err := hash.FromProto(pb); err != nil {
+		return nil, err
+	}
+	return hash, nil
 }

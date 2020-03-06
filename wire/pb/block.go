@@ -1,11 +1,38 @@
 package wirepb
 
-import "bytes"
+import (
+	"bytes"
+	"io"
+)
+
+func (m *Block) Write(w io.Writer) (int, error) {
+	var count int
+
+	n, err := m.Header.Write(w)
+	count += n
+	if err != nil {
+		return count, err
+	}
+
+	n, err = m.Proposals.Write(w)
+	count += n
+	if err != nil {
+		return count, err
+	}
+
+	for _, tx := range m.Transactions {
+		n, err := tx.Write(w)
+		count += n
+		if err != nil {
+			return count, err
+		}
+	}
+
+	return count, nil
+}
 
 func (m *Block) Bytes() []byte {
-	txs := make([]byte, 0)
-	for i := 0; i < len(m.Transactions); i++ {
-		txs = bytes.Join([][]byte{txs, m.Transactions[i].Bytes()}, []byte(""))
-	}
-	return bytes.Join([][]byte{m.Header.Bytes(), m.Proposals.Bytes(), txs}, []byte(""))
+	var buf bytes.Buffer
+	m.Write(&buf)
+	return buf.Bytes()
 }

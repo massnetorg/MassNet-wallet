@@ -7,7 +7,7 @@ package base58_test
 import (
 	"fmt"
 
-	"github.com/btcsuite/btcutil/base58"
+	"massnet.org/mass-wallet/massutil/base58"
 )
 
 // This example demonstrates how to decode modified base58 encoded data.

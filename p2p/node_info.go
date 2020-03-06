@@ -5,9 +5,7 @@ import (
 	"net"
 	"strconv"
 
-	crypto "github.com/tendermint/go-crypto"
-
-	"github.com/massnetorg/MassNet-wallet/version"
+	crypto "github.com/massnetorg/tendermint/go-crypto"
 )
 
 const maxNodeInfoSize = 10240 // 10Kb
@@ -23,19 +21,10 @@ type NodeInfo struct {
 	Other      []string             `json:"other"`   // other application specific data
 }
 
-// CompatibleWith checks if two NodeInfo are compatible with eachother.
-// CONTRACT: two nodes are compatible if the major version matches and network match
+// CompatibleWith checks if two NodeInfo are compatible with each other.
 func (info *NodeInfo) CompatibleWith(other *NodeInfo) error {
-	compatible, err := version.CompatibleWith(other.Version)
-	if err != nil {
-		return err
-	}
-	if !compatible {
-		return fmt.Errorf("Peer is on a different major version. Peer version: %v, node version: %v.", other.Version, info.Version)
-	}
-
 	if info.Network != other.Network {
-		return fmt.Errorf("Peer is on a different network. Peer network: %v, node network: %v.", other.Network, info.Network)
+		return fmt.Errorf("peer is on a different network. Peer network: %v, node network: %v", other.Network, info.Network)
 	}
 	return nil
 }

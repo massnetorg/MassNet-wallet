@@ -1,0 +1,2297 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "MASS-Wallet API",
+    "version": "1.0",
+    "contact": {
+      "name": "MASS project",
+      "url": "https://massnet.org/",
+      "email": "contact@massnet.org"
+    },
+    "license": {}
+  },
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json",
+    "application/x-foo-mime"
+  ],
+  "produces": [
+    "application/json",
+    "application/x-foo-mime"
+  ],
+  "paths": {
+    "/v1/addresses/balance": {
+      "post": {
+        "summary": "if addresses not provided, return balances of all addresses",
+        "operationId": "GetAddressBalance",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetAddressBalanceResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetAddressBalanceRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/addresses/binding": {
+      "post": {
+        "summary": "query by poc addresses",
+        "operationId": "GetAddressBinding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetAddressBindingResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetAddressBindingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/addresses/create": {
+      "post": {
+        "operationId": "CreateAddress",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateAddressResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateAddressRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/addresses/utxos": {
+      "post": {
+        "summary": "if addresses not provided, return utxos of all addresses",
+        "operationId": "GetUtxo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetUtxoResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetUtxoRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/addresses/{address}/validate": {
+      "get": {
+        "operationId": "ValidateAddress",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufValidateAddressResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/addresses/{version}": {
+      "get": {
+        "operationId": "GetAddresses",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetAddressesResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/blocks/best": {
+      "get": {
+        "operationId": "GetBestBlock",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetBestBlockResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/client/quit": {
+      "post": {
+        "operationId": "QuitClient",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufQuitClientResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "properties": {}
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/client/status": {
+      "get": {
+        "operationId": "GetClientStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetClientStatusResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/binding": {
+      "post": {
+        "operationId": "CreateBindingTransaction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateRawTransactionResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateBindingTransactionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/binding/history": {
+      "get": {
+        "operationId": "GetBindingHistory",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetBindingHistoryResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/create": {
+      "post": {
+        "operationId": "CreateRawTransaction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateRawTransactionResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateRawTransactionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/create/auto": {
+      "post": {
+        "operationId": "AutoCreateTransaction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateRawTransactionResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufAutoCreateTransactionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/fee": {
+      "post": {
+        "operationId": "GetTransactionFee",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetTransactionFeeResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetTransactionFeeRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/history": {
+      "post": {
+        "operationId": "TxHistory",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufTxHistoryResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufTxHistoryRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/send": {
+      "post": {
+        "operationId": "SendRawTransaction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufSendRawTransactionResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufSendRawTransactionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/sign": {
+      "post": {
+        "operationId": "SignRawTransaction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufSignRawTransactionResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufSignRawTransactionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/staking": {
+      "post": {
+        "operationId": "CreateStakingTransaction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateRawTransactionResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateStakingTransactionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/staking/history": {
+      "get": {
+        "operationId": "GetStakingHistory",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetStakingHistoryResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/staking/latestreward": {
+      "get": {
+        "summary": "returns staking rewards in latest block",
+        "operationId": "GetLatestRewardList",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetLatestRewardListResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/{tx_id}/details": {
+      "get": {
+        "summary": "get tx from chaindb",
+        "operationId": "GetRawTransaction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetRawTransactionResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tx_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/{tx_id}/status": {
+      "get": {
+        "operationId": "GetTxStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetTxStatusResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "tx_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/wallets": {
+      "get": {
+        "summary": "commands act on a wallet",
+        "operationId": "Wallets",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufWalletsResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/wallets/create": {
+      "post": {
+        "summary": "just create non-poc wallet",
+        "operationId": "CreateWallet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateWalletResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateWalletRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/wallets/current/balance": {
+      "post": {
+        "operationId": "GetWalletBalance",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetWalletBalanceResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetWalletBalanceRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/wallets/export": {
+      "post": {
+        "operationId": "ExportWallet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufExportWalletResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufExportWalletRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/wallets/import": {
+      "post": {
+        "operationId": "ImportWallet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufImportWalletResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufImportWalletRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/wallets/import/mnemonic": {
+      "post": {
+        "operationId": "ImportWalletWithMnemonic",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufImportWalletResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufImportWalletWithMnemonicRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/wallets/mnemonic": {
+      "post": {
+        "operationId": "GetWalletMnemonic",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetWalletMnemonicResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetWalletMnemonicRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/wallets/remove": {
+      "post": {
+        "operationId": "RemoveWallet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufRemoveWalletResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufRemoveWalletRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/wallets/use": {
+      "post": {
+        "operationId": "UseWallet",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufUseWalletResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufUseWalletRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "GetAddressesResponseAddressDetail": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "used": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "std_address": {
+          "type": "string"
+        }
+      }
+    },
+    "GetBindingHistoryResponseBindingUTXO": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "vout": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "holder_address": {
+          "type": "string"
+        },
+        "binding_address": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        }
+      }
+    },
+    "GetBindingHistoryResponseHistory": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "block_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "utxo": {
+          "$ref": "#/definitions/GetBindingHistoryResponseBindingUTXO"
+        },
+        "from_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "GetClientStatusResponsepeerCountInfo": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "outbound": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "inbound": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "GetClientStatusResponsepeerInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "direction": {
+          "type": "string"
+        }
+      }
+    },
+    "GetClientStatusResponsepeerList": {
+      "type": "object",
+      "properties": {
+        "outbound": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GetClientStatusResponsepeerInfo"
+          }
+        },
+        "inbound": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GetClientStatusResponsepeerInfo"
+          }
+        },
+        "other": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GetClientStatusResponsepeerInfo"
+          }
+        }
+      }
+    },
+    "GetLatestRewardListResponseRewardDetail": {
+      "type": "object",
+      "properties": {
+        "rank": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "number",
+          "format": "double"
+        },
+        "address": {
+          "type": "string"
+        },
+        "profit": {
+          "type": "string"
+        }
+      }
+    },
+    "GetStakingHistoryResponseStakingUTXO": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "vout": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "address": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "frozen_period": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "GetStakingHistoryResponseTx": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "block_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "utxo": {
+          "$ref": "#/definitions/GetStakingHistoryResponseStakingUTXO"
+        }
+      }
+    },
+    "GetWalletBalanceResponseDetail": {
+      "type": "object",
+      "properties": {
+        "spendable": {
+          "type": "string"
+        },
+        "withdrawable_staking": {
+          "type": "string"
+        },
+        "withdrawable_binding": {
+          "type": "string"
+        }
+      }
+    },
+    "TxHistoryDetailsInput": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "index": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "VinRedeemDetail": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "vout": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "sequence": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "witness": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "VoutScriptDetail": {
+      "type": "object",
+      "properties": {
+        "asm": {
+          "type": "string"
+        },
+        "hex": {
+          "type": "string"
+        },
+        "req_sigs": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "WalletsResponseWalletSummary": {
+      "type": "object",
+      "properties": {
+        "wallet_id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "remarks": {
+          "type": "string"
+        },
+        "ready": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "synced_height": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "rpcprotobufAddressAndBalance": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "total": {
+          "type": "string"
+        },
+        "spendable": {
+          "type": "string"
+        },
+        "withdrawable_staking": {
+          "type": "string"
+        },
+        "withdrawable_binding": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufAddressUTXO": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "utxos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufUTXO"
+          }
+        }
+      }
+    },
+    "rpcprotobufAutoCreateTransactionRequest": {
+      "type": "object",
+      "properties": {
+        "amounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "lock_time": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "fee": {
+          "type": "string"
+        },
+        "from_address": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufBlockInfoForTx": {
+      "type": "object",
+      "properties": {
+        "height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "block_hash": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "rpcprotobufCreateAddressRequest": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "rpcprotobufCreateAddressResponse": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufCreateBindingTransactionRequest": {
+      "type": "object",
+      "properties": {
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufCreateBindingTransactionRequestOutput"
+          }
+        },
+        "from_address": {
+          "type": "string"
+        },
+        "fee": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufCreateBindingTransactionRequestOutput": {
+      "type": "object",
+      "properties": {
+        "holder_address": {
+          "type": "string"
+        },
+        "binding_address": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufCreateRawTransactionRequest": {
+      "type": "object",
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufTransactionInput"
+          }
+        },
+        "amounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "lock_time": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "rpcprotobufCreateRawTransactionResponse": {
+      "type": "object",
+      "properties": {
+        "hex": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufCreateStakingTransactionRequest": {
+      "type": "object",
+      "properties": {
+        "from_address": {
+          "type": "string"
+        },
+        "staking_address": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "frozen_period": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "fee": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufCreateWalletRequest": {
+      "type": "object",
+      "properties": {
+        "passphrase": {
+          "type": "string"
+        },
+        "remarks": {
+          "type": "string"
+        },
+        "bit_size": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "rpcprotobufCreateWalletResponse": {
+      "type": "object",
+      "properties": {
+        "wallet_id": {
+          "type": "string"
+        },
+        "mnemonic": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufExportWalletRequest": {
+      "type": "object",
+      "properties": {
+        "wallet_id": {
+          "type": "string"
+        },
+        "passphrase": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufExportWalletResponse": {
+      "type": "object",
+      "properties": {
+        "keystore": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufGetAddressBalanceRequest": {
+      "type": "object",
+      "properties": {
+        "required_confirmations": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetAddressBalanceResponse": {
+      "type": "object",
+      "properties": {
+        "balances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufAddressAndBalance"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetAddressBindingRequest": {
+      "type": "object",
+      "properties": {
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetAddressBindingResponse": {
+      "type": "object",
+      "properties": {
+        "amounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetAddressesResponse": {
+      "type": "object",
+      "properties": {
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GetAddressesResponseAddressDetail"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetBestBlockResponse": {
+      "type": "object",
+      "properties": {
+        "height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "target": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufGetBindingHistoryResponse": {
+      "type": "object",
+      "properties": {
+        "histories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GetBindingHistoryResponseHistory"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetClientStatusResponse": {
+      "type": "object",
+      "properties": {
+        "peer_listening": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "syncing": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "chain_id": {
+          "type": "string"
+        },
+        "local_best_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "known_best_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "wallet_sync_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "peer_count": {
+          "$ref": "#/definitions/GetClientStatusResponsepeerCountInfo"
+        },
+        "peers": {
+          "$ref": "#/definitions/GetClientStatusResponsepeerList"
+        }
+      }
+    },
+    "rpcprotobufGetLatestRewardListResponse": {
+      "type": "object",
+      "properties": {
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GetLatestRewardListResponseRewardDetail"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetRawTransactionResponse": {
+      "type": "object",
+      "properties": {
+        "hex": {
+          "type": "string"
+        },
+        "tx_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "lock_time": {
+          "type": "string",
+          "format": "int64"
+        },
+        "block": {
+          "$ref": "#/definitions/rpcprotobufBlockInfoForTx"
+        },
+        "vin": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufVin"
+          }
+        },
+        "vout": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufVout"
+          }
+        },
+        "payload": {
+          "type": "string"
+        },
+        "confirmations": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "fee": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "coinbase": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "rpcprotobufGetStakingHistoryResponse": {
+      "type": "object",
+      "properties": {
+        "txs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GetStakingHistoryResponseTx"
+          }
+        },
+        "weights": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetTransactionFeeRequest": {
+      "type": "object",
+      "properties": {
+        "amounts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "lock_time": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufTransactionInput"
+          }
+        },
+        "has_binding": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "rpcprotobufGetTransactionFeeResponse": {
+      "type": "object",
+      "properties": {
+        "fee": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufGetTxStatusResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufGetUtxoRequest": {
+      "type": "object",
+      "properties": {
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetUtxoResponse": {
+      "type": "object",
+      "properties": {
+        "address_utxos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufAddressUTXO"
+          }
+        }
+      }
+    },
+    "rpcprotobufGetWalletBalanceRequest": {
+      "type": "object",
+      "properties": {
+        "required_confirmations": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "detail": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "rpcprotobufGetWalletBalanceResponse": {
+      "type": "object",
+      "properties": {
+        "wallet_id": {
+          "type": "string"
+        },
+        "total": {
+          "type": "string"
+        },
+        "detail": {
+          "$ref": "#/definitions/GetWalletBalanceResponseDetail"
+        }
+      }
+    },
+    "rpcprotobufGetWalletMnemonicRequest": {
+      "type": "object",
+      "properties": {
+        "wallet_id": {
+          "type": "string"
+        },
+        "passphrase": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufGetWalletMnemonicResponse": {
+      "type": "object",
+      "properties": {
+        "mnemonic": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufImportWalletRequest": {
+      "type": "object",
+      "properties": {
+        "keystore": {
+          "type": "string"
+        },
+        "passphrase": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufImportWalletResponse": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "wallet_id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "remarks": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufImportWalletWithMnemonicRequest": {
+      "type": "object",
+      "properties": {
+        "mnemonic": {
+          "type": "string"
+        },
+        "passphrase": {
+          "type": "string"
+        },
+        "remarks": {
+          "type": "string"
+        },
+        "external_index": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "internal_index": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "rpcprotobufQuitClientResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "format": "int64"
+        },
+        "msg": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufRemoveWalletRequest": {
+      "type": "object",
+      "properties": {
+        "wallet_id": {
+          "type": "string"
+        },
+        "passphrase": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufRemoveWalletResponse": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "rpcprotobufSendRawTransactionRequest": {
+      "type": "object",
+      "properties": {
+        "hex": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufSendRawTransactionResponse": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufSignRawTransactionRequest": {
+      "type": "object",
+      "properties": {
+        "raw_tx": {
+          "type": "string"
+        },
+        "flags": {
+          "type": "string"
+        },
+        "passphrase": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufSignRawTransactionResponse": {
+      "type": "object",
+      "properties": {
+        "hex": {
+          "type": "string"
+        },
+        "complete": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "rpcprotobufTransactionInput": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "vout": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "rpcprotobufTxHistoryDetails": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "block_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/TxHistoryDetailsInput"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufTxHistoryDetailsOutput"
+          }
+        },
+        "from_addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rpcprotobufTxHistoryDetailsOutput": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "amount": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufTxHistoryRequest": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "address": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufTxHistoryResponse": {
+      "type": "object",
+      "properties": {
+        "histories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufTxHistoryDetails"
+          }
+        }
+      }
+    },
+    "rpcprotobufUTXO": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "vout": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "block_height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "maturity": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "confirmations": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "spent_by_unmined": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "rpcprotobufUseWalletRequest": {
+      "type": "object",
+      "properties": {
+        "wallet_id": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufUseWalletResponse": {
+      "type": "object",
+      "properties": {
+        "chain_id": {
+          "type": "string"
+        },
+        "wallet_id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "total_balance": {
+          "type": "string"
+        },
+        "external_key_count": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "internal_key_count": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "remarks": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufValidateAddressResponse": {
+      "type": "object",
+      "properties": {
+        "is_valid": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "is_mine": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "address": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "rpcprotobufVin": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "redeem_detail": {
+          "$ref": "#/definitions/VinRedeemDetail"
+        }
+      }
+    },
+    "rpcprotobufVout": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "script_detail": {
+          "$ref": "#/definitions/VoutScriptDetail"
+        }
+      }
+    },
+    "rpcprotobufWalletsResponse": {
+      "type": "object",
+      "properties": {
+        "wallets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/WalletsResponseWalletSummary"
+          }
+        }
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "MASS-Wallet API Documentation",
+    "url": "https://massnet.org/"
+  }
+}

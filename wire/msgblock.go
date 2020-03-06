@@ -1,20 +1,13 @@
-// Modified for MassNet
-// Copyright (c) 2013-2015 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package wire
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
 	"github.com/golang/protobuf/proto"
-
-	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
+	"massnet.org/mass-wallet/logging"
+	wirepb "massnet.org/mass-wallet/wire/pb"
 )
 
 // defaultTransactionAlloc is the default size used for the backing array
@@ -25,8 +18,8 @@ import (
 const defaultTransactionAlloc = 2048
 
 // MaxBlockPayload is the maximum bytes a block message can be in bytes.
-// After Segregated Witness, the max block payload has been raised to 4MB.
-const MaxBlockPayload = 4000000
+// 2MB.
+const MaxBlockPayload = 2000000
 
 // maxTxPerBlock is the maximum number of transactions that could
 // possibly fit into a block.
@@ -39,6 +32,9 @@ type TxLoc struct {
 	TxLen   int
 }
 
+// MsgBlock implements the Message interface and represents a mass
+// block message.  It is used to deliver block and transaction information in
+// response to a getdata message (MsgGetData) for a given block hash.
 type MsgBlock struct {
 	Header       BlockHeader
 	Proposals    ProposalArea
@@ -54,10 +50,9 @@ func NewEmptyMsgBlock() *MsgBlock {
 }
 
 // AddTransaction adds a transaction to the message.
-func (msg *MsgBlock) AddTransaction(tx *MsgTx) error {
+func (msg *MsgBlock) AddTransaction(tx *MsgTx) {
 	msg.Transactions = append(msg.Transactions, tx)
-	return nil
-
+	return
 }
 
 // ClearTransactions removes all transactions from the message.
@@ -65,56 +60,61 @@ func (msg *MsgBlock) ClearTransactions() {
 	msg.Transactions = make([]*MsgTx, 0, defaultTransactionAlloc)
 }
 
-// MassDecode decodes r using the given protocol encoding into the receiver.
-func (msg *MsgBlock) MassDecode(r io.Reader, mode CodecMode) error {
+// Decode decodes r using the given protocol encoding into the receiver.
+func (msg *MsgBlock) Decode(r io.Reader, mode CodecMode) (n int, err error) {
 	switch mode {
 	case DB:
 		// Read BLockBase length
-		blockBaseLength, err := ReadVarInt(r, 0)
+		blockBaseLength, n64, err := ReadUint64(r, 0)
+		n += int(n64)
 		if err != nil {
-			return err
+			return n, err
 		}
 
 		// Read BlockBase
-		baseData := make([]byte, blockBaseLength, blockBaseLength)
-		_, err = r.Read(baseData)
+		baseData := make([]byte, blockBaseLength)
+		nn, err := r.Read(baseData)
+		n += nn
 		if err != nil {
-			return err
+			return n, err
 		}
 		basePb := new(wirepb.BlockBase)
 		err = proto.Unmarshal(baseData, basePb)
 		if err != nil {
-			return err
+			return n, err
 		}
 		base, err := NewBlockBaseFromProto(basePb)
 		if err != nil {
-			return err
+			return n, err
 		}
 
 		// Read txCount
-		txCount, err := ReadVarInt(r, 0)
+		txCount, n64, err := ReadUint64(r, 0)
+		n += int(n64)
 		if err != nil {
-			return err
+			return n, err
 		}
 
 		// Read Transactions
-		txs := make([]*MsgTx, txCount, txCount)
+		txs := make([]*MsgTx, txCount)
 		for i := 0; i < len(txs); i++ {
 			// Read tx length
-			txLen, err := ReadVarInt(r, 0)
+			txLen, n64, err := ReadUint64(r, 0)
+			n += int(n64)
 			if err != nil {
-				return err
+				return n, err
 			}
 			// Read tx
 			tx := new(MsgTx)
-			buf := make([]byte, txLen, txLen)
-			_, err = r.Read(buf)
+			buf := make([]byte, txLen)
+			nn, err = r.Read(buf)
+			n += nn
 			if err != nil {
-				return err
+				return n, err
 			}
-			err = tx.Deserialize(bytes.NewReader(buf), DB)
+			err = tx.SetBytes(buf, DB)
 			if err != nil {
-				return err
+				return n, err
 			}
 			txs[i] = tx
 		}
@@ -126,77 +126,64 @@ func (msg *MsgBlock) MassDecode(r io.Reader, mode CodecMode) error {
 
 	case Packet:
 		var buf bytes.Buffer
-		_, err := buf.ReadFrom(r)
+		n64, err := buf.ReadFrom(r)
+		n = int(n64)
 		if err != nil {
-			return err
+			return n, err
 		}
 
 		pb := new(wirepb.Block)
 		err = proto.Unmarshal(buf.Bytes(), pb)
 		if err != nil {
-			return err
+			return n, err
 		}
 
 		err = msg.FromProto(pb)
 		if err != nil {
-			return err
+			return n, err
 		}
 
 	default:
-		logging.CPrint(logging.FATAL, "MsgTx.MassDecode: invalid CodecMode", logging.LogFormat{"mode": mode})
-		panic(nil) // unreachable
+		return n, ErrInvalidCodecMode
 	}
 
 	// Prevent more transactions than could possibly fit into a block.
-	// It would be possible to cause memory exhaustion and panics without
-	// a sane upper bound on this count.
 	txCount := len(msg.Transactions)
 	if txCount > MaxTxPerBlock {
-		str := fmt.Sprintf("too many transactions to fit into a block "+
-			"[count %d, max %d]", txCount, MaxTxPerBlock)
-		return messageError("MsgBlock.MassDecode", str)
+		logging.CPrint(logging.ERROR, "too many transactions to fit into a block on decode",
+			logging.LogFormat{"count": txCount, "max": MaxTxPerBlock, "hash": msg.BlockHash()})
+		return n, errTooManyTxsInBlock
 	}
 
-	return nil
+	return n, nil
 }
 
-// Deserialize decodes a block from r into the receiver
-func (msg *MsgBlock) Deserialize(r io.Reader, mode CodecMode) error {
-	return msg.MassDecode(r, mode)
-}
-
-// DeserializeTxLoc decodes r in the same manner Deserialize does, but it takes
-// a byte buffer instead of a generic reader and returns a slice containing the
-// start and length of each transaction within the raw data that is being
-// deserialized.
 func (msg *MsgBlock) DeserializeTxLoc(r *bytes.Buffer) ([]TxLoc, error) {
 	fullLen := r.Len()
 
 	// Read BLockBase length
-	blockBaseLength, err := ReadVarInt(r, 0)
+	blockBaseLength, _, err := ReadUint64(r, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	// Read blockBase
-	baseData := make([]byte, blockBaseLength, blockBaseLength)
+	baseData := make([]byte, blockBaseLength)
 	if n, err := r.Read(baseData); uint64(n) != blockBaseLength || err != nil {
 		return nil, err
 	}
 
 	// Read txCount
-	txCount, err := ReadVarInt(r, 0)
+	txCount, _, err := ReadUint64(r, 0)
 	if err != nil {
 		return nil, err
 	}
 
 	// Prevent more transactions than could possibly fit into a block.
-	// It would be possible to cause memory exhaustion and panics without
-	// a sane upper bound on this count.
 	if txCount > MaxTxPerBlock {
-		str := fmt.Sprintf("too many transactions to fit into a block "+
-			"[count %d, max %d]", txCount, MaxTxPerBlock)
-		return nil, messageError("MsgBlock.DeserializeTxLoc", str)
+		logging.CPrint(logging.ERROR, "too many transactions to fit into a block on DeserializeTxLoc",
+			logging.LogFormat{"count": txCount, "max": MaxTxPerBlock, "hash": msg.BlockHash()})
+		return nil, errTooManyTxsInBlock
 	}
 
 	// Deserialize each transaction while keeping track of its location
@@ -205,7 +192,7 @@ func (msg *MsgBlock) DeserializeTxLoc(r *bytes.Buffer) ([]TxLoc, error) {
 	txLocs := make([]TxLoc, txCount)
 	for i := uint64(0); i < txCount; i++ {
 		// Read tx length
-		txLen, err := ReadVarInt(r, 0)
+		txLen, _, err := ReadUint64(r, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -214,12 +201,12 @@ func (msg *MsgBlock) DeserializeTxLoc(r *bytes.Buffer) ([]TxLoc, error) {
 		txLocs[i].TxLen = int(txLen)
 		// Read tx
 		tx := new(MsgTx)
-		buf := make([]byte, txLen, txLen)
+		buf := make([]byte, txLen)
 		_, err = r.Read(buf)
 		if err != nil {
 			return nil, err
 		}
-		err = tx.Deserialize(bytes.NewReader(buf), DB)
+		err = tx.SetBytes(buf, DB)
 		if err != nil {
 			return nil, err
 		}
@@ -229,34 +216,36 @@ func (msg *MsgBlock) DeserializeTxLoc(r *bytes.Buffer) ([]TxLoc, error) {
 	return txLocs, nil
 }
 
-// MassEncode encodes the receiver to w using the given protocol encoding.
-func (msg *MsgBlock) MassEncode(w io.Writer, mode CodecMode) error {
+// Encode encodes the receiver to w using the given protocol encoding.
+func (msg *MsgBlock) Encode(w io.Writer, mode CodecMode) (n int, err error) {
 	switch mode {
 	case DB:
 		base := BlockBase{Header: msg.Header, Proposals: msg.Proposals}
 		pb, err := base.ToProto()
 		if err != nil {
-			return err
+			return 0, err
 		}
 		baseData, err := proto.Marshal(pb)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		// Write BlockBase length & data
-		err = writeVarInt(w, 0, uint64(len(baseData)))
+		n, err = WriteUint64(w, uint64(len(baseData)))
 		if err != nil {
-			return err
+			return n, err
 		}
-		_, err = w.Write(baseData)
+		nn, err := w.Write(baseData)
+		n += nn
 		if err != nil {
-			return err
+			return n, err
 		}
 
 		// Write txCount
-		err = writeVarInt(w, 0, uint64(len(msg.Transactions)))
+		nn, err = WriteUint64(w, uint64(len(msg.Transactions)))
+		n += nn
 		if err != nil {
-			return err
+			return n, err
 		}
 
 		// Write Transactions
@@ -264,78 +253,62 @@ func (msg *MsgBlock) MassEncode(w io.Writer, mode CodecMode) error {
 			txPb := msg.Transactions[i].ToProto()
 			txData, err := proto.Marshal(txPb)
 			if err != nil {
-				return err
+				return n, err
 			}
-			err = writeVarInt(w, 0, uint64(len(txData)))
+			nn, err = WriteUint64(w, uint64(len(txData)))
+			n += nn
 			if err != nil {
-				return err
+				return n, err
 			}
-			_, err = w.Write(txData)
+			nn, err = w.Write(txData)
+			n += nn
 			if err != nil {
-				return err
+				return n, err
 			}
 		}
-		return nil
+		return n, nil
 
 	case Packet:
 		pb, err := msg.ToProto()
 		if err != nil {
-			return err
+			return n, err
 		}
 
 		buf, err := proto.Marshal(pb)
 		if err != nil {
-			return err
+			return n, err
 		}
 
-		_, err = w.Write(buf)
-		return err
+		return w.Write(buf)
 
 	case Plain:
 		pb, err := msg.ToProto()
 		if err != nil {
-			return err
+			return n, err
 		}
-		_, err = w.Write(pb.Bytes())
-		return err
+		return pb.Write(w)
 
 	default:
-		logging.CPrint(logging.FATAL, "MsgTx.MassEncode: invalid CodecMode", logging.LogFormat{"mode": mode})
-		panic(nil) // unreachable
+		return n, ErrInvalidCodecMode
 	}
 
 }
 
-// Serialize encodes the block to w
-func (msg *MsgBlock) Serialize(w io.Writer, mode CodecMode) error {
-	return msg.MassEncode(w, mode)
+func (msg *MsgBlock) Bytes(mode CodecMode) ([]byte, error) {
+	return getBytes(msg, mode)
 }
 
-// SerializeSize returns the number of bytes it would take to serialize the
-// the block.
-func (msg *MsgBlock) SerializeSize() int {
-	var buf bytes.Buffer
-	err := msg.Serialize(&buf, Plain)
-	if err != nil {
-		return 0
+func (msg *MsgBlock) SetBytes(bs []byte, mode CodecMode) error {
+	return setFromBytes(msg, bs, mode)
+}
+
+// PlainSize returns the number of plain bytes the block contains.
+func (msg *MsgBlock) PlainSize() int {
+	size := getPlainSize(msg)
+	if msg.Proposals.PunishmentCount() == 0 {
+		size += PlaceHolderSize
 	}
-
-	return len(buf.Bytes())
-}
-
-// Command returns the protocol command string for the message.  This is part
-// of the Message interface implementation.
-func (msg *MsgBlock) Command() string {
-	return CmdBlock
-}
-
-// MaxPayloadLength returns the maximum length the payload can be for the
-// receiver.  This is part of the Message interface implementation.
-func (msg *MsgBlock) MaxPayloadLength(pver uint32) uint32 {
-	// Block header at 80 bytes + transaction count + max transactions
-	// which can vary up to the MaxBlockPayload (including the block header
-	// and transaction count).
-	return MaxBlockPayload
+	return size
 }
 
 // BlockHash computes the block identifier hash for this block.
@@ -352,6 +325,8 @@ func (msg *MsgBlock) TxHashes() ([]Hash, error) {
 	return hashList, nil
 }
 
+// NewMsgBlock returns a new mass block message that conforms to the
+// Message interface.  See MsgBlock for details.
 func NewMsgBlock(blockHeader *BlockHeader) *MsgBlock {
 	return &MsgBlock{
 		Header:       *blockHeader,
@@ -367,7 +342,7 @@ func (msg *MsgBlock) ToProto() (*wirepb.Block, error) {
 		return nil, err
 	}
 	h := msg.Header.ToProto()
-	txs := make([]*wirepb.Tx, len(msg.Transactions), len(msg.Transactions))
+	txs := make([]*wirepb.Tx, len(msg.Transactions))
 	for i, tx := range msg.Transactions {
 		txs[i] = tx.ToProto()
 	}
@@ -382,17 +357,24 @@ func (msg *MsgBlock) ToProto() (*wirepb.Block, error) {
 // FromProto load proto Block into wire Block,
 // if error happens, old content is still immutable
 func (msg *MsgBlock) FromProto(pb *wirepb.Block) error {
+	if pb == nil {
+		return errors.New("nil proto block")
+	}
 	pa := ProposalArea{}
 	err := pa.FromProto(pb.Proposals)
 	if err != nil {
 		return err
 	}
 	h := BlockHeader{}
-	h.FromProto(pb.Header)
-	txs := make([]*MsgTx, len(pb.Transactions), len(pb.Transactions))
+	if err = h.FromProto(pb.Header); err != nil {
+		return err
+	}
+	txs := make([]*MsgTx, len(pb.Transactions))
 	for i, v := range pb.Transactions {
 		tx := new(MsgTx)
-		tx.FromProto(v)
+		if err = tx.FromProto(v); err != nil {
+			return err
+		}
 		txs[i] = tx
 	}
 
@@ -432,15 +414,20 @@ func (base *BlockBase) ToProto() (*wirepb.BlockBase, error) {
 }
 
 func (base *BlockBase) FromProto(pb *wirepb.BlockBase) error {
+	if pb == nil {
+		return errors.New("nil proto block_base")
+	}
 	pa := ProposalArea{}
 	err := pa.FromProto(pb.Proposals)
 	if err != nil {
 		return err
 	}
-	h := BlockHeader{}
-	h.FromProto(pb.Header)
+	h := new(BlockHeader)
+	if err := h.FromProto(pb.Header); err != nil {
+		return err
+	}
 
-	base.Header = h
+	base.Header = *h
 	base.Proposals = pa
 
 	return nil

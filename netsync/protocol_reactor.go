@@ -3,13 +3,10 @@ package netsync
 import (
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	//log "github.com/sirupsen/logrus"
-
-	"github.com/massnetorg/MassNet-wallet/errors"
-	"github.com/massnetorg/MassNet-wallet/p2p"
-	"github.com/massnetorg/MassNet-wallet/p2p/connection"
+	"massnet.org/mass-wallet/errors"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/p2p"
+	"massnet.org/mass-wallet/p2p/connection"
 )
 
 const (
@@ -68,8 +65,9 @@ func (pr *ProtocolReactor) AddPeer(peer *p2p.Peer) error {
 		return errStatusRequest
 	}
 
-	checkTicker := time.NewTimer(handshakeCheckPerid)
-	timeoutTicker := time.NewTimer(handshakeTimeout)
+	checkTicker := time.NewTicker(handshakeCheckPerid)
+	defer checkTicker.Stop()
+	timeoutTimer := time.NewTimer(handshakeTimeout)
 	for {
 		select {
 		case <-checkTicker.C:
@@ -78,7 +76,7 @@ func (pr *ProtocolReactor) AddPeer(peer *p2p.Peer) error {
 				return nil
 			}
 
-		case <-timeoutTicker.C:
+		case <-timeoutTimer.C:
 			return errProtocolHandshakeTimeout
 		}
 	}

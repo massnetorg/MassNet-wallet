@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -8,11 +7,12 @@ package txscript
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/massnetorg/MassNet-wallet/btcec"
-	"github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/logging"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+
+	"github.com/btcsuite/btcd/btcec"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
 
 // String implements the Stringer interface by returning the name of
@@ -79,14 +79,16 @@ func isNullData(pops []parsedOpcode) bool {
 // scriptType returns the type of the script being inspected from the known
 // standard types.
 func typeOfScript(pops []parsedOpcode) ScriptClass {
-	if isMultiSig(pops) {
+	if isWitnessScriptHash(pops) {
+		return WitnessV0ScriptHashTy
+	} else if isWitnessStakingScript(pops) {
+		return StakingScriptHashTy
+	} else if isWitnessBindingScript(pops) {
+		return BindingScriptHashTy
+	} else if isMultiSig(pops) {
 		return MultiSigTy
 	} else if isNullData(pops) {
 		return NullDataTy
-	} else if isWitnessScriptHash(pops) {
-		return WitnessV0ScriptHashTy
-	} else if isLocktimeScriptHash(pops) {
-		return LocktimeScriptHashTy
 	}
 	return NonStandardTy
 }
@@ -111,20 +113,35 @@ func GetScriptInfo(script []byte) (ScriptClass, []parsedOpcode) {
 	return typeOfScript(pops), pops
 }
 
-func GetParsedOpcode(pops []parsedOpcode, class ScriptClass) (uint64, [20]byte, error) {
-	var rsh [20]byte
+func GetParsedOpcode(pops []parsedOpcode, class ScriptClass) (uint64, [32]byte, error) {
+	var rsh [32]byte
 	height := make([]byte, 8)
 	switch class {
-	case LocktimeScriptHashTy:
-		height = pops[0].data
-		scripthash := pops[4].data
+	case StakingScriptHashTy:
+		scripthash := pops[1].data
+		if len(scripthash) != WitnessV0ScriptHashDataSize {
+			return 0, rsh, ErrWitnessProgramLength
+		}
 		copy(rsh[:], scripthash[:])
+		height = pops[2].data
 	case WitnessV0ScriptHashTy:
 		scripthash := pops[1].data
+		if len(scripthash) != WitnessV0ScriptHashDataSize {
+			return 0, rsh, ErrWitnessProgramLength
+		}
+		copy(rsh[:], scripthash[:])
+	case BindingScriptHashTy:
+		scripthash := pops[1].data
+		if len(scripthash) != WitnessV0ScriptHashDataSize {
+			return 0, rsh, ErrWitnessProgramLength
+		}
+		if len(pops[2].data) != WitnessV0PoCPubKeyHashDataSize {
+			return 0, rsh, ErrWitnessExtProgramLength
+		}
 		copy(rsh[:], scripthash[:])
 	default:
 		logging.CPrint(logging.ERROR, "invalid script hash type", logging.LogFormat{"class": class})
-		return 0, [20]byte{}, errors.New("invalid script hash type")
+		return 0, [32]byte{}, errors.New("invalid script hash type")
 	}
 	hgt := binary.LittleEndian.Uint64(height)
 	return hgt, rsh, nil
@@ -140,7 +157,9 @@ func expectedInputs(pops []parsedOpcode, class ScriptClass) int {
 	case WitnessV0ScriptHashTy:
 		// Not including script.  That is handled by the caller.
 		return 1
-	case LocktimeScriptHashTy:
+	case StakingScriptHashTy:
+		return 1
+	case BindingScriptHashTy:
 		return 1
 	case MultiSigTy:
 		// Standard multisig has a push a small number for the number
@@ -209,8 +228,10 @@ func CalcScriptInfo(pkScript []byte, witness wire.TxWitness) (*ScriptInfo, error
 	pops, _ := parseScript(witnessScript)
 	witnesssig := witness[0]
 	popsigs, _ := parseScript(witnesssig)
-	switch {
-	case si.PkScriptClass == WitnessV0ScriptHashTy:
+
+	switch si.PkScriptClass {
+	case WitnessV0ScriptHashTy, StakingScriptHashTy, BindingScriptHashTy:
+
 		// The witness script is the final element of the witness
 		shInputs := expectedInputs(pops, typeOfScript(pops))
 		if shInputs == -1 {
@@ -220,15 +241,6 @@ func CalcScriptInfo(pkScript []byte, witness wire.TxWitness) (*ScriptInfo, error
 		}
 
 		si.SigOps = GetWitnessSigOpCount(pkScript, witness)
-		si.NumInputs = len(popsigs) + 1
-	case si.PkScriptClass == LocktimeScriptHashTy:
-		shInputs := expectedInputs(pops, typeOfScript(pops))
-		if shInputs == -1 {
-			si.ExpectedInputs = -1
-		} else {
-			si.ExpectedInputs += shInputs
-		}
-		si.SigOps = GetLocktimeScriptSigOpCount(pkScript, witness)
 		si.NumInputs = len(popsigs) + 1
 	default:
 		si.SigOps = getSigOpCount(pkPops, true)
@@ -266,87 +278,68 @@ func CalcMultiSigStats(script []byte) (int, int, error) {
 // payToWitnessPubKeyHashScript creates a new script to pay to a version 0
 // script hash witness program. The passed hash is expected to be valid.
 func payToWitnessScriptHashScript(scriptHash []byte) ([]byte, error) {
+	if len(scriptHash) != WitnessV0ScriptHashDataSize {
+		return nil, ErrWitnessProgramLength
+	}
 	return NewScriptBuilder().AddOp(OP_0).AddData(scriptHash).Script()
 }
 
-// lockTx
 func PayToWitnessScriptHashScript(scriptHash []byte) ([]byte, error) {
 	return payToWitnessScriptHashScript(scriptHash)
 }
 
-// payToLocktimePubKeyHashScript creates a new script to pay to a version 10
-// script hash witness locktime program. The passed hash is expected to be valid.
-func payToLocktimeScriptHashScript(scriptHash []byte, locktime []byte) ([]byte, error) {
-	return NewScriptBuilder().AddData(locktime).AddOp(OP_CHECKSEQUENCEVERIFY).AddOp(OP_DROP).AddOp(OP_HASH160).AddData(scriptHash).AddOp(OP_EQUAL).Script()
+func payToBindingScriptHashScript(scriptHash1 []byte, scriptHash2 []byte) ([]byte, error) {
+	if len(scriptHash1) != WitnessV0ScriptHashDataSize || len(scriptHash2) != WitnessV0PoCPubKeyHashDataSize {
+		return nil, ErrWitnessProgramLength
+	}
+	return NewScriptBuilder().AddOp(OP_0).AddData(scriptHash1).AddData(scriptHash2).Script()
 }
 
-// PayToAddrScript creates a new script to pay a transaction output to a lockTx
-// address.
-func PayToLockAddrScript(addr massutil.Address, locktime int64) ([]byte, error) {
+func PayToBindingScriptHashScript(scriptHash1 []byte, scriptHash2 []byte) ([]byte, error) {
+	return payToBindingScriptHashScript(scriptHash1, scriptHash2)
+}
 
-	switch addr := addr.(type) {
-	case *massutil.AddressWitnessScriptHash:
-		if addr == nil {
-			return nil, ErrUnsupportedAddress
-		}
-		if addr.WitnessVersion() == 0 {
-			return payToWitnessScriptHashScript(addr.ScriptAddress())
-		}
-		if addr.WitnessVersion() == 10 {
-			buf := make([]byte, 8)
-			binary.LittleEndian.PutUint64(buf, uint64(locktime))
-			return payToLocktimeScriptHashScript(addr.ScriptAddress(), buf)
-		}
-	default:
-		logging.CPrint(logging.ERROR, "Invalid address or key", logging.LogFormat{"address": addr})
+// payToStakingScriptHashScript creates a new script to pay to a
+// script hash staking program. The passed hash is expected to be valid.
+func payToStakingScriptHashScript(scriptHash []byte, frozenPeriod uint64) ([]byte, error) {
+	if len(scriptHash) != WitnessV0ScriptHashDataSize {
+		return nil, ErrWitnessProgramLength
+	}
+	if !wire.IsValidFrozenPeriod(frozenPeriod) {
+		return nil, ErrFrozenPeriod
+	}
+	buf := make([]byte, 8)
+	binary.LittleEndian.PutUint64(buf, frozenPeriod)
+	return NewScriptBuilder().AddOp(OP_0).AddData(scriptHash).AddData(buf).Script()
+}
+
+// PayToStakingAddrScript creates a new script to pay a transaction output to a stakingTx
+// address.
+func PayToStakingAddrScript(addr massutil.Address, frozenPeriod uint64) ([]byte, error) {
+
+	if !massutil.IsWitnessStakingAddress(addr) {
+		logging.CPrint(logging.ERROR, "Invalid staking address", logging.LogFormat{"address": addr.EncodeAddress()})
 		return nil, ErrUnsupportedAddress
 	}
-	return nil, ErrUnsupportedAddress
+	return payToStakingScriptHashScript(addr.ScriptAddress(), frozenPeriod)
 }
 
 // PayToAddrScript creates a new script to pay a transaction output to a the
 // specified address.
 func PayToAddrScript(addr massutil.Address) ([]byte, error) {
-
-	switch addr := addr.(type) {
-	case *massutil.AddressWitnessScriptHash:
-		if addr == nil {
-			return nil, ErrUnsupportedAddress
-		}
-		if addr.WitnessVersion() == 0 {
-			return payToWitnessScriptHashScript(addr.ScriptAddress())
-		}
-	default:
-		logging.CPrint(logging.ERROR, "Invalid address or key", logging.LogFormat{"address": addr})
+	if !massutil.IsWitnessV0Address(addr) {
+		logging.CPrint(logging.ERROR, "Invalid witness address", logging.LogFormat{"address": addr.EncodeAddress()})
 		return nil, ErrUnsupportedAddress
 	}
-	return nil, ErrUnsupportedAddress
+	return payToWitnessScriptHashScript(addr.ScriptAddress())
 }
-
-//// PayToAddrScript creates a new script to pay a transaction output to a the
-//// specified address.
-//func PayToAddrScript(addr massutil.Address) ([]byte, error) {
-//	switch addr := addr.(type) {
-//	case *massutil.AddressWitnessScriptHash:
-//		if addr == nil {
-//			return nil, ErrUnsupportedAddress
-//		}
-//		return payToWitnessScriptHashScript(addr.ScriptAddress())
-//
-//		//case *massutil.AddressPubKey:
-//		//	if addr == nil {
-//		//		return nil, ErrUnsupportedAddress
-//		//	}
-//		//	return payToPubKeyScript(addr.ScriptAddress())
-//	}
-//
-//	return nil, ErrUnsupportedAddress
-//}
 
 // MultiSigScript returns a valid script for a multisignature redemption where
 // nrequired of the keys in pubkeys are required to have signed the transaction
 // for success.  An ErrBadNumRequired will be returned if nrequired is larger
 // than the number of keys provided.
+//
+// Redeem script can be generated by this func
 func MultiSigScript(pubkeys []*massutil.AddressPubKey, nrequired int) ([]byte, error) {
 	if len(pubkeys) < nrequired {
 		return nil, ErrBadNumRequired
@@ -410,12 +403,24 @@ func ExtractPkScriptAddrs(pkScript []byte, chainParams *config.Params) (ScriptCl
 		if err == nil {
 			addrs = append(addrs, addr)
 		}
-	case LocktimeScriptHashTy:
+	case StakingScriptHashTy:
 		requiredSigs = 1
-		addr, err := massutil.NewAddressLocktimeScriptHash(pops[4].data,
+		addr, err := massutil.NewAddressStakingScriptHash(pops[1].data,
 			chainParams)
 		if err == nil {
 			addrs = append(addrs, addr)
+		}
+	case BindingScriptHashTy:
+		requiredSigs = 1
+		addr, err := massutil.NewAddressWitnessScriptHash(pops[1].data,
+			chainParams)
+		if err == nil {
+			addrs = append(addrs, addr)
+		}
+		pkAddr, err := massutil.NewAddressPubKeyHash(pops[2].data,
+			chainParams)
+		if err == nil {
+			addrs = append(addrs, pkAddr)
 		}
 	case MultiSigTy:
 		// A multi-signature script is of the form:
@@ -450,4 +455,24 @@ func ExtractPkScriptAddrs(pkScript []byte, chainParams *config.Params) (ScriptCl
 	}
 
 	return scriptClass, addrs, pks, requiredSigs, nil
+}
+
+func GetBindingScriptHash(script []byte) ([]byte, []byte, error) {
+
+	pops, err := parseScript(script)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !isWitnessBindingScript(pops) {
+		return nil, nil, ErrInvalidBindingScript
+	}
+
+	return pops[1].data, pops[2].data, nil
+}
+
+func GetParsedBindingOpcode(pops []parsedOpcode) ([]byte, []byte, error) {
+	if !isWitnessBindingScript(pops) {
+		return nil, nil, ErrInvalidBindingScript
+	}
+	return pops[1].data, pops[2].data, nil
 }

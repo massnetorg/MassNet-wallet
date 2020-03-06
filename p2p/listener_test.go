@@ -4,14 +4,24 @@ package p2p
 
 import (
 	"bytes"
-	"github.com/massnetorg/MassNet-wallet/consensus"
 	"testing"
+
+	configpb "massnet.org/mass-wallet/config/pb"
+	"massnet.org/mass-wallet/testutil"
 )
 
 func TestListener(t *testing.T) {
-	consensus.SkipCI(t)
+	testutil.SkipCI(t)
 	// Create a listener
-	l, _ := NewDefaultListener("tcp", ":43480", true)
+	cfg := &configpb.Config{
+		Network: &configpb.NetworkConfig{
+			P2P: &configpb.P2PConfig{
+				SkipUpnp:      true,
+				ListenAddress: "tcp://0.0.0.0:43480",
+			},
+		},
+	}
+	l, _ := NewDefaultListener(cfg)
 
 	// Dial the listener
 	lAddr := l.ExternalAddress()

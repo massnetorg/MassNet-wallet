@@ -13,10 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	"github.com/bytom/common"
-	"github.com/bytom/crypto"
+	"massnet.org/mass-wallet/logging"
 )
 
 // Node represents a host on the network.
@@ -43,7 +40,7 @@ func NewNode(id NodeID, ip net.IP, udpPort, tcpPort uint16) *Node {
 		UDP:         udpPort,
 		TCP:         tcpPort,
 		ID:          id,
-		nodeNetGuts: nodeNetGuts{sha: crypto.Sha256Hash(id[:])},
+		nodeNetGuts: nodeNetGuts{sha: Sha3256Hash(id[:])},
 	}
 }
 
@@ -301,7 +298,7 @@ func PubkeyID(pub *ecdsa.PublicKey) NodeID {
 	var id NodeID
 	pbytes := elliptic.Marshal(pub.Curve, pub.X, pub.Y)
 	if len(pbytes)-1 != len(id) {
-		logging.CPrint(logging.FATAL, fmt.Sprintf("need %d bit pubkey, got %d bits", (len(id)+1)*8, len(pbytes)), logging.LogFormat{})
+		logging.CPrint(logging.FATAL, fmt.Sprintf("need %d bit pubkey, got %d bits", (len(id)+1)*8, len(pbytes)))
 	}
 	copy(id[:], pbytes[1:])
 	return id
@@ -347,7 +344,7 @@ func PubkeyID(pub *ecdsa.PublicKey) NodeID {
 // distcmp compares the distances a->target and b->target.
 // Returns -1 if a is closer to target, 1 if b is closer to target
 // and 0 if they are equal.
-func distcmp(target, a, b common.Hash) int {
+func distcmp(target, a, b Hash) int {
 	for i := range target {
 		da := a[i] ^ target[i]
 		db := b[i] ^ target[i]
@@ -397,7 +394,7 @@ var lzcount = [256]int{
 }
 
 // logdist returns the logarithmic distance between a and b, log2(a ^ b).
-func logdist(a, b common.Hash) int {
+func logdist(a, b Hash) int {
 	lz := 0
 	for i := range a {
 		x := a[i] ^ b[i]
@@ -412,7 +409,7 @@ func logdist(a, b common.Hash) int {
 }
 
 // hashAtDistance returns a random hash such that logdist(a, b) == n
-func hashAtDistance(a common.Hash, n int) (b common.Hash) {
+func hashAtDistance(a Hash, n int) (b Hash) {
 	if n == 0 {
 		return a
 	}

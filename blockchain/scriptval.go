@@ -1,18 +1,13 @@
-// Modified for MassNet
-// Copyright (c) 2013-2014 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package blockchain
 
 import (
-	"fmt"
 	"math"
 	"runtime"
 
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/txscript"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/txscript"
+	"massnet.org/mass-wallet/wire"
 )
 
 // txValidateItem holds a transaction along with which input to validate.
@@ -55,61 +50,66 @@ out:
 	for {
 		select {
 		case txVI := <-v.validateChan:
-
+			// Ensure the referenced input transaction is available.
 			txIn := txVI.txIn
 			originTxHash := &txIn.PreviousOutPoint.Hash
 			originTx, exists := v.txStore[*originTxHash]
 			if !exists || originTx.Err != nil || originTx.Tx == nil {
-				str := fmt.Sprintf("unable to find input "+
-					"transaction %v referenced from "+
-					"transaction %v", originTxHash,
-					txVI.tx.Hash())
-				err := ruleError(ErrMissingTx, str)
-				v.sendResult(err)
+				logging.CPrint(logging.ERROR, "unable to find input transaction",
+					logging.LogFormat{"input transaction ": originTxHash, "transaction": txVI.tx.Hash()})
+				v.sendResult(ErrMissingTx)
 				break out
 			}
 			originMsgTx := originTx.Tx.MsgTx()
 
+			// Ensure the output index in the referenced transaction
+			// is available.
 			originTxIndex := txIn.PreviousOutPoint.Index
 			if originTxIndex >= uint32(len(originMsgTx.TxOut)) {
-				str := fmt.Sprintf("out of bounds "+
-					"input index %d in transaction %v "+
-					"referenced from transaction %v",
-					originTxIndex, originTxHash,
-					txVI.tx.Hash())
-				err := ruleError(ErrBadTxInput, str)
-				v.sendResult(err)
+				logging.CPrint(logging.ERROR, "out of bounds input index in referenced transaction",
+					logging.LogFormat{"input index": originTxIndex, "originTx": originTxHash, "transaction": txVI.tx.Hash()})
+				v.sendResult(ErrBadTxInput)
 				break out
 			}
 
+			// Create a new script engine for the script pair.
+			//sigScript := txIn.SignatureScript
+
+			//check witness length
 			witness := txIn.Witness
+			if len(witness) != 2 {
+				logging.CPrint(logging.ERROR, "Invalid witness length",
+					logging.LogFormat{"transaction": txVI.tx.Hash(), "index": txVI.txInIndex, "previousOutPoint": txIn.PreviousOutPoint,
+						"input witness length": len(witness), "required witness length": 2})
+				v.sendResult(ErrWitnessLength)
+				break out
+			}
+
 			pkScript := originMsgTx.TxOut[originTxIndex].PkScript
 			inputAmount := originMsgTx.TxOut[originTxIndex].Value
+			//vm, err := txscript.NewEngine(pkScript, txVI.tx.MsgTx(),
+			//	txVI.txInIndex, v.flags, v.sigCache)
 			vm, err := txscript.NewEngine(pkScript, txVI.tx.MsgTx(),
 				txVI.txInIndex, v.flags, v.sigCache, txVI.sigHashes,
 				inputAmount)
 			if err != nil {
-				str := fmt.Sprintf("failed to parse input "+
-					"%s:%d which references output %v - "+
-					"%v (input witness %x, prev output script bytes %x)",
-					txVI.tx.Hash(), txVI.txInIndex,
-					txIn.PreviousOutPoint, err, witness, pkScript)
-				err := ruleError(ErrScriptMalformed, str)
-				v.sendResult(err)
+				logging.CPrint(logging.ERROR, "failed to construct vm engine",
+					logging.LogFormat{"transaction": txVI.tx.Hash(), "index": txVI.txInIndex, "previousOutPoint": txIn.PreviousOutPoint,
+						"input witness": witness, "reference pkScript": pkScript, "err": err})
+				v.sendResult(ErrScriptMalformed)
 				break out
 			}
 
+			// Execute the script pair.
 			if err := vm.Execute(); err != nil {
-				str := fmt.Sprintf("failed to validate input "+
-					"%s:%d which references output %v - "+
-					"%v (input witness %x, prev output script bytes %x)",
-					txVI.tx.Hash(), txVI.txInIndex,
-					txIn.PreviousOutPoint, err, witness, pkScript)
-				err := ruleError(ErrScriptValidation, str)
-				v.sendResult(err)
+				logging.CPrint(logging.ERROR, "failed to validate signature",
+					logging.LogFormat{"transaction": txVI.tx.Hash(), "index": txVI.txInIndex, "previousOutPoint": txIn.PreviousOutPoint,
+						"input witness": witness, "reference pkScript": pkScript, "err": err})
+				v.sendResult(ErrScriptValidation)
 				break out
 			}
 
+			// Validation succeeded.
 			v.sendResult(nil)
 
 		case <-v.quitChan:
@@ -125,6 +125,9 @@ func (v *txValidator) Validate(items []*txValidateItem) error {
 		return nil
 	}
 
+	// Limit the number of goroutines to do script validation based on the
+	// number of processor cores.  This help ensure the system stays
+	// reasonably responsive under heavy load.
 	maxGoRoutines := runtime.NumCPU() * 3
 	if maxGoRoutines <= 0 {
 		maxGoRoutines = 1
@@ -133,14 +136,22 @@ func (v *txValidator) Validate(items []*txValidateItem) error {
 		maxGoRoutines = len(items)
 	}
 
+	// Start up validation handlers that are used to asynchronously
+	// validate each transaction input.
 	for i := 0; i < maxGoRoutines; i++ {
 		go v.validateHandler()
 	}
 
+	// Validate each of the inputs.  The quit channel is closed when any
+	// errors occur so all processing goroutines exit regardless of which
+	// input had the validation error.
 	numInputs := len(items)
 	currentItem := 0
 	processedItems := 0
 	for processedItems < numInputs {
+		// Only send items while there are still items that need to
+		// be processed.  The select statement will never select a nil
+		// channel.
 		var validateChan chan *txValidateItem
 		var item *txValidateItem
 		if currentItem < numInputs {
@@ -182,6 +193,9 @@ func newTxValidator(txStore TxStore, flags txscript.ScriptFlags, sigCache *txscr
 // ValidateTransactionScripts validates the scripts for the passed transaction
 // using multiple goroutines.
 func ValidateTransactionScripts(tx *massutil.Tx, txStore TxStore, flags txscript.ScriptFlags, sigCache *txscript.SigCache, hashCache *txscript.HashCache) error {
+	// Collect all of the transaction inputs and required information for
+	// validation.
+
 	if !hashCache.ContainsHashes(tx.Hash()) {
 		hashCache.AddSigHashes(tx.MsgTx())
 	}
@@ -193,6 +207,8 @@ func ValidateTransactionScripts(tx *massutil.Tx, txStore TxStore, flags txscript
 	txValItems := make([]*txValidateItem, 0, len(txIns))
 
 	for txInIdx, txIn := range txIns {
+		// Skip coinbases.
+
 		if txIn.PreviousOutPoint.Index == math.MaxUint32 {
 			continue
 		}
@@ -205,30 +221,8 @@ func ValidateTransactionScripts(tx *massutil.Tx, txStore TxStore, flags txscript
 		}
 		txValItems = append(txValItems, txVI)
 	}
-	for _, txOut := range tx.MsgTx().TxOut {
-		pkScript := txOut.PkScript
 
-		if txscript.IsPayToLocktimeScriptHash(pkScript) {
-			value := txOut.Value
-			pops, class := txscript.GetScriptInfo(pkScript)
-			height, _, err := txscript.GetParsedOpcode(class, pops)
-			if err != nil {
-				return err
-			}
-			if value < MinLockValue {
-				str := fmt.Sprintf("Only more than %f value is supported in lockTX", MinLockValue)
-				err := ruleError(ErrScriptValidation, str)
-				return err
-			}
-			if height > wire.SequenceLockTimeIsSeconds || height < wire.MinLockHeight {
-				str := fmt.Sprintf("The lock height should be more than %d height in lockTX", wire.MinLockHeight)
-				err := ruleError(ErrScriptValidation, str)
-				return err
-			}
-		}
-
-	}
-
+	// Validate all of the inputs.
 	validator := newTxValidator(txStore, flags, sigCache, hashCache)
 	if err := validator.Validate(txValItems); err != nil {
 		return err
@@ -242,6 +236,8 @@ func ValidateTransactionScripts(tx *massutil.Tx, txStore TxStore, flags txscript
 func checkBlockScripts(block *massutil.Block, txStore TxStore,
 	scriptFlags txscript.ScriptFlags, sigCache *txscript.SigCache, hashCache *txscript.HashCache) error {
 
+	// Collect all of the transaction inputs and required information for
+	// validation for all transactions in the block into a single slice.
 	numInputs := 0
 	for _, tx := range block.Transactions()[1:] {
 
@@ -251,6 +247,11 @@ func checkBlockScripts(block *massutil.Block, txStore TxStore,
 	for _, tx := range block.Transactions()[1:] {
 
 		hash := tx.Hash()
+		// If the HashCache is present, and it doesn't yet contain the
+		// partial sighashes for this transaction, then we add the
+		// sighashes for the transaction. This allows us to take
+		// advantage of the potential speed savings due to the new
+		// digest algorithm (BIP0143).
 		if hashCache != nil && !hashCache.ContainsHashes(hash) {
 
 			hashCache.AddSigHashes(tx.MsgTx())
@@ -265,6 +266,7 @@ func checkBlockScripts(block *massutil.Block, txStore TxStore,
 		}
 
 		for txInIdx, txIn := range tx.MsgTx().TxIn {
+			// Skip coinbases.
 			if txIn.PreviousOutPoint.Index == math.MaxUint32 {
 				continue
 			}
@@ -279,11 +281,16 @@ func checkBlockScripts(block *massutil.Block, txStore TxStore,
 		}
 	}
 
+	// Validate all of the inputs.
 	validator := newTxValidator(txStore, scriptFlags, sigCache, hashCache)
+	//start := time.Now()
 	if err := validator.Validate(txValItems); err != nil {
 		return err
 	}
 
+	// If the HashCache is present, once we have validated the block, we no
+	// longer need the cached hashes for these transactions, so we purge
+	// them from the cache.
 	if hashCache != nil {
 		for _, tx := range block.Transactions() {
 			hashCache.PurgeSigHashes(tx.Hash())

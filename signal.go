@@ -1,6 +1,3 @@
-// Copyright (c) 2017-2019 The massnet developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
 // Copyright (c) 2013-2014 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -10,8 +7,9 @@ package main
 import (
 	"os"
 	"os/signal"
+	"syscall"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
+	"massnet.org/mass-wallet/logging"
 )
 
 // interruptChannel is used to receive SIGINT (Ctrl+C) signals.
@@ -37,15 +35,15 @@ func mainInterruptHandler() {
 
 	for {
 		select {
-		case <-interruptChannel:
+		case signal := <-interruptChannel:
 			// Ignore more than one shutdown signal.
 			if isShutdown {
-				logging.CPrint(logging.INFO, "Received SIGINT (Ctrl+C).  Already shutting down...", logging.LogFormat{})
+				logging.CPrint(logging.INFO, "Received OS Signal.  Already shutting down...", logging.LogFormat{"signal": signal})
 				continue
 			}
 
 			isShutdown = true
-			logging.CPrint(logging.INFO, "Received SIGINT (Ctrl+C).  Shutting down...", logging.LogFormat{})
+			logging.CPrint(logging.INFO, "Received OS Signal.  Shutting down...", logging.LogFormat{"signal": signal})
 
 			// Run handlers in LIFO order.
 			for i := range interruptCallbacks {
@@ -78,7 +76,7 @@ func addInterruptHandler(handler func()) {
 	// all other callbacks and exits if not already done.
 	if interruptChannel == nil {
 		interruptChannel = make(chan os.Signal, 1)
-		signal.Notify(interruptChannel, os.Interrupt)
+		signal.Notify(interruptChannel, os.Interrupt, syscall.SIGTERM)
 		go mainInterruptHandler()
 	}
 

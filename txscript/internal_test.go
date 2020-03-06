@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -28,6 +27,7 @@ var TstHasCanonicalPushes = canonicalPush
 // test package.
 var TstParseScript = parseScript
 
+// TstAddScript provides a way to call private function for test
 func TstAddScript(e *Engine, script []parsedOpcode) {
 	e.addScript(script)
 }
@@ -36,9 +36,9 @@ func TstAddVersion(e *Engine, v int) {
 	e.witnessVersion = v
 }
 
-func TstAddSavedFirsttack(e *Engine, stk [][]byte) {
-	e.savedFirstStack = stk
-}
+// func TstAddSavedFirsttack(e *Engine, stk [][]byte) {
+// 	e.savedFirstStack = stk
+// }
 
 func TstAddProgram(e *Engine, witnessProgram []byte) {
 	e.witnessProgram = witnessProgram

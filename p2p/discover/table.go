@@ -12,15 +12,12 @@ import (
 	"fmt"
 	"net"
 	"sort"
-
-	"github.com/bytom/common"
-	"github.com/bytom/crypto"
 )
 
 const (
 	alpha      = 3  // Kademlia concurrency factor
 	bucketSize = 16 // Kademlia bucket size
-	hashBits   = len(common.Hash{}) * 8
+	hashBits   = len(Hash{}) * 8
 	nBuckets   = hashBits + 1 // Number of buckets
 
 	maxBondingPingPongs = 16
@@ -62,10 +59,11 @@ const printTable = false
 // with a distance less than twice of that of the selected node.
 // This algorithm will be improved later to specifically target the least recently
 // used buckets.
-func (tab *Table) chooseBucketRefreshTarget() common.Hash {
+func (tab *Table) chooseBucketRefreshTarget() Hash {
 	entries := 0
 	if printTable {
-		fmt.Println("self ", "id:", tab.self.ID, " hex:", crypto.Sha256Hash(tab.self.ID[:]).Hex())
+		fmt.Println()
+		fmt.Println("self ", "id:", tab.self.ID, " hex:", Sha3256Hash(tab.self.ID[:]).Hex())
 	}
 	for i, b := range &tab.buckets {
 		entries += len(b.entries)
@@ -94,7 +92,7 @@ func (tab *Table) chooseBucketRefreshTarget() common.Hash {
 	}
 	targetPrefix := prefix ^ randUint64n(ddist)
 
-	var target common.Hash
+	var target Hash
 	binary.BigEndian.PutUint64(target[0:8], targetPrefix)
 	rand.Read(target[8:])
 	return target
@@ -157,7 +155,7 @@ func randUint64n(max uint64) uint64 {
 
 // closest returns the n nodes in the table that are closest to the
 // given id. The caller must hold tab.mutex.
-func (tab *Table) closest(target common.Hash, nresults int) *nodesByDistance {
+func (tab *Table) closest(target Hash, nresults int) *nodesByDistance {
 	// This is a very wasteful way to find the closest nodes but
 	// obviously correct. I believe that tree-based buckets would make
 	// this easier to implement efficiently.
@@ -174,6 +172,7 @@ func (tab *Table) closest(target common.Hash, nresults int) *nodesByDistance {
 // bucket has space available, adding the node succeeds immediately.
 // Otherwise, the node is added to the replacement cache for the bucket.
 func (tab *Table) add(n *Node) (contested *Node) {
+	//fmt.Println("add", n.addr().String(), n.ID.String(), n.sha.Hex())
 	if n.ID == tab.self.ID {
 		return
 	}
@@ -240,6 +239,7 @@ func (tab *Table) deleteFromReplacement(bucket *bucket, node *Node) {
 // delete removes an entry from the node table (used to evacuate
 // failed/non-bonded discovery peers).
 func (tab *Table) delete(node *Node) {
+	//fmt.Println("delete", node.addr().String(), node.ID.String(), node.sha.Hex())
 	bucket := tab.buckets[logdist(tab.self.sha, node.sha)]
 	for i := range bucket.entries {
 		if bucket.entries[i].ID == node.ID {
@@ -298,7 +298,7 @@ func (b *bucket) bump(n *Node) bool {
 // distance to target.
 type nodesByDistance struct {
 	entries []*Node
-	target  common.Hash
+	target  Hash
 }
 
 // push adds the given node to the list, keeping the total size below maxElems.

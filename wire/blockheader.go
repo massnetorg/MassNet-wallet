@@ -1,30 +1,26 @@
-// Modified for MassNet
-// Copyright (c) 2013-2015 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package wire
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/btcec"
-	"github.com/massnetorg/MassNet-wallet/logging"
-	"github.com/massnetorg/MassNet-wallet/poc"
-	"github.com/massnetorg/MassNet-wallet/wire/pb"
-
 	"github.com/golang/protobuf/proto"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/poc"
+	"massnet.org/mass-wallet/poc/pocutil"
+	"massnet.org/mass-wallet/pocec"
+	wirepb "massnet.org/mass-wallet/wire/pb"
 )
 
 // BlockVersion is the current latest supported block version.
 const BlockVersion = 1
 
-const MinBlockHeaderPayload = blockHeaderMinLen
+const MinBlockHeaderPayload = blockHeaderMinPlainSize
 
 type BlockHeader struct {
 	ChainID         Hash
@@ -33,118 +29,72 @@ type BlockHeader struct {
 	Timestamp       time.Time
 	Previous        Hash
 	TransactionRoot Hash
+	WitnessRoot     Hash
 	ProposalRoot    Hash
 	Target          *big.Int
-	Challenge       *big.Int
-	PubKey          *btcec.PublicKey
+	Challenge       Hash
+	PubKey          *pocec.PublicKey
 	Proof           *poc.Proof
-	SigQ            *btcec.Signature
-	Sig2            *btcec.Signature
-	BanList         []*btcec.PublicKey
+	Signature       *pocec.Signature
+	BanList         []*pocec.PublicKey
 }
 
-const blockHeaderMinLen = 429
+// blockHeaderMinPlainSize is a constant that represents the number of bytes for a block
+// header.
+// Length = 32(ChainID) + 8(Version) + 8(Height) + 8(Timestamp) + 32(Previous) + 32(TransactionRoot)
+//        + 32(WitnessRoot)+ 32(ProposalRoot) + 32(Target) + 32(Challenge) + 33(PubKey) + 16(Proof)
+//        + 72(Signature) + (n*33)(BanList)
+//        = 369 Bytes
+const blockHeaderMinPlainSize = 369
 
 // BlockHash computes the block identifier hash for the given block header.
 func (h *BlockHeader) BlockHash() Hash {
+	buf, _ := h.Bytes(ID)
+	return DoubleHashH(buf)
+}
+
+// Decode decodes r using the given protocol encoding into the receiver.
+func (h *BlockHeader) Decode(r io.Reader, mode CodecMode) (n int, err error) {
 	var buf bytes.Buffer
-	_ = writeBlockHeader(&buf, h, ID)
-
-	return DoubleHashH(buf.Bytes())
-}
-
-// MassDecode decodes r using the given protocol encoding into the receiver.
-func (h *BlockHeader) MassDecode(r io.Reader, mode CodecMode) error {
-	return h.Deserialize(r, mode)
-}
-
-// Deserialize decodes a block header from r into the receiver
-func (h *BlockHeader) Deserialize(r io.Reader, mode CodecMode) error {
-	return readBlockHeader(r, h, mode)
-}
-
-// readBlockHeader reads a block header from r.
-func readBlockHeader(r io.Reader, bh *BlockHeader, mode CodecMode) error {
-	var buf bytes.Buffer
-	_, err := buf.ReadFrom(r)
+	n64, err := buf.ReadFrom(r)
+	n = int(n64)
 	if err != nil {
-		return err
+		return n, err
 	}
 
 	switch mode {
-	case DB:
+	case DB, Packet:
 		pb := new(wirepb.BlockHeader)
 		err = proto.Unmarshal(buf.Bytes(), pb)
 		if err != nil {
-			return err
+			return n, err
 		}
-		bh.FromProto(pb)
-		return nil
-
-	case Packet:
-		pb := new(wirepb.BlockHeader)
-		err = proto.Unmarshal(buf.Bytes(), pb)
-		if err != nil {
-			return err
-		}
-		bh.FromProto(pb)
-		return nil
+		return n, h.FromProto(pb)
 
 	default:
-		logging.CPrint(logging.FATAL, "readBlockHeader invalid CodecMode", logging.LogFormat{"mode": mode})
-		panic(nil) // unreachable
+		return n, ErrInvalidCodecMode
 	}
-
 }
 
-// MassEncode encodes the receiver to w using the given protocol encoding.
-func (h *BlockHeader) MassEncode(w io.Writer, mode CodecMode) error {
-	return h.Serialize(w, mode)
-}
-
-// Serialize encodes a block header from r into the receiver
-func (h *BlockHeader) Serialize(w io.Writer, mode CodecMode) error {
-	return writeBlockHeader(w, h, mode)
-}
-
-// writeBlockHeader writes a block header to w.
-func writeBlockHeader(w io.Writer, bh *BlockHeader, mode CodecMode) error {
-	pb := bh.ToProto()
-
-	var writeAll = func() error {
-		_, err := w.Write(pb.Bytes())
-		return err
-	}
+// Encode encodes the receiver to w using the given protocol encoding.
+func (h *BlockHeader) Encode(w io.Writer, mode CodecMode) (n int, err error) {
+	pb := h.ToProto()
 
 	switch mode {
-	case DB:
+	case DB, Packet:
 		content, err := proto.Marshal(pb)
 		if err != nil {
-			return err
+			return 0, err
 		}
-		_, err = w.Write(content)
-		return err
+		return w.Write(content)
 
-	case Packet:
-		content, err := proto.Marshal(pb)
-		if err != nil {
-			return err
-		}
-		_, err = w.Write(content)
-		return err
-
-	case Plain:
+	case Plain, ID:
 		// Write every elements of blockHeader
-		return writeAll()
-
-	case ID:
-		// Write every elements of blockHeader
-		return writeAll()
+		return pb.Write(w)
 
 	case PoCID:
-		// Write elements excepts for Sig2
-		_, err := w.Write(pb.BytesPoC())
-		return err
+		// Write elements excepts for Signature
+		return pb.WritePoC(w)
 
 	case ChainID:
 		if pb.Height > 0 {
@@ -152,25 +102,33 @@ func writeBlockHeader(w io.Writer, bh *BlockHeader, mode CodecMode) error {
 			panic(nil) // unreachable
 		}
 		// Write elements excepts for ChainID
-		_, err := w.Write(pb.BytesChainID())
-		return err
+		return w.Write(pb.BytesChainID())
 
 	default:
-		logging.CPrint(logging.FATAL, "writeBlockHeader invalid CodecMode", logging.LogFormat{"mode": mode})
-		panic(nil) // unreachable
+		return 0, ErrInvalidCodecMode
 	}
-
 }
 
 func (h *BlockHeader) Bytes(mode CodecMode) ([]byte, error) {
-	var w bytes.Buffer
-	err := h.Serialize(&w, mode)
-	if err != nil {
-		return nil, err
-	}
-	serializedBlockHeader := w.Bytes()
+	return getBytes(h, mode)
+}
 
-	return serializedBlockHeader, nil
+func (h *BlockHeader) SetBytes(bs []byte, mode CodecMode) error {
+	return setFromBytes(h, bs, mode)
+}
+
+func (h *BlockHeader) PlainSize() int {
+	return getPlainSize(h)
+}
+
+// Quality
+func (h *BlockHeader) Quality() *big.Int {
+	pubKeyHash := pocutil.PubKeyHash(h.PubKey)
+	quality, err := h.Proof.GetVerifiedQuality(pocutil.Hash(pubKeyHash), pocutil.Hash(h.Challenge), uint64(h.Timestamp.Unix())/poc.PoCSlot, h.Height)
+	if err != nil && h.Height != 0 {
+		logging.CPrint(logging.FATAL, "fail to get header quality", logging.LogFormat{"err": err, "height": h.Height, "pubKey": hex.EncodeToString(h.PubKey.SerializeCompressed())})
+	}
+	return quality
 }
 
 // GetChainID calc chainID, only block with 0 height can be calc
@@ -185,30 +143,10 @@ func (h *BlockHeader) GetChainID() (Hash, error) {
 	return DoubleHashH(buf), nil
 }
 
-func NewBlockHeader(prevHash *Hash, merkleRootHash *Hash, target *big.Int,
-	proof *poc.Proof, pubKey *btcec.PublicKey, sigQ *btcec.Signature,
-	sig2 *btcec.Signature, height uint64, challenge *big.Int) *BlockHeader {
-
-	return &BlockHeader{
-		Version:         BlockVersion,
-		Previous:        *prevHash,
-		TransactionRoot: *merkleRootHash,
-		Timestamp:       time.Unix(time.Now().Unix(), 0),
-		Target:          target,
-		Proof:           proof,
-		SigQ:            sigQ,
-		PubKey:          pubKey,
-		Sig2:            sig2,
-		Height:          height,
-		Challenge:       challenge,
-	}
-}
-
 func NewBlockHeaderFromBytes(bhBytes []byte, mode CodecMode) (*BlockHeader, error) {
 	bh := NewEmptyBlockHeader()
-	bhr := bytes.NewReader(bhBytes)
 
-	err := bh.Deserialize(bhr, mode)
+	err := bh.SetBytes(bhBytes, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -220,15 +158,15 @@ func NewEmptyBigInt() *big.Int {
 	return new(big.Int).SetUint64(0)
 }
 
-func NewEmptyPoCSignature() *btcec.Signature {
-	return &btcec.Signature{
+func NewEmptyPoCSignature() *pocec.Signature {
+	return &pocec.Signature{
 		R: NewEmptyBigInt(),
 		S: NewEmptyBigInt(),
 	}
 }
 
-func NewEmptyPoCPublicKey() *btcec.PublicKey {
-	return &btcec.PublicKey{
+func NewEmptyPoCPublicKey() *pocec.PublicKey {
+	return &pocec.PublicKey{
 		X: NewEmptyBigInt(),
 		Y: NewEmptyBigInt(),
 	}
@@ -238,12 +176,10 @@ func NewEmptyBlockHeader() *BlockHeader {
 	return &BlockHeader{
 		Timestamp: time.Unix(0, 0),
 		Target:    NewEmptyBigInt(),
-		Challenge: NewEmptyBigInt(),
 		Proof:     poc.NewEmptyProof(),
 		PubKey:    NewEmptyPoCPublicKey(),
-		SigQ:      NewEmptyPoCSignature(),
-		Sig2:      NewEmptyPoCSignature(),
-		BanList:   make([]*btcec.PublicKey, 0),
+		Signature: NewEmptyPoCSignature(),
+		BanList:   make([]*pocec.PublicKey, 0),
 	}
 }
 
@@ -259,13 +195,7 @@ func (h *BlockHeader) PoCHash() (Hash, error) {
 
 // ToProto get proto BlockHeader from wire BlockHeader
 func (h *BlockHeader) ToProto() *wirepb.BlockHeader {
-	proof := &wirepb.Proof{
-		X:         h.Proof.X,
-		XPrime:    h.Proof.X_prime,
-		BitLength: int32(h.Proof.BitLength),
-	}
-
-	banList := make([]*wirepb.PublicKey, len(h.BanList), len(h.BanList))
+	banList := make([]*wirepb.PublicKey, len(h.BanList))
 	for i, pub := range h.BanList {
 		banList[i] = wirepb.PublicKeyToProto(pub)
 	}
@@ -274,59 +204,88 @@ func (h *BlockHeader) ToProto() *wirepb.BlockHeader {
 		ChainID:         h.ChainID.ToProto(),
 		Version:         h.Version,
 		Height:          h.Height,
-		Timestamp:       h.Timestamp.Unix(),
+		Timestamp:       uint64(h.Timestamp.Unix()),
 		Previous:        h.Previous.ToProto(),
 		TransactionRoot: h.TransactionRoot.ToProto(),
+		WitnessRoot:     h.WitnessRoot.ToProto(),
 		ProposalRoot:    h.ProposalRoot.ToProto(),
 		Target:          wirepb.BigIntToProto(h.Target),
-		Challenge:       wirepb.BigIntToProto(h.Challenge),
+		Challenge:       h.Challenge.ToProto(),
 		PubKey:          wirepb.PublicKeyToProto(h.PubKey),
-		Proof:           proof,
-		SigQ:            wirepb.SignatureToProto(h.SigQ),
-		Sig2:            wirepb.SignatureToProto(h.Sig2),
+		Proof:           wirepb.ProofToProto(h.Proof),
+		Signature:       wirepb.SignatureToProto(h.Signature),
 		BanList:         banList,
 	}
 }
 
 // FromProto load proto BlockHeader into wire BlockHeader
-func (h *BlockHeader) FromProto(pb *wirepb.BlockHeader) {
-	pub := new(btcec.PublicKey)
-	wirepb.ProtoToPublicKey(pb.PubKey, pub)
-	proof := &poc.Proof{
-		X:         pb.Proof.X,
-		X_prime:   pb.Proof.XPrime,
-		BitLength: int(pb.Proof.BitLength),
+func (h *BlockHeader) FromProto(pb *wirepb.BlockHeader) error {
+	if pb == nil {
+		return errors.New("nil proto block_header")
 	}
-	sigQ := new(btcec.Signature)
-	wirepb.ProtoToSignature(pb.SigQ, sigQ)
-	sig2 := new(btcec.Signature)
-	wirepb.ProtoToSignature(pb.Sig2, sig2)
-	banList := make([]*btcec.PublicKey, len(pb.BanList), len(pb.BanList))
+	var unmarshalHash = func(h []*Hash, pb []*wirepb.Hash) (err error) {
+		for i := range h {
+			if err = h[i].FromProto(pb[i]); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	chainID, previous, transactionRoot, witnessRoot, proposalRoot, challenge := new(Hash), new(Hash), new(Hash), new(Hash), new(Hash), new(Hash)
+	var err error
+	if err = unmarshalHash([]*Hash{chainID, previous, transactionRoot, witnessRoot, proposalRoot, challenge},
+		[]*wirepb.Hash{pb.ChainID, pb.Previous, pb.TransactionRoot, pb.WitnessRoot, pb.ProposalRoot, pb.Challenge}); err != nil {
+		return err
+	}
+	target := new(big.Int)
+	if err = wirepb.ProtoToBigInt(pb.Target, target); err != nil {
+		return err
+	}
+	pub := new(pocec.PublicKey)
+	if err = wirepb.ProtoToPublicKey(pb.PubKey, pub); err != nil {
+		return err
+	}
+	proof := new(poc.Proof)
+	if err = wirepb.ProtoToProof(pb.Proof, proof); err != nil {
+		return err
+	}
+	sig := new(pocec.Signature)
+	if err = wirepb.ProtoToSignature(pb.Signature, sig); err != nil {
+		return err
+	}
+	banList := make([]*pocec.PublicKey, len(pb.BanList))
 	for i, pk := range pb.BanList {
-		pub := new(btcec.PublicKey)
-		wirepb.ProtoToPublicKey(pk, pub)
+		pub := new(pocec.PublicKey)
+		if err = wirepb.ProtoToPublicKey(pk, pub); err != nil {
+			return err
+		}
 		banList[i] = pub
 	}
 
-	h.ChainID = *NewHashFromProto(pb.ChainID)
+	h.ChainID = *chainID
 	h.Version = pb.Version
 	h.Height = pb.Height
-	h.Timestamp = time.Unix(pb.Timestamp, 0)
-	h.Previous = *NewHashFromProto(pb.Previous)
-	h.TransactionRoot = *NewHashFromProto(pb.TransactionRoot)
-	h.ProposalRoot = *NewHashFromProto(pb.ProposalRoot)
-	h.Target = wirepb.ProtoToBigInt(pb.Target)
-	h.Challenge = wirepb.ProtoToBigInt(pb.Challenge)
+	h.Timestamp = time.Unix(int64(pb.Timestamp), 0)
+	h.Previous = *previous
+	h.TransactionRoot = *transactionRoot
+	h.WitnessRoot = *witnessRoot
+	h.ProposalRoot = *proposalRoot
+	h.Target = target
+	h.Challenge = *challenge
 	h.PubKey = pub
 	h.Proof = proof
-	h.SigQ = sigQ
-	h.Sig2 = sig2
+	h.Signature = sig
 	h.BanList = banList
+
+	return nil
 }
 
 // NewBlockHeaderFromProto get wire BlockHeader from proto BlockHeader
-func NewBlockHeaderFromProto(pb *wirepb.BlockHeader) *BlockHeader {
+func NewBlockHeaderFromProto(pb *wirepb.BlockHeader) (*BlockHeader, error) {
 	h := new(BlockHeader)
-	h.FromProto(pb)
-	return h
+	err := h.FromProto(pb)
+	if err != nil {
+		return nil, err
+	}
+	return h, nil
 }

@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
-	cmn "github.com/tendermint/tmlibs/common"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 // Returns an empty dummy peer

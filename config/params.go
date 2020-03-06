@@ -5,15 +5,23 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/consensus"
+	"massnet.org/mass-wallet/wire"
 )
 
 var (
-	bigOne       = big.NewInt(1)
+	// bigOne is 1 represented as a big.Int.  It is defined here to avoid
+	// the overhead of creating it multiple times.
+	bigOne = big.NewInt(1)
+
+	// mainPocLimit is the smallest proof of capacity target.
 	mainPocLimit = new(big.Int).Sub(new(big.Int).Lsh(bigOne, 20), bigOne)
 )
 
 var (
+	// ErrUnknownHDKeyID describes an error where the provided id which
+	// is intended to identify the network for a hierarchical deterministic
+	// private extended key is not registered.
 	ErrUnknownHDKeyID = errors.New("unknown hd private extended key bytes")
 )
 
@@ -24,6 +32,15 @@ var (
 	hdPrivToPubKeyIDs    = make(map[[4]byte][]byte)
 )
 
+// Register registers the network parameters for a Mass network.  This may
+// error with ErrDuplicateNet if the network is already registered (either
+// due to a previous Register call, or the network being one of the default
+// networks).
+//
+// Network parameters should be registered into this package by a main package
+// as early as possible.  Then, library packages may lookup networks or network
+// parameters based on inputs and work regardless of the network being standard
+// or not.
 func Register(params *Params) error {
 	pubKeyHashAddrIDs[params.PubKeyHashAddrID] = struct{}{}
 	scriptHashAddrIDs[params.ScriptHashAddrID] = struct{}{}
@@ -35,36 +52,36 @@ func Register(params *Params) error {
 	return nil
 }
 
+// Checkpoint identifies a known good point in the block chain.  Using
+// checkpoints allows a few optimizations for old blocks during initial download
+// and also prevents forks from old blocks.
+//
+// Each checkpoint is selected based upon several factors.  See the
+// documentation for blockchain.IsCheckpointCandidate for details on the
+// selection criteria.
 type Checkpoint struct {
 	Height uint64
 	Hash   *wire.Hash
 }
 
+// Params defines a Mass network by its parameters.  These parameters may be
+// used by Mass applications to differentiate networks as well as addresses
+// and keys for one network from those intended for use on another network.
 type Params struct {
 	Name        string
 	DefaultPort string
+	DNSSeeds    []string
 
 	// Chain parameters
 	GenesisBlock           *wire.MsgBlock
 	GenesisHash            *wire.Hash
 	ChainID                *wire.Hash
 	PocLimit               *big.Int
-	SubsidyHalvingInterval int32
+	SubsidyHalvingInterval uint64
 	ResetMinDifficulty     bool
 
 	// Checkpoints ordered from oldest to newest.
 	Checkpoints []Checkpoint
-
-	// Enforce current block version once network has
-	// upgraded.  This is part of BIP0034.
-	BlockEnforceNumRequired uint64
-
-	// Reject previous block versions once network has
-	// upgraded.  This is part of BIP0034.
-	BlockRejectNumRequired uint64
-
-	// The number of nodes to check.  This is part of BIP0034.
-	BlockUpgradeNumToCheck uint64
 
 	// Mempool parameters
 	RelayNonStdTxs bool
@@ -89,30 +106,28 @@ type Params struct {
 	HDCoinType uint32
 }
 
+// ChainParams defines the network parameters for the main Mass network.
 var ChainParams = Params{
 	Name:        defaultChainTag,
 	DefaultPort: "43453",
+	DNSSeeds:    []string{},
 
 	// Chain parameters
 	GenesisBlock:           &genesisBlock,
 	ChainID:                &genesisChainID,
 	PocLimit:               mainPocLimit,
-	SubsidyHalvingInterval: 210000,
+	SubsidyHalvingInterval: consensus.SubsidyHalvingInterval,
 	ResetMinDifficulty:     false,
 
 	// Checkpoints ordered from oldest to newest.
 	Checkpoints: []Checkpoint{},
-
-	BlockEnforceNumRequired: 750,
-	BlockRejectNumRequired:  950,
-	BlockUpgradeNumToCheck:  1000,
 
 	// Mempool parameters
 	RelayNonStdTxs: false,
 
 	// Human-readable part for Bech32 encoded segwit addresses, as defined in
 	// BIP 173.
-	Bech32HRPSegwit: "ms",
+	Bech32HRPSegwit: "ms", // always ms for main net
 
 	// Address encoding magics
 	PubKeyHashAddrID:        0x00, // starts with 1
@@ -127,7 +142,7 @@ var ChainParams = Params{
 
 	// BIP44 coin type used in the hierarchical deterministic path for
 	// address generation.
-	HDCoinType: 0,
+	HDCoinType: HDCoinTypeMassMainNet,
 }
 
 // IsPubKeyHashAddrID returns whether the id is an identifier known to prefix a

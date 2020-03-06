@@ -9,7 +9,6 @@ import (
 )
 
 var ipCheckServices = []string{
-	//"http://members.3322.org/dyndns/getip",
 	"http://ifconfig.me/",
 	"http://icanhazip.com/",
 	"http://ifconfig.io/ip",

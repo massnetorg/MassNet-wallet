@@ -1,11 +1,9 @@
 package netsync
 
 import (
-	"github.com/massnetorg/MassNet-wallet/logging"
-	//log "github.com/sirupsen/logrus"
 	"gopkg.in/karalabe/cookiejar.v2/collections/prque"
-
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/wire"
 )
 
 const (
@@ -65,7 +63,7 @@ func (f *blockFetcher) add(msg *blockMsg) {
 	if _, ok := f.msgSet[blockHash]; !ok {
 		f.msgSet[blockHash] = msg
 		f.queue.Push(msg, -float32(msg.block.MsgBlock().Header.Height))
-		logging.CPrint(logging.DEBUG, "fetcher receive mine block", logging.LogFormat{"height": msg.block.Height})
+		logging.CPrint(logging.DEBUG, "fetcher receive mine block", logging.LogFormat{"height": msg.block.Height()})
 	}
 }
 

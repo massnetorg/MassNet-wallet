@@ -2,138 +2,178 @@ package wire
 
 import (
 	"bytes"
+	"encoding/binary"
+	"errors"
 	"io"
 	"reflect"
 
-	"github.com/massnetorg/MassNet-wallet/errors"
-	"github.com/massnetorg/MassNet-wallet/btcec"
-	wirepb "github.com/massnetorg/MassNet-wallet/wire/pb"
-
 	"github.com/golang/protobuf/proto"
+	"massnet.org/mass-wallet/pocec"
+	"massnet.org/mass-wallet/wire/pb"
 )
 
 const (
-	typeFaultPubKey = iota
+	ProposalVersion          = 1
+	HeadersPerProposal       = 2
+	HeaderSizePerPlaceHolder = 500
+	PlaceHolderSize          = HeadersPerProposal * HeaderSizePerPlaceHolder
+)
+
+type ProposalType uint32
+
+const (
+	typeFaultPubKey ProposalType = iota
 	typePlaceHolder
 	typeAnyMessage
 )
 
-const (
-	HeadersPerProposal = 2
-	//versionBytes       = 4
-	//typeBytes          = 4
-)
-
-const ProposalVersion = 1
-
-type AnyMessage struct {
-	Data   []byte
-	Length uint16
+// General Proposal Interface
+type Proposal interface {
+	Bytes(CodecMode) ([]byte, error)
+	SetBytes([]byte, CodecMode) error
+	Hash(int) Hash
 }
 
-func writeAnyMessage(w io.Writer, am *AnyMessage, mode CodecMode) error {
-	buf := am.Data
-	_, err := w.Write(buf)
-	if err != nil {
-		return err
-	}
-	return nil
+func GetProposalHash(proposal Proposal, index int) Hash {
+	var b8 [8]byte
+	binary.LittleEndian.PutUint64(b8[:], uint64(index))
+	buf, _ := proposal.Bytes(ID)
+	return DoubleHashH(append(buf, b8[:]...))
 }
 
-func readAnyMessage(r io.Reader, am *AnyMessage, mode CodecMode) error {
-	err := readElement(r, &am.Length)
-	if err != nil {
-		return err
-	}
-	buf := make([]byte, am.Length, am.Length)
-	_, err = io.ReadFull(r, buf)
-	if err != nil {
-		return err
-	}
-	am.Data = buf
-	return nil
-}
-
-func (am *AnyMessage) Serialize(w io.Writer, mode CodecMode) error {
-	return writeAnyMessage(w, am, mode)
-}
-
-func (am *AnyMessage) Deserialize(r io.Reader, mode CodecMode) error {
-	return readAnyMessage(r, am, mode)
-}
-
-type DefaultMessage struct {
-	Data   []byte
-	Type   int32
-	Length uint16
-}
-
-func writeDefaultMessage(w io.Writer, dm *DefaultMessage, mode CodecMode) error {
-	buf := dm.Data
-	_, err := w.Write(buf)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func readDefaultMessage(r io.Reader, dm *DefaultMessage, mode CodecMode) error {
-	err := readElement(r, &dm.Length)
-	if err != nil {
-		return err
-	}
-	buf := make([]byte, dm.Length, dm.Length)
-	_, err = io.ReadFull(r, buf)
-	if err != nil {
-		return err
-	}
-	dm.Data = buf
-	return nil
-}
-
-func (dm *DefaultMessage) Serialize(w io.Writer, mode CodecMode) error {
-
-	return writeDefaultMessage(w, dm, mode)
-}
-
-func (dm *DefaultMessage) Deserialize(r io.Reader, mode CodecMode) error {
-
-	return readDefaultMessage(r, dm, mode)
-}
-
+// FaultPubKey implements Proposal, representing for punishment-double-mining-pubKey
 type FaultPubKey struct {
-	Pk        *btcec.PublicKey
+	version   uint32
+	PubKey    *pocec.PublicKey
 	Testimony [HeadersPerProposal]*BlockHeader
 }
 
-var contentType map[int32]reflect.Type
-
-func init() {
-	contentType = make(map[int32]reflect.Type)
-	contentType[typeAnyMessage] = reflect.TypeOf([]byte{})
-	contentType[typeFaultPubKey] = reflect.TypeOf(FaultPubKey{})
+func (fpk *FaultPubKey) Version() uint32 {
+	return fpk.version
 }
 
-func writeFaultPubKey(w io.Writer, fpk *FaultPubKey, mode CodecMode) error {
-	for i := 0; i < HeadersPerProposal; i++ {
-		err := writeBlockHeader(w, fpk.Testimony[i], mode)
+func (fpk *FaultPubKey) Type() ProposalType {
+	return typeFaultPubKey
+}
+
+func (fpk *FaultPubKey) Encode(w io.Writer, mode CodecMode) (n int, err error) {
+	pb := fpk.ToProto()
+
+	switch mode {
+	case Packet, DB:
+		buf, err := proto.Marshal(pb)
 		if err != nil {
-			return err
+			return 0, err
 		}
+		return w.Write(buf)
+
+	case Plain, ID:
+		return pb.Write(w)
+
+	default:
+		return n, ErrInvalidCodecMode
+	}
+}
+
+func (fpk *FaultPubKey) Decode(r io.Reader, mode CodecMode) (n int, err error) {
+	switch mode {
+	case Packet, DB:
+		var buf bytes.Buffer
+		n64, err := buf.ReadFrom(r)
+		n = int(n64)
+		if err != nil {
+			return n, err
+		}
+		pb := new(wirepb.Punishment)
+		if err := proto.Unmarshal(buf.Bytes(), pb); err != nil {
+			return n, err
+		}
+		return n, fpk.FromProto(pb)
+
+	default:
+		return n, ErrInvalidCodecMode
+	}
+}
+
+func (fpk *FaultPubKey) ToProto() *wirepb.Punishment {
+	return &wirepb.Punishment{
+		Version:    fpk.Version(),
+		Type:       uint32(typeFaultPubKey),
+		TestimonyA: fpk.Testimony[0].ToProto(),
+		TestimonyB: fpk.Testimony[1].ToProto(),
+	}
+}
+
+func (fpk *FaultPubKey) FromProto(pb *wirepb.Punishment) error {
+	if pb == nil {
+		return errors.New("nil proto punishment")
+	}
+	fpk.version = pb.Version
+	headerA, headerB := new(BlockHeader), new(BlockHeader)
+	if err := headerA.FromProto(pb.TestimonyA); err != nil {
+		return err
+	}
+	if err := headerB.FromProto(pb.TestimonyB); err != nil {
+		return err
+	}
+	fpk.Testimony = [HeadersPerProposal]*BlockHeader{headerA, headerB}
+	fpk.PubKey = fpk.Testimony[0].PubKey
+	// TODO: check public_key equal here?
+	if !reflect.DeepEqual(fpk.Testimony[0].PubKey, fpk.Testimony[1].PubKey) {
+		return errInvalidFaultPubKey
 	}
 	return nil
 }
 
-func readFaultPubKey(r io.Reader, fpk *FaultPubKey, mode CodecMode) error {
-	for i := 0; i < HeadersPerProposal; i++ {
-		bh := NewEmptyBlockHeader()
-		err := readBlockHeader(r, bh, mode)
-		fpk.Testimony[i] = bh
-		if err != nil {
-			return err
-		}
+func (fpk *FaultPubKey) Bytes(mode CodecMode) ([]byte, error) {
+	return getBytes(fpk, mode)
+}
+
+func (fpk *FaultPubKey) SetBytes(bs []byte, mode CodecMode) error {
+	return setFromBytes(fpk, bs, mode)
+}
+
+// PlainSize returns the number of bytes the FaultPubKey contains.
+func (fpk *FaultPubKey) PlainSize() int {
+	return getPlainSize(fpk)
+}
+
+func (fpk *FaultPubKey) Hash(index int) Hash {
+	return GetProposalHash(fpk, index)
+}
+
+func (fpk *FaultPubKey) IsValid() error {
+	if fpk.PubKey == nil {
+		return errFaultPubKeyNoPubKey
 	}
-	fpk.Pk = fpk.Testimony[HeadersPerProposal-1].PubKey
+	if len(fpk.Testimony) < 2 {
+		return errFaultPubKeyNoTestimony
+	}
+	h0 := fpk.Testimony[0]
+	h1 := fpk.Testimony[1]
+	// check validity of testimony
+	if h0.Height != h1.Height {
+		return errFaultPubKeyWrongHeight
+	}
+	if h0.Proof.BitLength != h1.Proof.BitLength {
+		return errFaultPubKeyWrongBigLength
+	}
+	if h0.BlockHash() == h1.BlockHash() {
+		return errFaultPubKeySameBlock
+	}
+	if !reflect.DeepEqual(h0.PubKey.SerializeUncompressed(), h1.PubKey.SerializeUncompressed()) {
+		return errFaultPubKeyWrongPubKey
+	}
+	pocHash1, err0 := h0.PoCHash()
+	pocHash2, err1 := h1.PoCHash()
+	if err0 != nil || err1 != nil {
+		return errFaultPubKeyNoHash
+	}
+	pass0 := h0.Signature.Verify(HashB(pocHash1[:]), h0.PubKey)
+	pass1 := h1.Signature.Verify(HashB(pocHash2[:]), h1.PubKey)
+	if !(pass0 && pass1) {
+		return errFaultPubKeyWrongSignature
+	}
 	return nil
 }
 
@@ -144,457 +184,243 @@ func NewEmptyFaultPubKey() *FaultPubKey {
 		t[i] = bh
 	}
 	return &FaultPubKey{
-		Pk:        new(btcec.PublicKey),
+		version:   ProposalVersion,
+		PubKey:    new(pocec.PublicKey),
 		Testimony: t,
 	}
 }
 
-func NewFaultPubKeyFromBytes(b []byte) (*FaultPubKey, error) {
-	pb := new(wirepb.Punishment)
-
-	err := proto.Unmarshal(b, pb)
+func NewFaultPubKeyFromBytes(bs []byte, mode CodecMode) (*FaultPubKey, error) {
+	fpk := new(FaultPubKey)
+	err := fpk.SetBytes(bs, mode)
 	if err != nil {
 		return nil, err
 	}
-
-	h1 := NewBlockHeaderFromProto(pb.TestimonyA)
-	h2 := NewBlockHeaderFromProto(pb.TestimonyB)
-	var testimony [2]*BlockHeader
-	testimony[0] = h1
-	testimony[1] = h2
-	pk := h1.PubKey
-	if !reflect.DeepEqual(pk, h2.PubKey) {
-		return nil, errors.New("invalid Punishment Proposal, different PublicKey")
-	}
-
-	fpk := &FaultPubKey{
-		Pk:        pk,
-		Testimony: testimony,
-	}
-
 	return fpk, nil
 }
 
-func (fpk *FaultPubKey) Serialize(w io.Writer, mode CodecMode) error {
-
-	return writeFaultPubKey(w, fpk, mode)
+// NormalProposal implements Proposal, representing for all proposals
+// with no consensus proposalType.
+type NormalProposal struct {
+	version      uint32
+	proposalType ProposalType
+	content      []byte
 }
 
-func (fpk *FaultPubKey) Deserialize(r io.Reader, mode CodecMode) error {
-
-	return readFaultPubKey(r, fpk, mode)
+func (np *NormalProposal) Version() uint32 {
+	return np.version
 }
 
-func (fpk *FaultPubKey) Bytes() ([]byte, error) {
-	pb := &wirepb.Punishment{
-		Version:    ProposalVersion,
-		Type:       typeFaultPubKey,
-		TestimonyA: fpk.Testimony[0].ToProto(),
-		TestimonyB: fpk.Testimony[1].ToProto(),
-	}
-
-	buf, err := proto.Marshal(pb)
-	if err != nil {
-		return nil, err
-	}
-
-	return buf, nil
+func (np *NormalProposal) Type() ProposalType {
+	return np.proposalType
 }
 
-type FaultPubKeyList []*FaultPubKey
-
-func (fpkList FaultPubKeyList) Len() int {
-	return len(fpkList)
+func (np *NormalProposal) Content() []byte {
+	return np.content
 }
 
-type PlaceHolder struct {
-	Data []byte
-}
+func (np *NormalProposal) Encode(w io.Writer, mode CodecMode) (n int, err error) {
+	pb := np.ToProto()
 
-func NewPlaceHolder() *PlaceHolder {
-	buf := make([]byte, 2*blockHeaderMinLen, 2*blockHeaderMinLen)
-	return &PlaceHolder{
-		Data: buf,
-	}
-}
-
-func writePlaceHolder(w io.Writer, ph *PlaceHolder, mode CodecMode) error {
-	_, err := w.Write(ph.Data[:])
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func readPlaceHolder(r io.Reader, ph *PlaceHolder, mode CodecMode) error {
-	//var buf [2 * blockHeaderMinLen]byte{}
-	buf := make([]byte, 2*blockHeaderMinLen, 2*blockHeaderMinLen)
-	_, err := io.ReadFull(r, buf)
-	if err != nil {
-		return err
-	}
-	ph.Data = buf
-	return nil
-}
-
-func (ph *PlaceHolder) Serialize(w io.Writer, mode CodecMode) error {
-	return writePlaceHolder(w, ph, mode)
-}
-
-func (ph *PlaceHolder) Deserialize(r io.Reader, mode CodecMode) error {
-	return readPlaceHolder(r, ph, mode)
-}
-
-type proposalContent interface {
-	Serialize(w io.Writer, mode CodecMode) error
-	Deserialize(r io.Reader, mode CodecMode) error
-}
-
-type Proposal struct {
-	version      int32
-	proposalType int32
-	content      proposalContent
-}
-
-// structure of Punishment Proposal
-//
-//   ------------------------------------------------------------------
-//  | version | proposalType |                 content                 |
-//   ------------------------------------------------------------------
-//  |  int32  |    int32     |    BlockHeader1    |    BlockHeader2    |
-//   ------------------------------------------------------------------
-//  | 4 Bytes |   4 Bytes    | BlockHeaderLength1 | BlockHeaderLength2 |
-//   ------------------------------------------------------------------
-//
-// structure of default Proposal and PlaceHolder
-//
-//   -------------------------------------
-//  | version | proposalType |  content   |
-//   -------------------------------------
-//  |  int32  |    int32     |    Data    |
-//   -------------------------------------
-//  | 4 Bytes |   4 Bytes    | DataLength |
-//   -------------------------------------
-//
-
-func NewProposalFromAnyMessage(am *AnyMessage) *Proposal {
-	return &Proposal{
-		version:      ProposalVersion,
-		proposalType: typeAnyMessage,
-		content:      am,
-	}
-}
-
-func NewProposalFromFaultPubKey(fpk *FaultPubKey) *Proposal {
-	return &Proposal{
-		version:      ProposalVersion,
-		proposalType: typeFaultPubKey,
-		content:      fpk,
-	}
-}
-
-func NewProposalFromPlaceHolder(ph *PlaceHolder) *Proposal {
-	return &Proposal{
-		version:      ProposalVersion,
-		proposalType: typePlaceHolder,
-		content:      ph,
-	}
-}
-
-func NewProposalFromDefaultMessage(dm *DefaultMessage) *Proposal {
-	return &Proposal{
-		version:      ProposalVersion,
-		proposalType: dm.Type,
-		content:      dm,
-	}
-}
-
-func NewFaultPubKeyFromProposal(p *Proposal) (*FaultPubKey, error) {
-	fpk := NewEmptyFaultPubKey()
-	if p.proposalType != typeFaultPubKey {
-		return fpk, errors.New("wrong type in PunishmentArea")
-	}
-	punishment, ok := p.content.(*FaultPubKey)
-	if !ok {
-		return fpk, errors.New("wrong type in content")
-	}
-	fpk = punishment
-	return fpk, nil
-}
-
-func GetFaultPubKeyListFromProposalList(proposals []*Proposal) ([]*FaultPubKey, error) {
-	faultPubKeyList := make([]*FaultPubKey, len(proposals))
-	for i, proposal := range proposals {
-		//fpk := NewEmptyFaultPubKey()
-		fpk, err := NewFaultPubKeyFromProposal(proposal)
+	switch mode {
+	case Packet, DB:
+		buf, err := proto.Marshal(pb)
 		if err != nil {
-			return faultPubKeyList, err
+			return n, err
 		}
-		faultPubKeyList[i] = fpk
-	}
-	return faultPubKeyList, nil
-}
+		return w.Write(buf)
 
-func (p *Proposal) Version() int32 {
-	return p.version
-}
-
-func (p *Proposal) Content() (interface{}, reflect.Type) {
-	return p.content, contentType[p.proposalType]
-}
-
-func (p *Proposal) Type() (int32, reflect.Type) {
-	return p.proposalType, contentType[p.proposalType]
-}
-
-func (p *Proposal) Serialize(w io.Writer, mode CodecMode) error {
-
-	return writeProposal(w, p, mode)
-}
-
-func (p *Proposal) Deserialize(r io.Reader, mode CodecMode) error {
-
-	return readProposal(r, p, mode)
-}
-
-func (p *Proposal) Bytes(mode CodecMode) ([]byte, error) {
-	var buf bytes.Buffer
-	err := p.Serialize(&buf, mode)
-	if err != nil {
-		return nil, err
-	}
-	serializedProposal := buf.Bytes()
-	return serializedProposal, nil
-}
-
-func (p *Proposal) Hash() Hash {
-	proposalBytes, err := p.Bytes(ID)
-	if err != nil {
-		return Hash{}
-	}
-	return DoubleHashH(proposalBytes)
-}
-
-func (p *Proposal) SerializeSize() int {
-	serializedProposal, _ := p.Bytes(Plain)
-	return int(len(serializedProposal))
-}
-
-func writeProposal(w io.Writer, p *Proposal, mode CodecMode) error {
-	switch e := p.content.(type) {
-	case *AnyMessage:
-		return writeAnyMessage(w, e, mode)
-	case *FaultPubKey:
-		return writeFaultPubKey(w, e, mode)
-	case *PlaceHolder:
-		return writePlaceHolder(w, e, mode)
-	case *DefaultMessage:
-		return writeDefaultMessage(w, e, mode)
-	}
-	return nil
-}
-
-func readProposal(r io.Reader, p *Proposal, mode CodecMode) error {
-	err := readElements(r, &p.version, &p.proposalType)
-	if err != nil {
-		return err
-	}
-
-	switch e := p.proposalType; e {
-	case typeAnyMessage:
-		am := &AnyMessage{}
-		err := readAnyMessage(r, am, mode)
-		if err != nil {
-			return err
-		}
-		p.content = am
-		return nil
-
-	case typeFaultPubKey:
-		fpk := NewEmptyFaultPubKey()
-		err := readFaultPubKey(r, fpk, mode)
-		if err != nil {
-			return err
-		}
-		p.content = fpk
-		return nil
-
-	case typePlaceHolder:
-		ph := &PlaceHolder{}
-		err := readPlaceHolder(r, ph, mode)
-		if err != nil {
-			return err
-		}
-		p.content = ph
-		return nil
+	case Plain, ID:
+		return pb.Write(w)
 
 	default:
-		dm := &DefaultMessage{}
-		err := readDefaultMessage(r, dm, mode)
-		if err != nil {
-			return err
-		}
-		p.content = dm
-		return nil
+		return n, ErrInvalidCodecMode
 	}
 }
 
-type ProposalArea struct {
-	AllCount        uint16
-	PunishmentCount uint16
-	PunishmentArea  []*Proposal
-	OtherArea       []*Proposal
+func (np *NormalProposal) Decode(r io.Reader, mode CodecMode) (n int, err error) {
+	switch mode {
+	case Packet, DB:
+		var buf bytes.Buffer
+		n64, err := buf.ReadFrom(r)
+		n = int(n64)
+		if err != nil {
+			return n, err
+		}
+		pb := new(wirepb.Proposal)
+		if err = proto.Unmarshal(buf.Bytes(), pb); err != nil {
+			return n, err
+		}
+		if err = np.FromProto(pb); err != nil {
+			return n, err
+		}
+		return n, nil
+
+	default:
+		return n, ErrInvalidCodecMode
+	}
 }
 
-// structure of ProposalArea
-//
-//   ---------------------------------------------------------------------------
-//  | AllCount  | PunishmentCount |    PunishmentArea    |      OtherArea       |
-//   ---------------------------------------------------------------------------
-//  |   uint16  |     uint16      |    Proposal    | ... |    Proposal    | ... |
-//  |---------------------------------------------------------------------------
-//  |  2 Bytes  |     2 Bytes     | ProposalLength | ... | ProposalLength | ... |
-//   ---------------------------------------------------------------------------
-//
+func (np *NormalProposal) ToProto() *wirepb.Proposal {
+	return &wirepb.Proposal{
+		Version: np.Version(),
+		Type:    uint32(np.Type()),
+		Content: np.Content(),
+	}
+}
+
+func (np *NormalProposal) FromProto(pb *wirepb.Proposal) error {
+	if pb == nil {
+		return errors.New("nil proto proposal")
+	}
+	np.version = pb.Version
+	np.proposalType = ProposalType(pb.Type)
+	np.content = MoveBytes(pb.Content)
+	return nil
+}
+
+func (np *NormalProposal) Bytes(mode CodecMode) ([]byte, error) {
+	return getBytes(np, mode)
+}
+
+func (np *NormalProposal) SetBytes(bs []byte, mode CodecMode) error {
+	return setFromBytes(np, bs, mode)
+}
+
+func (np *NormalProposal) Hash(index int) Hash {
+	return GetProposalHash(np, index)
+}
+
+func (np *NormalProposal) PlainSize() int {
+	return getPlainSize(np)
+}
+
+// PlaceHolder prevents miner from eliminating all punishment proposals,
+// because that is more profitable to save block size for transactions.
+func NewPlaceHolder() *NormalProposal {
+	return &NormalProposal{
+		version:      ProposalVersion,
+		proposalType: typePlaceHolder,
+		content:      make([]byte, 2*HeaderSizePerPlaceHolder),
+	}
+}
+
+// ProposalArea represents for proposals in blocks.
+type ProposalArea struct {
+	PunishmentArea []*FaultPubKey
+	OtherArea      []*NormalProposal
+}
+
+func (pa *ProposalArea) Count() int {
+	return len(pa.PunishmentArea) + len(pa.OtherArea)
+}
+
+func (pa *ProposalArea) PunishmentCount() int {
+	return len(pa.PunishmentArea)
+}
+
+func (pa *ProposalArea) OtherCount() int {
+	return len(pa.OtherArea)
+}
+
+func (pa *ProposalArea) Encode(w io.Writer, mode CodecMode) (n int, err error) {
+	pb, err := pa.ToProto()
+	if err != nil {
+		return n, err
+	}
+
+	switch mode {
+	case Packet, DB:
+		buf, err := proto.Marshal(pb)
+		if err != nil {
+			return n, err
+		}
+		return w.Write(buf)
+
+	case Plain:
+		return pb.Write(w)
+
+	default:
+		return n, ErrInvalidCodecMode
+	}
+}
+
+func (pa *ProposalArea) Decode(r io.Reader, mode CodecMode) (n int, err error) {
+	switch mode {
+	case Packet, DB:
+		var buf bytes.Buffer
+		n64, err := buf.ReadFrom(r)
+		n = int(n64)
+		if err != nil {
+			return n, err
+		}
+		pb := new(wirepb.ProposalArea)
+		err = proto.Unmarshal(buf.Bytes(), pb)
+		if err != nil {
+			return n, err
+		}
+
+		err = pa.FromProto(pb)
+		return n, err
+
+	default:
+		return n, ErrInvalidCodecMode
+	}
+}
+
+func (pa *ProposalArea) Bytes(mode CodecMode) ([]byte, error) {
+	return getBytes(pa, mode)
+}
+
+func (pa *ProposalArea) SetBytes(bs []byte, mode CodecMode) error {
+	return setFromBytes(pa, bs, mode)
+}
+
+func (pa *ProposalArea) PlainSize() int {
+	size := getPlainSize(pa)
+	if pa.PunishmentCount() == 0 {
+		size += PlaceHolderSize
+	}
+	return size
+}
 
 func newEmptyProposalArea() *ProposalArea {
 	return &ProposalArea{
-		AllCount:        uint16(0),
-		PunishmentCount: uint16(0),
-		PunishmentArea:  []*Proposal{},
-		OtherArea:       []*Proposal{},
+		PunishmentArea: []*FaultPubKey{},
+		OtherArea:      []*NormalProposal{},
 	}
 }
 
-func NewProposalAreaFromProposalList(punishmentArea []*Proposal, otherArea []*Proposal) (*ProposalArea, error) {
-	for _, punishment := range punishmentArea {
-		if punishment.proposalType != typeFaultPubKey {
-			return nil, errors.New("wrong type in PunishmentArea")
-		}
-	}
-	punishmentCount := len(punishmentArea)
-
+func NewProposalArea(punishmentArea []*FaultPubKey, otherArea []*NormalProposal) (*ProposalArea, error) {
 	for _, other := range otherArea {
-		if other.proposalType == typeFaultPubKey {
-			return nil, errors.New("wrong type in OtherArea")
+		if other.proposalType < typeAnyMessage {
+			return nil, errWrongProposalType
 		}
 	}
 
 	return &ProposalArea{
-		AllCount:        uint16(punishmentCount + len(otherArea)),
-		PunishmentCount: uint16(punishmentCount),
-		PunishmentArea:  punishmentArea,
-		OtherArea:       otherArea,
+		PunishmentArea: punishmentArea,
+		OtherArea:      otherArea,
 	}, nil
-}
-
-func writeProposalArea(w io.Writer, pa *ProposalArea, mode CodecMode) error {
-	pb, err := pa.ToProto()
-	if err != nil {
-		return err
-	}
-
-	content, err := proto.Marshal(pb)
-	if err != nil {
-		return err
-	}
-	_, err = w.Write(content)
-	return err
-}
-
-func readProposalArea(r io.Reader, pa *ProposalArea, mode CodecMode) error {
-	var buf bytes.Buffer
-	_, err := buf.ReadFrom(r)
-	if err != nil {
-		return err
-	}
-
-	pb := new(wirepb.ProposalArea)
-	err = proto.Unmarshal(buf.Bytes(), pb)
-	if err != nil {
-		return err
-	}
-
-	err = pa.FromProto(pb)
-	return err
-}
-
-func (pa *ProposalArea) Serialize(w io.Writer, mode CodecMode) error {
-	return writeProposalArea(w, pa, mode)
-}
-
-func (pa *ProposalArea) Deserialize(r io.Reader, mode CodecMode) error {
-	return readProposalArea(r, pa, mode)
-}
-
-func (pa *ProposalArea) GetAllProposals() []*Proposal {
-	allProposal := make([]*Proposal, 0, pa.AllCount)
-	for _, p := range pa.PunishmentArea {
-		allProposal = append(allProposal, p)
-	}
-	for _, p := range pa.OtherArea {
-		allProposal = append(allProposal, p)
-	}
-	return allProposal
 }
 
 // ToProto get proto ProposalArea from wire ProposalArea
 func (pa *ProposalArea) ToProto() (*wirepb.ProposalArea, error) {
-	if len(pa.PunishmentArea)+len(pa.OtherArea) != int(pa.AllCount) {
-		// FIXME: error msg?
-		return nil, errors.New("number of Proposals is incorrect")
+	punishments := make([]*wirepb.Punishment, pa.PunishmentCount())
+	for i, fpk := range pa.PunishmentArea {
+		punishments[i] = fpk.ToProto()
 	}
 
-	if len(pa.PunishmentArea) != int(pa.PunishmentCount) {
-		// FIXME: error msg?
-		return nil, errors.New("number of PunishmentProposals is incorrect")
-	}
-
-	punishments := make([]*wirepb.Punishment, pa.PunishmentCount, pa.PunishmentCount)
-	for i, proposal := range pa.PunishmentArea {
-		if proposal.proposalType != typeFaultPubKey {
-			return nil, errors.New("wrong type of proposal on faultPubKey")
-		}
-		v := proposal.content.(*FaultPubKey)
-		p := &wirepb.Punishment{
-			Version:    proposal.version,
-			Type:       proposal.proposalType,
-			TestimonyA: v.Testimony[0].ToProto(),
-			TestimonyB: v.Testimony[1].ToProto(),
-		}
-		punishments[i] = p
-	}
-
-	placeHolder := &wirepb.Proposal{
-		Version: ProposalVersion,
-		Type:    typePlaceHolder,
-	}
-	if pa.PunishmentCount > 0 {
-		placeHolder.Content = make([]byte, 0, 0)
-	} else {
-		placeHolder.Content = NewPlaceHolder().Data
-	}
-
-	others := make([]*wirepb.Proposal, len(pa.OtherArea), len(pa.OtherArea))
+	others := make([]*wirepb.Proposal, len(pa.OtherArea))
 	for i, proposal := range pa.OtherArea {
 		if proposal.proposalType < typeAnyMessage {
-			return nil, errors.New("wrong type of proposal on otherArea")
+			return nil, errWrongProposalType
 		}
-		s, err := proposal.Bytes(Plain)
-		if err != nil {
-			return nil, err
-		}
-		p := &wirepb.Proposal{
-			Version: proposal.version,
-			Type:    proposal.proposalType,
-			Content: s,
-		}
-		others[i] = p
+		others[i] = proposal.ToProto()
 	}
 
 	return &wirepb.ProposalArea{
 		Punishments:    punishments,
-		PlaceHolder:    placeHolder,
 		OtherProposals: others,
 	}, nil
 }
@@ -602,58 +428,32 @@ func (pa *ProposalArea) ToProto() (*wirepb.ProposalArea, error) {
 // FromProto load proto ProposalArea into wire ProposalArea,
 // if error happens, old content is still immutable
 func (pa *ProposalArea) FromProto(pb *wirepb.ProposalArea) error {
-	if len(pb.Punishments) == 0 && len(pb.PlaceHolder.Content) != len(NewPlaceHolder().Data) {
-		return errors.New("invalid placeHolder for non-Punishment ProposalArea")
+	if pb == nil {
+		return errors.New("nil proto proposal_area")
 	}
-	punishments := make([]*Proposal, len(pb.Punishments), len(pb.Punishments))
+
+	var err error
+	punishments := make([]*FaultPubKey, len(pb.Punishments))
 	for i, v := range pb.Punishments {
-		h1 := NewBlockHeaderFromProto(v.TestimonyA)
-		h2 := NewBlockHeaderFromProto(v.TestimonyB)
-		var testimony [2]*BlockHeader
-		testimony[0] = h1
-		testimony[1] = h2
-		pk := h1.PubKey
-		if !reflect.DeepEqual(pk, h2.PubKey) {
-			return errors.New("invalid Punishment Proposal, different PublicKey")
+		fpk := new(FaultPubKey)
+		if err = fpk.FromProto(v); err != nil {
+			return err
 		}
-		p := &Proposal{
-			version:      v.Version,
-			proposalType: v.Type,
-			content: &FaultPubKey{
-				Pk:        pk,
-				Testimony: testimony,
-			},
-		}
-		punishments[i] = p
+		punishments[i] = fpk
 	}
 
-	others := make([]*Proposal, len(pb.OtherProposals), len(pb.OtherProposals))
+	others := make([]*NormalProposal, len(pb.OtherProposals))
 	for i, v := range pb.OtherProposals {
-		if v.Type < typeAnyMessage {
-			return errors.New("wrong type of proposal on proto otherArea")
+		if ProposalType(v.Type) < typeAnyMessage {
+			return errWrongProposalType
 		}
-		var content proposalContent
-		if v.Type == typeAnyMessage {
-			content = &AnyMessage{
-				Data:   v.Content,
-				Length: uint16(len(v.Content)),
-			}
-		} else {
-			content = &DefaultMessage{
-				Data:   v.Content,
-				Length: uint16(len(v.Content)),
-			}
+		np := new(NormalProposal)
+		if err = np.FromProto(v); err != nil {
+			return err
 		}
-		p := &Proposal{
-			version:      v.Version,
-			proposalType: v.Type,
-			content:      content,
-		}
-		others[i] = p
+		others[i] = np
 	}
 
-	pa.AllCount = uint16(len(punishments) + len(others))
-	pa.PunishmentCount = uint16(len(punishments))
 	pa.PunishmentArea = punishments
 	pa.OtherArea = others
 	return nil

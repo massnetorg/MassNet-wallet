@@ -70,6 +70,7 @@ func TestNewNetAddressIPPort(t *testing.T) {
 func TestNetAddressProperties(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
+	// TODO add more test cases
 	tests := []struct {
 		addr     string
 		valid    bool
@@ -93,6 +94,7 @@ func TestNetAddressProperties(t *testing.T) {
 func TestNetAddressReachabilityTo(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
+	// TODO add more test cases
 	tests := []struct {
 		addr         string
 		other        string

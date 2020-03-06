@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	gowire "github.com/tendermint/go-wire"
-
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
+	gowire "github.com/massnetorg/tendermint/go-wire"
 )
 
 //protocol msg byte
@@ -21,6 +20,8 @@ const (
 	HeadersResponseByte = byte(0x13)
 	BlocksRequestByte   = byte(0x14)
 	BlocksResponseByte  = byte(0x15)
+	HeaderRequestByte   = byte(0x16)
+	HeaderResponseByte  = byte(0x17)
 	StatusRequestByte   = byte(0x20)
 	StatusResponseByte  = byte(0x21)
 	NewTransactionByte  = byte(0x30)
@@ -31,7 +32,7 @@ const (
 	MerkleRequestByte   = byte(0x60)
 	MerkleResponseByte  = byte(0x61)
 
-	maxBlockchainResponseSize = 22020096 + 2
+	maxBlockchainResponseSize = 4000000
 )
 
 //BlockchainMessage is a generic message for this reactor.
@@ -45,6 +46,8 @@ var _ = gowire.RegisterInterface(
 	gowire.ConcreteType{&HeadersMessage{}, HeadersResponseByte},
 	gowire.ConcreteType{&GetBlocksMessage{}, BlocksRequestByte},
 	gowire.ConcreteType{&BlocksMessage{}, BlocksResponseByte},
+	gowire.ConcreteType{&GetHeaderMessage{}, HeaderRequestByte},
+	gowire.ConcreteType{&HeaderMessage{}, HeaderResponseByte},
 	gowire.ConcreteType{&StatusRequestMessage{}, StatusRequestByte},
 	gowire.ConcreteType{&StatusResponseMessage{}, StatusResponseByte},
 	gowire.ConcreteType{&TransactionMessage{}, NewTransactionByte},
@@ -117,7 +120,56 @@ func (m *BlockMessage) String() string {
 	return fmt.Sprintf("BlockMessage{Size: %d}", len(m.RawBlock))
 }
 
-//GetHeadersMessage is one of the chain msg type
+//GetHeaderMessage request header from remote peers by height/hash
+type GetHeaderMessage struct {
+	Height  uint64
+	RawHash [32]byte
+}
+
+//GetHash reutrn the hash of the request
+func (m *GetHeaderMessage) GetHash() *wire.Hash {
+	hash, _ := wire.NewHash(m.RawHash[:])
+	return hash
+}
+
+//String convert msg to string
+func (m *GetHeaderMessage) String() string {
+	if m.Height > 0 {
+		return fmt.Sprintf("GetHeaderMessage{Height: %d}", m.Height)
+	}
+	hash := m.GetHash()
+	return fmt.Sprintf("GetHeaderMessage{Hash: %s}", hash.String())
+}
+
+//HeaderMessage response get header msg
+type HeaderMessage struct {
+	RawHeader []byte
+}
+
+//NewHeaderMessage construct bock response msg
+func NewHeaderMessage(header *wire.BlockHeader) (*HeaderMessage, error) {
+	rawHeader, err := header.Bytes(wire.Packet)
+	if err != nil {
+		return nil, err
+	}
+	return &HeaderMessage{RawHeader: rawHeader}, nil
+}
+
+//GetHeader get header from msg
+func (m *HeaderMessage) GetHeader() (*wire.BlockHeader, error) {
+	header, err := wire.NewBlockHeaderFromBytes(m.RawHeader, wire.Packet)
+	if err != nil {
+		return nil, err
+	}
+	return header, nil
+}
+
+//String convert msg to string
+func (m *HeaderMessage) String() string {
+	return fmt.Sprintf("HeaderMessage{Size: %d}", len(m.RawHeader))
+}
+
+//GetHeadersMessage is one of the mass msg type
 type GetHeadersMessage struct {
 	RawBlockLocator [][32]byte
 	RawStopHash     [32]byte
@@ -150,7 +202,7 @@ func (msg *GetHeadersMessage) GetStopHash() *wire.Hash {
 	return hash
 }
 
-//HeadersMessage is one of the chain msg type
+//HeadersMessage is one of the mass msg type
 type HeadersMessage struct {
 	RawHeaders [][]byte
 }
@@ -182,7 +234,7 @@ func (msg *HeadersMessage) GetHeaders() ([]*wire.BlockHeader, error) {
 	return headers, nil
 }
 
-//GetBlocksMessage is one of the chain msg type
+//GetBlocksMessage is one of the mass msg type
 type GetBlocksMessage struct {
 	RawBlockLocator [][32]byte
 	RawStopHash     [32]byte
@@ -215,7 +267,7 @@ func (msg *GetBlocksMessage) GetStopHash() *wire.Hash {
 	return hash
 }
 
-//BlocksMessage is one of the chain msg type
+//BlocksMessage is one of the mass msg type
 type BlocksMessage struct {
 	RawBlocks [][]byte
 }

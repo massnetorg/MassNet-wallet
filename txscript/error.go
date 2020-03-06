@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -47,6 +46,8 @@ var (
 	// is encountered.
 	ErrStackReservedOpcode = errors.New("reserved opcode")
 
+	// ErrTooManyOperations is returned if an OP_CHECKMULTISIG is
+	// encountered with more than MaxOpsPerScript OpCodes present.
 	ErrTooManyOperations = errors.New("too many operations")
 
 	// ErrStackEarlyReturn is returned when OP_RETURN is executed in the
@@ -137,14 +138,15 @@ var (
 	// the minimal opcode required.
 	ErrStackMinimalData = errors.New("non-minimally encoded script number")
 
-	//witness error
 	ErrWitnessProgramEmpty = errors.New("witness program is empty")
 
 	ErrWitnessProgramMismatch = errors.New("witness program hash mismatch")
 
 	ErrWitnessPubKeyType = errors.New("only uncompressed keys are accepted post-segwit")
 
-	ErrWitnessProgramWrongLength = errors.New("the length of witness program is wrong")
+	ErrWitnessProgramLength = errors.New("incorrect witness program length")
+
+	ErrWitnessExtProgramLength = errors.New("incorrect witness extension program length")
 
 	ErrDiscourageUpgradableWitnessProgram = errors.New("version of witness program is invalid")
 
@@ -154,7 +156,7 @@ var (
 
 	ErrWitnessMalleated = errors.New("native witness program cannot also have a signature script")
 
-	ErrWitnesslen = errors.New("len of witness is invalid")
+	ErrWitnessLength = errors.New("invalid witness length")
 
 	ErrwitnessProgramFormat = errors.New("script is not a witness program, unable to extract version or witness program")
 
@@ -164,4 +166,14 @@ var (
 	ErrBadNumRequired = errors.New("more signatures required than keys present")
 
 	ErrNullFail = errors.New("not all signatures empty on failed checkmultisig")
+
+	ErrInvalidBindingScript = errors.New("input script is not a binding script")
+
+	ErrBindingUnexpected = errors.New("null binding script")
+
+	ErrFrozenPeriod = errors.New("invalid frozen period")
+
+	ErrScriptTooBig = errors.New("script size is too large")
+
+	ErrWitnessExtProgUnknown = errors.New("unknown witness extension program")
 )

@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -15,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"massnet.org/mass-wallet/wire"
 )
 
 // parseScriptFlags parses the provided flags string from the format used in the
@@ -27,28 +27,28 @@ func parseScriptFlags(flagStr string) (ScriptFlags, error) {
 		switch flag {
 		case "":
 			// Nothing.
-		case "CHECKLOCKTIMEVERIFY":
-			flags |= ScriptVerifyCheckLockTimeVerify
-		case "CLEANSTACK":
-			flags |= ScriptVerifyCleanStack
-		case "DERSIG":
-			flags |= ScriptVerifyDERSignatures
+		// case "CLEANSTACK":
+		// 	flags |= ScriptVerifyCleanStack
+		// case "DERSIG":
+		// 	flags |= ScriptVerifyDERSignatures
 		case "DISCOURAGE_UPGRADABLE_NOPS":
 			flags |= ScriptDiscourageUpgradableNops
-		case "LOW_S":
-			flags |= ScriptVerifyLowS
-		case "MINIMALDATA":
-			flags |= ScriptVerifyMinimalData
+		// case "LOW_S":
+		// 	flags |= ScriptVerifyLowS
+		// case "MINIMALDATA":
+		// 	flags |= ScriptVerifyMinimalData
 		case "NONE":
 			// Nothing.
-		case "NULLDUMMY":
-			flags |= ScriptStrictMultiSig
-		case "P2SH":
-			flags |= ScriptBip16
-		case "SIGPUSHONLY":
-			flags |= ScriptVerifySigPushOnly
-		case "STRICTENC":
-			flags |= ScriptVerifyStrictEncoding
+		// case "NULLDUMMY":
+		// 	flags |= ScriptStrictMultiSig
+		// case "P2SH":
+		// 	flags |= ScriptBip16
+		// case "SIGPUSHONLY":
+		// 	flags |= ScriptVerifySigPushOnly
+		// case "STRICTENC":
+		// 	flags |= ScriptVerifyStrictEncoding
+		case "CLEANSTACK", "DERSIG", "LOW_S", "MINIMALDATA",
+			"NULLDUMMY", "P2SH", "SIGPUSHONLY", "STRICTENC":
 		default:
 			return flags, fmt.Errorf("invalid flag: %s", flag)
 		}
@@ -582,7 +582,15 @@ func TestScriptInValidTests(t *testing.T) {
 			t.Errorf("%s: can't parse flags; %v", name, err)
 			continue
 		}
-		vm := Engine{}
+		vm := Engine{
+			tx: wire.MsgTx{
+				TxIn: []*wire.TxIn{
+					&wire.TxIn{
+						Sequence: wire.MaxTxInSequenceNum,
+					},
+				},
+			},
+		}
 		vm.flags = flags
 		var scriptStr [][]byte
 		if len(scriptSig) != 0 {

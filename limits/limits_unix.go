@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	fileLimitWant = 2048
-	fileLimitMin  = 1024
+	fileLimitWant = 4096
+	fileLimitMin  = 2048
 )
 
 // SetLimits raises some process limits to values which allow mass and

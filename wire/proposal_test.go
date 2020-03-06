@@ -13,22 +13,29 @@ func TestProposalArea(t *testing.T) {
 	for i := 0; i < testRound; i++ {
 		pa := mockProposalArea()
 		var wBuf bytes.Buffer
-		err := pa.Serialize(&wBuf, DB)
+		n, err := pa.Encode(&wBuf, DB)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(i, err, n)
 		}
 
 		newPa := new(ProposalArea)
-		err = newPa.Deserialize(&wBuf, DB)
+		m, err := newPa.Decode(&wBuf, DB)
 		if err != nil {
-			t.Error(err, pa.PunishmentArea[0], pa.PunishmentArea[0].version, pa.PunishmentArea[0].proposalType)
-			t.FailNow()
+			t.Fatal(i, err, m)
 		}
 
 		// compare pa and newPa
 		if !reflect.DeepEqual(pa, newPa) {
-			t.Error("pa and newPa is not equal")
+			t.Errorf("%d, pa and newPa is not equal\n%v\n%v", i, pa, newPa)
+		}
+
+		bs, err := pa.Bytes(Plain)
+		if err != nil {
+			t.Fatal(i, err)
+		}
+		// compare size
+		if size := pa.PlainSize(); (pa.PunishmentCount() == 0 && len(bs)+PlaceHolderSize != size) || (pa.PunishmentCount() != 0 && len(bs) != size) {
+			t.Fatal(i, "proposalArea size incorrect", n, m, len(bs), size)
 		}
 	}
 }

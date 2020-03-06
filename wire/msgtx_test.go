@@ -1,8 +1,3 @@
-// Modified for MassNet
-// Copyright (c) 2013-2015 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package wire
 
 import (
@@ -18,22 +13,29 @@ func TestTx(t *testing.T) {
 	for i := 0; i < testRound; i++ {
 		tx := mockTx()
 		var wBuf bytes.Buffer
-		err := tx.Serialize(&wBuf, DB)
+		n, err := tx.Encode(&wBuf, DB)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(i, err, n)
 		}
 
 		newTx := new(MsgTx)
-		err = newTx.Deserialize(&wBuf, DB)
+		m, err := newTx.Decode(&wBuf, DB)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(i, err, m)
 		}
 
 		// compare tx and newTx
 		if !reflect.DeepEqual(tx, newTx) {
 			t.Error("tx and newTx is not equal")
+		}
+
+		bs, err := tx.Bytes(Plain)
+		if err != nil {
+			t.Fatal(i, err)
+		}
+		// compare size
+		if size := tx.PlainSize(); len(bs) != size {
+			t.Fatal(i, "tx size incorrect", n, m, len(bs), size)
 		}
 	}
 }
@@ -116,16 +118,15 @@ func TestTxOverflowErrors(t *testing.T) {
 		// Decode from wire format.
 		var tx MsgTx
 		var wBuf bytes.Buffer
-		err := tx.MassEncode(&wBuf, DB)
+		_, err := tx.Encode(&wBuf, DB)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.err) {
-			t.Errorf("MassDecode #%d wrong error got: %v, want: %v",
+			t.Errorf("Decode #%d wrong error got: %v, want: %v",
 				i, err, reflect.TypeOf(test.err))
 			continue
 		}
 
 		// Decode from wire format.
-		rBuf := bytes.NewReader(wBuf.Bytes())
-		err = tx.Deserialize(rBuf, DB)
+		err = tx.SetBytes(wBuf.Bytes(), DB)
 		if reflect.TypeOf(err) != reflect.TypeOf(test.err) {
 			t.Errorf("Deserialize #%d wrong error got: %v, want: %v",
 				i, err, reflect.TypeOf(test.err))

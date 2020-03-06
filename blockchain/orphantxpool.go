@@ -2,120 +2,113 @@ package blockchain
 
 import (
 	"crypto/rand"
-	"fmt"
-	"math/big"
+	"encoding/binary"
 
-	"github.com/massnetorg/MassNet-wallet/config"
-	"github.com/massnetorg/MassNet-wallet/logging"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/blockchain/orphanpool"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
+)
+
+const (
+	// defaultMaxOrphanTransactions is the default maximum number of orphan transactions
+	// that can be queued.
+	defaultMaxOrphanTransactions = 1000
 )
 
 type OrphanTxPool struct {
-	orphans       map[wire.Hash]*massutil.Tx
-	orphansByPrev map[wire.Hash]map[wire.Hash]*massutil.Tx
+	maxOrphanTransactions int
+	pool                  *orphanpool.AbstractOrphanPool
 }
 
 func newOrphanTxPool() *OrphanTxPool {
 	return &OrphanTxPool{
-		orphans:       make(map[wire.Hash]*massutil.Tx),
-		orphansByPrev: make(map[wire.Hash]map[wire.Hash]*massutil.Tx),
+		maxOrphanTransactions: defaultMaxOrphanTransactions,
+		pool:                  orphanpool.NewAbstractOrphanPool(),
 	}
+}
+
+type orphanTx massutil.Tx
+
+func newOrphanTx(tx *massutil.Tx) *orphanTx {
+	return (*orphanTx)(tx)
+}
+
+func (tx *orphanTx) OrphanPoolID() string {
+	return (*massutil.Tx)(tx).Hash().String()
+}
+
+func (tx *orphanTx) Tx() *massutil.Tx {
+	return (*massutil.Tx)(tx)
+}
+
+func (otp *OrphanTxPool) orphans() []*massutil.Tx {
+	entries := otp.pool.Items()
+	orphans := make([]*massutil.Tx, 0, len(entries))
+	for _, e := range entries {
+		orphans = append(orphans, e.(*orphanTx).Tx())
+	}
+	return orphans
 }
 
 // removeOrphan is the internal function which implements the public
 // RemoveOrphan.  See the comment for RemoveOrphan for more details.
 //
-// This function MUST be called with the mempool lock held (for writes).
+// This function MUST be called with the txPool lock held (for writes).
 func (otp *OrphanTxPool) removeOrphan(txHash *wire.Hash) {
-	tx, exists := otp.orphans[*txHash]
-	if !exists {
-		return
-	}
-
-	for _, txIn := range tx.MsgTx().TxIn {
-		originTxHash := txIn.PreviousOutPoint.Hash
-		if orphans, exists := otp.orphansByPrev[originTxHash]; exists {
-			delete(orphans, *tx.Hash())
-
-			if len(orphans) == 0 {
-				delete(otp.orphansByPrev, originTxHash)
-			}
-		}
-	}
-
-	delete(otp.orphans, *txHash)
-}
-
-// ShaHashToBig converts a wire.Hash into a big.Int that can be used to
-// perform math comparisons.
-func ShaHashToBig(hash *wire.Hash) *big.Int {
-	buf := *hash
-	blen := len(buf)
-	for i := 0; i < blen/2; i++ {
-		buf[i], buf[blen-1-i] = buf[blen-1-i], buf[i]
-	}
-
-	return new(big.Int).SetBytes(buf[:])
+	otp.pool.Fetch(txHash.String())
 }
 
 // limitNumOrphans limits the number of orphan transactions by evicting a random
 // orphan if adding a new one would cause it to overflow the max allowed.
 //
-// This function MUST be called with the mempool lock held (for writes).
+// This function MUST be called with the txPool lock held (for writes).
 func (otp *OrphanTxPool) limitNumOrphans() error {
-	if len(otp.orphans)+1 > config.MaxOrphanTxs && config.MaxOrphanTxs > 0 {
-		randHashBytes := make([]byte, wire.HashSize)
-		_, err := rand.Read(randHashBytes)
+	if otp.pool.Count()+1 > otp.maxOrphanTransactions {
+		ids := otp.pool.IDs()
+
+		var randNum [4]byte
+		if _, err := rand.Read(randNum[:]); err != nil {
+			return err
+		}
+
+		index := int(binary.LittleEndian.Uint32(randNum[:])) % len(ids)
+
+		removeHash, err := wire.NewHashFromStr(ids[index])
 		if err != nil {
 			return err
 		}
-		randHashNum := new(big.Int).SetBytes(randHashBytes)
-
-		var foundHash *wire.Hash
-		for txHash := range otp.orphans {
-			if foundHash == nil {
-				foundHash = &txHash
-			}
-			txHashNum := ShaHashToBig(&txHash)
-			if txHashNum.Cmp(randHashNum) > 0 {
-				foundHash = &txHash
-				break
-			}
-		}
-
-		otp.removeOrphan(foundHash)
+		otp.removeOrphan(removeHash)
 	}
 
 	return nil
 }
 
 func (otp *OrphanTxPool) addOrphan(tx *massutil.Tx) {
-	otp.limitNumOrphans()
-
-	otp.orphans[*tx.Hash()] = tx
-	for _, txIn := range tx.MsgTx().TxIn {
-		originTxHash := txIn.PreviousOutPoint.Hash
-		if _, exists := otp.orphansByPrev[originTxHash]; !exists {
-			otp.orphansByPrev[originTxHash] =
-				make(map[wire.Hash]*massutil.Tx)
-		}
-		otp.orphansByPrev[originTxHash][*tx.Hash()] = tx
+	if err := otp.limitNumOrphans(); err != nil {
+		logging.CPrint(logging.ERROR, "fail on limitNumOrphans", logging.LogFormat{"err": err, "txid": tx.Hash()})
 	}
 
-	logging.CPrint(logging.DEBUG, "Stored orphan transaction", logging.LogFormat{
-		"orphan transcation":     tx.Hash(),
-		"total orphan tx number": len(otp.orphans),
+	parents := make([]string, 0)
+	for _, txIn := range tx.MsgTx().TxIn {
+		originTxHash := txIn.PreviousOutPoint.Hash
+		parents = append(parents, originTxHash.String())
+	}
+
+	otp.pool.Put(newOrphanTx(tx), parents)
+
+	logging.CPrint(logging.DEBUG, "stored orphan transaction", logging.LogFormat{
+		"orphan transaction":     tx.Hash(),
+		"total orphan tx number": otp.pool.Count(),
 	})
 }
 
 func (otp *OrphanTxPool) maybeAddOrphan(tx *massutil.Tx) error {
-	serializedLen := tx.MsgTx().SerializeSize()
+	serializedLen := tx.MsgTx().PlainSize()
 	if serializedLen > maxOrphanTxSize {
-		str := fmt.Sprintf("orphan transaction size of %d bytes is "+
-			"larger than max allowed size of %d bytes",
-			serializedLen, maxOrphanTxSize)
-		return txRuleError(wire.RejectNonstandard, str)
+		logging.CPrint(logging.ERROR, "orphan transaction size is larger than max allowed size",
+			logging.LogFormat{"txSize": serializedLen, "maxOrphanTxSize": maxOrphanTxSize})
+		return ErrTxTooBig
 	}
 
 	otp.addOrphan(tx)
@@ -126,11 +119,18 @@ func (otp *OrphanTxPool) maybeAddOrphan(tx *massutil.Tx) error {
 // isOrphanInPool returns whether or not the passed transaction already exists
 // in the orphan pool.
 //
-// This function MUST be called with the mempool lock held (for reads).
+// This function MUST be called with the txPool RLock held (for reads).
 func (otp *OrphanTxPool) isOrphanInPool(hash *wire.Hash) bool {
-	if _, exists := otp.orphans[*hash]; exists {
-		return true
+	return otp.pool.Has(hash.String())
+}
+
+func (otp *OrphanTxPool) getOrphansByPrevious(hash *wire.Hash) []*massutil.Tx {
+	subs := otp.pool.ReadSubs(hash.String())
+	orphans := make([]*massutil.Tx, len(subs))
+
+	for i, sub := range subs {
+		orphans[i] = sub.(*orphanTx).Tx()
 	}
 
-	return false
+	return orphans
 }

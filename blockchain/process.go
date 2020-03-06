@@ -1,164 +1,199 @@
-// Modified for MassNet
-// Copyright (c) 2013-2014 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package blockchain
 
 import (
 	"fmt"
+	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
 
-// BehaviorFlags is a bitmask defining tweaks to the normal behavior when
-// performing chain processing and consensus rules checks.
-type BehaviorFlags uint32
-
-const (
-	BFFastAdd BehaviorFlags = 1 << iota
-
-	BFDryRun
-
-	BFNone BehaviorFlags = 0
-)
-
-// blockExists determines whether a block with the given hash exists either in
-// the main chain or any side chains.
-func (b *BlockChain) blockExists(hash *wire.Hash) (bool, error) {
-	if _, ok := b.index[*hash]; ok {
-		return true, nil
+func (chain *Blockchain) maybeAcceptBlock(block *massutil.Block, flags BehaviorFlags) error {
+	// Get a block node for the block previous to this one.  Will be nil
+	// if this is the genesis block.
+	prevNode, err := chain.getPrevNodeFromBlock(block)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "fail on getPrevNodeFromBlock",
+			logging.LogFormat{
+				"err":     err,
+				"preHash": block.MsgBlock().Header.Previous,
+				"hash":    block.Hash(),
+				"flags":   fmt.Sprintf("%b", flags),
+			})
+		return err
+	}
+	if prevNode == nil {
+		logging.CPrint(logging.ERROR, "prev node not found",
+			logging.LogFormat{
+				"preHash": block.MsgBlock().Header.Previous,
+				"hash":    block.Hash(),
+				"flags":   fmt.Sprintf("%b", flags),
+			})
+		return fmt.Errorf("prev node not found")
 	}
 
-	return b.db.ExistsSha(hash)
-}
+	// The height of this block is one more than the referenced previous
+	// block.
+	block.SetHeight(prevNode.Height + 1)
 
-// processOrphans determines if there are any orphans which depend on the passed
-// block hash (they are no longer orphans if true) and potentially accepts them.
-// It repeats the process for the newly accepted blocks (to detect further
-// orphans which may no longer be orphans) until there are no more.
-//
-// The flags do not modify the behavior of this function directly, however they
-// are needed to pass along to maybeAcceptBlock.
-func (b *BlockChain) processOrphans(hash *wire.Hash, flags BehaviorFlags) error {
-	processHashes := make([]*wire.Hash, 0, 10)
-	processHashes = append(processHashes, hash)
-	for len(processHashes) > 0 {
-		processHash := processHashes[0]
-		processHashes[0] = nil // Prevent GC leak.
-		processHashes = processHashes[1:]
-
-		for i := 0; i < len(b.orphanBlockPool.prevOrphans[*processHash]); i++ {
-			orphan := b.orphanBlockPool.prevOrphans[*processHash][i]
-			if orphan == nil {
-				logging.CPrint(logging.WARN, "Found a nil entry at index i in the "+
-					"orphan dependency list for block", logging.LogFormat{
-					"index": i,
-					"block": processHash,
-				})
-				continue
-			}
-
-			orphanHash := orphan.block.Hash()
-			b.orphanBlockPool.removeOrphanBlock(orphan)
-			i--
-
-			err := b.maybeAcceptBlock(orphan.block, flags)
-			if err != nil {
-				return err
-			}
-
-			processHashes = append(processHashes, orphanHash)
-		}
+	// The block must pass all of the validation rules which depend on the
+	// position of the block within the block chain.
+	err = chain.checkBlockContext(block, prevNode, flags)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "fail on checkBlockContext",
+			logging.LogFormat{
+				"err": err, "preHash": block.MsgBlock().Header.Previous,
+				"hash":  block.Hash(),
+				"flags": fmt.Sprintf("%b", flags),
+			})
+		return err
 	}
+
+	// Create a new block node for the block and add it to the in-memory
+	// block chain (could be either a side chain or the main chain).
+	blockHeader := &block.MsgBlock().Header
+
+	if flags.isFlagSet(BFNoPoCCheck) {
+		return chain.checkConnectBlock(NewBlockNode(blockHeader, nil, BFNoPoCCheck), block)
+	}
+
+	newNode := NewBlockNode(blockHeader, block.Hash(), BFNone)
+	if prevNode != nil {
+		newNode.Parent = prevNode
+	}
+
+	// Connect the passed block to the chain while respecting proper chain
+	// selection according to the chain with the most proof of work.  This
+	// also handles validation of the transaction scripts.
+	err = chain.connectBestChain(newNode, block, flags)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// ProcessBlock is the main workhorse for handling insertion of new blocks into
-// the block chain.  It includes functionality such as rejecting duplicate
-// blocks, ensuring blocks follow all rules, orphan handling, and insertion into
-// the block chain along with best chain selection and reorganization.
-//
-// It returns a bool which indicates whether or not the block is an orphan and
-// any errors that occurred during processing.  The returned bool is only valid
-// when the error is nil.
-func (b *BlockChain) ProcessBlock(block *massutil.Block, timeSource MedianTimeSource, flags BehaviorFlags) (bool, error) {
-	b.accessLock.Lock()
-	defer b.accessLock.Unlock()
+func (chain *Blockchain) processOrphans(hash *wire.Hash, flags BehaviorFlags) error {
+	for _, orphan := range chain.blockTree.orphanBlockPool.getOrphansByPrevious(hash) {
+		logging.CPrint(logging.INFO, "process orphan",
+			logging.LogFormat{
+				"parent_hash":  hash,
+				"child_hash":   orphan.block.Hash(),
+				"child_height": orphan.block.Height(),
+			})
+		if err := chain.maybeAcceptBlock(orphan.block, BFNone); err != nil {
+			chain.errCache.Add(orphan.block.Hash().String(), err)
+			return err
+		}
 
-	dryRun := flags&BFDryRun == BFDryRun
+		chain.blockTree.orphanBlockPool.removeOrphanBlock(orphan)
 
-	blockHash := block.Hash()
-	logging.CPrint(logging.TRACE, "Processing block", logging.LogFormat{
-		"block": blockHash,
-	})
-
-	exists, err := b.blockExists(blockHash)
-	if err != nil {
-		return false, err
+		if err := chain.processOrphans(orphan.block.Hash(), BFNone); err != nil {
+			return err
+		}
 	}
-	if exists {
+
+	return nil
+}
+
+func (chain *Blockchain) processBlock(block *massutil.Block, flags BehaviorFlags) (isOrphan bool, err error) {
+	var startProcessing = time.Now()
+
+	if flags.isFlagSet(BFNoPoCCheck) {
+		// Perform preliminary sanity checks on the block and its transactions.
+		err := checkBlockSanity(block, chain.info.chainID, config.ChainParams.PocLimit, flags)
+		if err != nil {
+			return false, err
+		}
+
+		// The block has passed all context independent checks and appears sane
+		// enough to potentially accept it into the block chain.
+		if err := chain.maybeAcceptBlock(block, flags); err != nil {
+			logging.CPrint(logging.ERROR, "fail on maybeAcceptBlock with BFNoPoCCheck", logging.LogFormat{
+				"err":      err,
+				"previous": block.MsgBlock().Header.Previous,
+				"height":   block.Height(),
+				"elapsed":  time.Since(startProcessing),
+				"flags":    fmt.Sprintf("%b", flags),
+			})
+			return false, err
+		}
 		return false, nil
 	}
 
-	if _, exists := b.orphanBlockPool.orphans[*blockHash]; exists {
+	blockHash := block.Hash()
+	logging.CPrint(logging.TRACE, "processing block", logging.LogFormat{
+		"hash":     blockHash,
+		"height":   block.Height(),
+		"tx_count": len(block.Transactions()),
+		"flags":    fmt.Sprintf("%b", flags),
+	})
+
+	// The block must not already exist in the main chain or side chains.
+	if chain.blockExists(blockHash) {
+		return false, nil
+	}
+
+	// The block must not already exist as an orphan.
+	if chain.blockTree.orphanExists(blockHash) {
 		return true, nil
 	}
 
-	err = checkBlockSanity(block, b.info.chainID)
+	// Return fail if block error already been cached.
+	if v, ok := chain.errCache.Get(blockHash.String()); ok {
+		return false, v.(error)
+	}
+
+	// Perform preliminary sanity checks on the block and its transactions.
+	err = checkBlockSanity(block, chain.info.chainID, config.ChainParams.PocLimit, flags)
 	if err != nil {
+		chain.errCache.Add(blockHash.String(), err)
 		return false, err
 	}
 
 	blockHeader := &block.MsgBlock().Header
-	checkpointBlock, err := b.findPreviousCheckpoint()
-	if err != nil {
-		return false, err
-	}
-	if checkpointBlock != nil {
-		if valid, checkpointTime := ensureCheckPointTime(blockHeader, checkpointBlock); !valid {
-			str := fmt.Sprintf("block %v has timestamp %v before "+
-				"last checkpoint timestamp %v", blockHash,
-				blockHeader.Timestamp, checkpointTime)
-			return false, ruleError(ErrCheckpointTimeTooOld, str)
-		}
-	}
 
+	// Handle orphan blocks.
 	prevHash := &blockHeader.Previous
 	if !prevHash.IsEqual(zeroHash) {
-		prevHashExists, err := b.blockExists(prevHash)
-		if err != nil {
-			return false, err
-		}
-		if !prevHashExists {
-			if !dryRun {
-				logging.CPrint(logging.INFO, "Adding orphan block with parent", logging.LogFormat{
-					"orphan block": blockHash,
-					"parent":       prevHash,
-				})
-				b.orphanBlockPool.addOrphanBlock(block)
-			}
+		prevHashExists := chain.blockExists(prevHash)
 
+		if !prevHashExists {
+			logging.CPrint(logging.INFO, "Adding orphan block with Parent", logging.LogFormat{
+				"orphan":  blockHash,
+				"height":  block.Height(),
+				"parent":  prevHash,
+				"elapsed": time.Since(startProcessing),
+				"flags":   fmt.Sprintf("%b", flags),
+			})
+			chain.blockTree.orphanBlockPool.addOrphanBlock(block)
 			return true, nil
 		}
 	}
 
-	err = b.maybeAcceptBlock(block, flags)
-	if err != nil {
+	// The block has passed all context independent checks and appears sane
+	// enough to potentially accept it into the block chain.
+	if err := chain.maybeAcceptBlock(block, flags); err != nil {
+		chain.errCache.Add(blockHash.String(), err)
 		return false, err
 	}
 
-	if !dryRun {
-		err := b.processOrphans(blockHash, flags)
-		if err != nil {
-			return false, err
-		}
-		logging.CPrint(logging.DEBUG, "Accepted block", logging.LogFormat{
-			"block": blockHash,
-		})
+	// Accept any orphan blocks that depend on this block (they are
+	// no longer orphans) and repeat for those accepted blocks until
+	// there are no more.
+	if err := chain.processOrphans(blockHash, flags); err != nil {
+		return false, err
 	}
+
+	logging.CPrint(logging.DEBUG, "accepted block", logging.LogFormat{
+		"hash":     blockHash,
+		"height":   block.Height(),
+		"tx_count": len(block.Transactions()),
+		"elapsed":  time.Since(startProcessing),
+		"flags":    fmt.Sprintf("%b", flags),
+	})
 
 	return false, nil
 }

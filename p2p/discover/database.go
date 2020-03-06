@@ -8,21 +8,14 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"os"
+	"path"
 	"sync"
 	"time"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
-
-	//log "github.com/sirupsen/logrus"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/errors"
-	"github.com/syndtr/goleveldb/leveldb/iterator"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"github.com/syndtr/goleveldb/leveldb/storage"
-	"github.com/syndtr/goleveldb/leveldb/util"
-	wire "github.com/tendermint/go-wire"
-
-	"github.com/bytom/crypto"
+	configpb "massnet.org/mass-wallet/config/pb"
+	"massnet.org/mass-wallet/database/storage"
+	"massnet.org/mass-wallet/logging"
+	gowire "github.com/massnetorg/tendermint/go-wire"
 )
 
 var (
@@ -33,10 +26,16 @@ var (
 
 // nodeDB stores all nodes we know about.
 type nodeDB struct {
-	lvl    *leveldb.DB   // Interface to the database itself
-	self   NodeID        // Own node id to prevent adding it into the database
-	runner sync.Once     // Ensures we can start at most one expirer
-	quit   chan struct{} // Channel to signal the expiring thread to stop
+	stor   storage.Storage // Interface to the database itself
+	self   NodeID          // Own node id to prevent adding it into the database
+	runner sync.Once       // Ensures we can start at most one expirer
+	quit   chan struct{}   // Channel to signal the expiring thread to stop
+}
+
+type NetworkDB interface {
+	Get(key []byte) ([]byte, error)
+	Put(key, value []byte) error
+	Close() error
 }
 
 // Schema layout for the node database
@@ -52,67 +51,76 @@ var (
 	nodeDBTopicRegTickets       = ":tickets"
 )
 
+func NewNetworkDB(cfg *configpb.Config, self NodeID) (NetworkDB, error) {
+	return newNodeDB(cfg, Version, self)
+}
+
 // newNodeDB creates a new node database for storing and retrieving infos about
 // known peers in the network. If no path is given, an in-memory, temporary
 // database is constructed.
-func newNodeDB(path string, version int, self NodeID) (*nodeDB, error) {
-	if path == "" {
-		return newMemoryNodeDB(self)
-	}
-	return newPersistentNodeDB(path, version, self)
+func newNodeDB(cfg *configpb.Config, version int, self NodeID) (*nodeDB, error) {
+	// if path == "" {
+	// 	return newMemoryNodeDB(self)
+	// }
+	return newPersistentNodeDB(cfg, version, self)
 }
 
-// newMemoryNodeDB creates a new in-memory node database without a persistent
-// backend.
-func newMemoryNodeDB(self NodeID) (*nodeDB, error) {
-	db, err := leveldb.Open(storage.NewMemStorage(), nil)
-	if err != nil {
-		return nil, err
-	}
-	return &nodeDB{
-		lvl:  db,
-		self: self,
-		quit: make(chan struct{}),
-	}, nil
-}
+// // newMemoryNodeDB creates a new in-memory node database without a persistent
+// // backend.
+// func newMemoryNodeDB(self NodeID) (*nodeDB, error) {
+// 	db, err := leveldb.Open(storage.NewMemStorage(), nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return &nodeDB{
+// 		lvl:  db,
+// 		self: self,
+// 		quit: make(chan struct{}),
+// 	}, nil
+// }
 
 // newPersistentNodeDB creates/opens a leveldb backed persistent node database,
 // also flushing its contents in case of a version mismatch.
-func newPersistentNodeDB(path string, version int, self NodeID) (*nodeDB, error) {
-	opts := &opt.Options{OpenFilesCacheCapacity: 5}
-	db, err := leveldb.OpenFile(path, opts)
-	if _, iscorrupted := err.(*errors.ErrCorrupted); iscorrupted {
-		db, err = leveldb.RecoverFile(path, nil)
+func newPersistentNodeDB(cfg *configpb.Config, version int, self NodeID) (*nodeDB, error) {
+	path := path.Join(cfg.Data.DbDir, "discover.db")
+
+	var stor storage.Storage
+	_, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		stor, err = storage.CreateStorage(cfg.Data.DbType, path, nil)
+	} else {
+		stor, err = storage.OpenStorage(cfg.Data.DbType, path, nil)
 	}
 	if err != nil {
 		return nil, err
 	}
+
 	// The nodes contained in the cache correspond to a certain protocol version.
 	// Flush all nodes if the version doesn't match.
 	currentVer := make([]byte, binary.MaxVarintLen64)
 	currentVer = currentVer[:binary.PutVarint(currentVer, int64(version))]
 
-	blob, err := db.Get(nodeDBVersionKey, nil)
+	blob, err := stor.Get(nodeDBVersionKey)
 	switch err {
-	case leveldb.ErrNotFound:
+	case storage.ErrNotFound:
 		// Version not found (i.e. empty cache), insert it
-		if err := db.Put(nodeDBVersionKey, currentVer, nil); err != nil {
-			db.Close()
+		if err := stor.Put(nodeDBVersionKey, currentVer); err != nil {
+			stor.Close()
 			return nil, err
 		}
 
 	case nil:
 		// Version present, flush if different
 		if !bytes.Equal(blob, currentVer) {
-			db.Close()
+			stor.Close()
 			if err = os.RemoveAll(path); err != nil {
 				return nil, err
 			}
-			return newPersistentNodeDB(path, version, self)
+			return newPersistentNodeDB(cfg, version, self)
 		}
 	}
 	return &nodeDB{
-		lvl:  db,
+		stor: stor,
 		self: self,
 		quit: make(chan struct{}),
 	}, nil
@@ -144,7 +152,7 @@ func splitKey(key []byte) (id NodeID, field string) {
 // fetchInt64 retrieves an integer instance associated with a particular
 // database key.
 func (db *nodeDB) fetchInt64(key []byte) int64 {
-	blob, err := db.lvl.Get(key, nil)
+	blob, err := db.stor.Get(key)
 	if err != nil {
 		return 0
 	}
@@ -160,11 +168,11 @@ func (db *nodeDB) fetchInt64(key []byte) int64 {
 func (db *nodeDB) storeInt64(key []byte, n int64) error {
 	blob := make([]byte, binary.MaxVarintLen64)
 	blob = blob[:binary.PutVarint(blob, n)]
-	return db.lvl.Put(key, blob, nil)
+	return db.stor.Put(key, blob)
 }
 
 //func (db *nodeDB) storeRLP(key []byte, val interface{}) error {
-//	blob, err := wire.WriteBinary(val,)
+//	blob, err := gowire.WriteBinary(val,)
 //	if err != nil {
 //		return err
 //	}
@@ -189,7 +197,7 @@ func (db *nodeDB) node(id NodeID) *Node {
 	//if err := db.fetchRLP(makeKey(id, nodeDBDiscoverRoot), &node); err != nil {
 	//	return nil
 	//}
-	node.sha = crypto.Sha256Hash(node.ID[:])
+	node.sha = Sha3256Hash(node.ID[:])
 	return &node
 }
 
@@ -200,13 +208,14 @@ func (db *nodeDB) node(id NodeID) *Node {
 
 // deleteNode deletes all information/keys associated with a node.
 func (db *nodeDB) deleteNode(id NodeID) error {
-	deleter := db.lvl.NewIterator(util.BytesPrefix(makeKey(id, "")), nil)
-	for deleter.Next() {
-		if err := db.lvl.Delete(deleter.Key(), nil); err != nil {
+	iter := db.stor.NewIterator(storage.BytesPrefix(makeKey(id, "")))
+	defer iter.Release()
+	for iter.Next() {
+		if err := db.stor.Delete(iter.Key()); err != nil {
 			return err
 		}
 	}
-	return nil
+	return iter.Error()
 }
 
 // ensureExpirer is a small helper method ensuring that the data expiration
@@ -245,7 +254,7 @@ func (db *nodeDB) expireNodes() error {
 	threshold := time.Now().Add(-nodeDBNodeExpiration)
 
 	// Find discovered nodes that are older than the allowance
-	it := db.lvl.NewIterator(nil, nil)
+	it := db.stor.NewIterator(nil)
 	defer it.Release()
 
 	for it.Next() {
@@ -263,7 +272,7 @@ func (db *nodeDB) expireNodes() error {
 		// Otherwise delete all associated information
 		db.deleteNode(id)
 	}
-	return nil
+	return it.Error()
 }
 
 // lastPing retrieves the time of the last ping packet send to a remote node,
@@ -317,7 +326,7 @@ func (db *nodeDB) querySeeds(n int, maxAge time.Duration) []*Node {
 	var (
 		now   = time.Now()
 		nodes = make([]*Node, 0, n)
-		it    = db.lvl.NewIterator(nil, nil)
+		it    = db.stor.NewIterator(nil)
 		id    NodeID
 	)
 	defer it.Release()
@@ -330,9 +339,11 @@ seek:
 		ctr := id[0]
 		rand.Read(id[:])
 		id[0] = ctr + id[0]%16
-		it.Seek(makeKey(id, nodeDBDiscoverRoot))
 
-		n := nextNode(it)
+		var n *Node
+		if it.Seek(makeKey(id, nodeDBDiscoverRoot)) {
+			n = nextNode(it)
+		}
 		if n == nil {
 			id[0] = 0
 			continue seek // iterator exhausted
@@ -355,7 +366,7 @@ seek:
 
 func (db *nodeDB) fetchTopicRegTickets(id NodeID) (issued, used uint32) {
 	key := makeKey(id, nodeDBTopicRegTickets)
-	blob, _ := db.lvl.Get(key, nil)
+	blob, _ := db.stor.Get(key)
 	if len(blob) != 8 {
 		return 0, 0
 	}
@@ -369,19 +380,19 @@ func (db *nodeDB) updateTopicRegTickets(id NodeID, issued, used uint32) error {
 	blob := make([]byte, 8)
 	binary.BigEndian.PutUint32(blob[0:4], issued)
 	binary.BigEndian.PutUint32(blob[4:8], used)
-	return db.lvl.Put(key, blob, nil)
+	return db.stor.Put(key, blob)
 }
 
 // reads the next node record from the iterator, skipping over other
 // database entries.
-func nextNode(it iterator.Iterator) *Node {
+func nextNode(it storage.Iterator) *Node {
 	for end := false; !end; end = !it.Next() {
 		id, field := splitKey(it.Key())
 		if field != nodeDBDiscoverRoot {
 			continue
 		}
 		var n Node
-		if err := wire.ReadBinaryBytes(it.Value(), &n); err != nil {
+		if err := gowire.ReadBinaryBytes(it.Value(), &n); err != nil {
 			logging.CPrint(logging.ERROR, "invalid node", logging.LogFormat{"id": id, "err": err})
 			continue
 		}
@@ -394,8 +405,19 @@ func nextNode(it iterator.Iterator) *Node {
 	return nil
 }
 
-// close flushes and closes the database files.
-func (db *nodeDB) close() {
+func (db *nodeDB) Close() error {
 	close(db.quit)
-	db.lvl.Close()
+	return db.stor.Close()
+}
+
+func (db *nodeDB) Get(key []byte) ([]byte, error) {
+	value, err := db.stor.Get(key)
+	if err == storage.ErrNotFound {
+		return nil, nil
+	}
+	return value, err
+}
+
+func (db *nodeDB) Put(key, value []byte) error {
+	return db.stor.Put(key, value)
 }

@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -9,15 +8,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/massnetorg/MassNet-wallet/config"
-
-	"github.com/massnetorg/MassNet-wallet/btcec"
-	"github.com/massnetorg/MassNet-wallet/massutil"
-	"github.com/massnetorg/MassNet-wallet/wire"
+	"github.com/btcsuite/btcd/btcec"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/wire"
 )
 
-// KeyDB is an interface type provided to SignTxOutput, it encapsulates
-// any user state required to get the private keys for an address.
 type GetSignDB interface {
 	GetSign(*btcec.PublicKey, []byte) (*btcec.Signature, error)
 }
@@ -64,26 +60,29 @@ func RawTxInWitnessSignature(tx *wire.MsgTx, sigHashes *TxSigHashes, idx int,
 	//signature, err := key.Sign(hash)
 	signature, err := kdb.GetSign(pubkey, hash)
 	if err != nil {
-		return nil, fmt.Errorf("cannot sign tx input: %s", err)
+		return nil, err
 	}
 
 	return append(signature.Serialize(), byte(hashType)), nil
 }
 
-func signWitMultiSig(tx *wire.MsgTx, idx int, value int64, subScript []byte, hashType SigHashType,
-	pubkey []*btcec.PublicKey, nRequired int, kdb GetSignDB) ([]byte, bool) {
+func signWitMultiSig(tx *wire.MsgTx, idx int, value int64, subScript []byte, sigHashes *TxSigHashes, hashType SigHashType,
+	pubkey []*btcec.PublicKey, nRequired int, kdb GetSignDB) ([]byte, bool, error) {
 	// We start with a single OP_FALSE to work around the (now standard)
 	// but in the reference implementation that causes a spurious pop at
-	// the end of OP_CHECKMULTISIG.
+	// the end of OP_CHECKMULTISIG. (Already fixed in mass script vm)
 	builder := NewScriptBuilder()
 	//.AddOp(OP_FALSE)
-	sigHashes := NewTxSigHashes(tx)
+	//sigHashes := NewTxSigHashes(tx)
 	signed := 0
 	for _, pk := range pubkey {
 		sig, err := RawTxInWitnessSignature(tx, sigHashes, idx, value, subScript,
 			hashType, pk, kdb)
 
 		if err != nil {
+			if len(pubkey) == 1 {
+				return nil, false, err
+			}
 			continue
 		}
 
@@ -92,14 +91,16 @@ func signWitMultiSig(tx *wire.MsgTx, idx int, value int64, subScript []byte, has
 		if signed == nRequired {
 			break
 		}
-
 	}
-	script, _ := builder.Script()
-	return script, signed == nRequired
+	script, err := builder.Script()
+	if err != nil && len(pubkey) == 1 {
+		return nil, false, err
+	}
+	return script, signed == nRequired, nil
 }
 
 func signwit(chainParams *config.Params, tx *wire.MsgTx, idx int, value int64,
-	subScript []byte, hashType SigHashType, kdb GetSignDB, sdb ScriptDB) ([]byte,
+	subScript []byte, sigHashes *TxSigHashes, hashType SigHashType, kdb GetSignDB, sdb ScriptDB) ([]byte,
 	ScriptClass, []massutil.Address, int, error) {
 	class, addresses, pubkey, nrequired, err := ExtractPkScriptAddrs(subScript,
 		chainParams)
@@ -114,19 +115,23 @@ func signwit(chainParams *config.Params, tx *wire.MsgTx, idx int, value int64,
 		if err != nil {
 			return nil, class, nil, 0, err
 		}
-
 		return script, class, addresses, nrequired, nil
-	case LocktimeScriptHashTy:
+	case StakingScriptHashTy:
 		script, err := sdb.GetScript(addresses[0])
 		if err != nil {
 			return nil, class, nil, 0, err
 		}
-
+		return script, class, addresses, nrequired, nil
+	case BindingScriptHashTy:
+		script, err := sdb.GetScript(addresses[0])
+		if err != nil {
+			return nil, class, nil, 0, err
+		}
 		return script, class, addresses, nrequired, nil
 	case MultiSigTy:
-		script, _ := signWitMultiSig(tx, idx, value, subScript, hashType,
+		script, _, err := signWitMultiSig(tx, idx, value, subScript, sigHashes, hashType,
 			pubkey, nrequired, kdb)
-		return script, class, addresses, nrequired, nil
+		return script, class, addresses, nrequired, err
 	case NullDataTy:
 		return nil, class, nil, 0,
 			errors.New("can't sign NULLDATA transactions")
@@ -138,15 +143,15 @@ func signwit(chainParams *config.Params, tx *wire.MsgTx, idx int, value int64,
 
 }
 
-func SignTxOutputWit(chainParams *config.Params, tx *wire.MsgTx, idx int, value int64, pkScript []byte, hashType SigHashType, kdb GetSignDB, sdb ScriptDB) (wire.TxWitness, error) {
+func SignTxOutputWit(chainParams *config.Params, tx *wire.MsgTx, idx int, value int64, pkScript []byte, sigHashes *TxSigHashes, hashType SigHashType, kdb GetSignDB, sdb ScriptDB) (wire.TxWitness, error) {
 	sigScript, _, _, _, err := signwit(chainParams, tx,
-		idx, value, pkScript, hashType, kdb, sdb)
+		idx, value, pkScript, sigHashes, hashType, kdb, sdb)
 	if err != nil {
 		return nil, err
 	}
 	// TODO keep the sub addressed and pass down to merge.
 	realSigScript, _, _, _, err := signwit(chainParams, tx, idx, value,
-		sigScript, hashType, kdb, sdb)
+		sigScript, sigHashes, hashType, kdb, sdb)
 
 	if err != nil {
 		return nil, err

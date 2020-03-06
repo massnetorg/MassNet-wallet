@@ -150,6 +150,7 @@ func WithData(err error, keyval ...interface{}) error {
 	if err == nil {
 		return nil
 	}
+	// TODO(kr): add vet check for odd-length keyval and non-string keys
 	newkv := make(map[string]interface{})
 	for k, v := range Data(err) {
 		newkv[k] = v

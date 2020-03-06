@@ -14,7 +14,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/massnetorg/MassNet-wallet/logging"
+	configpb "massnet.org/mass-wallet/config/pb"
+
+	"massnet.org/mass-wallet/logging"
 )
 
 // appDataDir returns an operating system specific directory to be used for
@@ -144,6 +146,18 @@ func NormalizeAddresses(addrs []string, defaultPort string) []string {
 	return removeDuplicateAddresses(addrs)
 }
 
+// NormalizeSeed accepts four types of params:
+//   (1) [IPV4/IPV6]
+//   (2) [IPV4/IPV6]:[PORT]
+//   (3) [DOMAIN]
+//   (4) [DOMAIN]:[PORT]
+// It returns error if receive other types of params.
+//
+// Run step:
+//   (1) check if Seed has port, then split Host and Port;
+//   (2) check validity of Port, then assign default value to empty Port;
+//   (3) randomly select an IP if Host is a domain;
+//   (4) join host and port.
 func NormalizeSeed(seed, defaultPort string) (string, error) {
 	// Step 1: Split Host and Port
 	if !strings.Contains(seed, ":") {
@@ -183,6 +197,7 @@ func NormalizeSeed(seed, defaultPort string) (string, error) {
 	return net.JoinHostPort(host, port), nil
 }
 
+// Normalize Seeds joined with ','.
 func NormalizeSeeds(inputs, defaultPort string) string {
 	// remove blank
 	inputs = strings.Replace(inputs, " ", "", -1)
@@ -203,4 +218,38 @@ func NormalizeSeeds(inputs, defaultPort string) string {
 	seeds = removeDuplicateAddresses(seeds)
 	// make result
 	return strings.Join(seeds, ",")
+}
+
+// NewDefaultConfig
+func NewDefaultConfig() *configpb.Config {
+	return &configpb.Config{
+		App: &configpb.AppConfig{},
+		Network: &configpb.NetworkConfig{
+			P2P: &configpb.P2PConfig{
+				Seeds:            "",
+				AddPeer:          make([]string, 0),
+				HandshakeTimeout: 30,
+				DialTimeout:      3,
+				ListenAddress:    "tcp://0.0.0.0:43453",
+			},
+			API: &configpb.APIConfig{
+				Host:         "localhost",
+				GRPCPort:     "9685",
+				HttpPort:     "9686",
+				HttpCORSAddr: []string{"localhost"},
+				DisableTls:   false,
+				RpcCert:      "./cert.crt",
+				RpcKey:       "./cert.key",
+			},
+		},
+		Log: &configpb.LogConfig{
+			LogDir:   "./logs",
+			LogLevel: "info",
+		},
+		Data: &configpb.DataConfig{
+			DbType:        "leveldb",
+			DbDir:         DefaultChainDataDir,
+			WalletPubPass: "1234567890",
+		},
+	}
 }

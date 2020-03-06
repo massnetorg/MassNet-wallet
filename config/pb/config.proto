@@ -2,51 +2,10 @@ syntax = "proto3";
 package configpb;
 
 message Config {
-    CommonConfig  common  = 1;
-    AppConfig     app     = 2;
-    NetworkConfig network = 3;
-    DataConfig    db      = 4;
-    LogConfig     log     = 5;
-    ChainConfig   chain   = 6;
-    MemPoolConfig pool    = 7;
-    WalletConfig  wallet  = 8;
-}
-
-message CommonConfig {
-
-}
-
-message AppConfig {
-    string profile               = 1;
-    string cpu_profile   = 2;
-    bool   no_peer_bloom_filters = 3;
-}
-
-message ChainConfig {
-    bool   disable_checkpoints = 1;
-}
-
-message NetworkConfig {
-    P2PConfig p2p = 1;
-    APIConfig api = 2;
-}
-
-message DataConfig {
-    string data_dir = 1;
-    string db_type  = 2;
-}
-
-message LogConfig {
-    string log_dir         = 1;
-    string debug_level     = 2;
-}
-
-message MemPoolConfig {
-
-}
-
-message WalletConfig {
-    string wallet_dir = 1;
+    AppConfig     app     = 1;
+    NetworkConfig network = 2;
+    LogConfig     log     = 3;
+    DataConfig   data   = 4;
 }
 
 message P2PConfig {
@@ -60,9 +19,33 @@ message P2PConfig {
 }
 
 message APIConfig {
-    string api_url          = 1;
-    string api_port_grpc = 2;
-    string api_port_http    = 3;
-    bool   api_use_tls      = 4;
-    string api_cors_addr = 5;
+    string host         = 1;
+    string grpc_port    = 2;
+    string http_port    = 3;
+    repeated string http_cors_addr = 4;
+    bool disable_tls = 5;
+    string rpc_cert     = 6;
+    string rpc_key      = 7;
+}
+
+message NetworkConfig {
+    P2PConfig p2p = 1;
+    APIConfig api = 2;
+}
+
+message LogConfig {
+    string log_dir       = 1;
+    string log_level     = 2;
+}
+
+message AppConfig {
+    string profile       = 1;
+    string cpu_profile   = 2;
+    bool   no_peer_bloom_filters = 3;
+}
+
+message DataConfig {
+    string db_type  = 1;
+    string db_dir = 2;
+    string wallet_pub_pass = 3;
 }

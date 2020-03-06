@@ -4,12 +4,10 @@ import (
 	"math/rand"
 	"net"
 
-	"github.com/massnetorg/MassNet-wallet/config"
-
-	crypto "github.com/tendermint/go-crypto"
-	cmn "github.com/tendermint/tmlibs/common"
-
-	"github.com/massnetorg/MassNet-wallet/p2p/connection"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/p2p/connection"
+	crypto "github.com/massnetorg/tendermint/go-crypto"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 //PanicOnAddPeerErr add peer error
@@ -50,9 +48,13 @@ func CreateRoutableAddr() (addr string, netAddr *NetAddress) {
 // initSwitch defines how the ith switch should be initialized (ie. with what reactors).
 // NOTE: panics if any switch fails to start.
 func MakeConnectedSwitches(cfg *config.Config, n int, initSwitch func(int, *Switch) *Switch, connect func([]*Switch, int, int)) []*Switch {
+	var err error
 	switches := make([]*Switch, n)
 	for i := 0; i < n; i++ {
-		switches[i] = MakeSwitch(cfg, i, "testing", "123.123.123", initSwitch)
+		switches[i], err = MakeSwitch(cfg, i, "testing", "123.123.123", initSwitch)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	if err := startSwitches(switches); err != nil {
@@ -104,10 +106,15 @@ func startSwitches(switches []*Switch) error {
 	return nil
 }
 
-func MakeSwitch(cfg *config.Config, i int, network, version string, initSwitch func(int, *Switch) *Switch) *Switch {
+func MakeSwitch(cfg *config.Config, i int, network, version string, initSwitch func(int, *Switch) *Switch) (*Switch, error) {
 	privKey := crypto.GenPrivKeyEd25519()
 	// new switch, add reactors
-	s := initSwitch(i, NewSwitch(cfg))
+	// TODO: let the config be passed in?
+	sw, err := NewSwitch(cfg)
+	if err != nil {
+		return nil, err
+	}
+	s := initSwitch(i, sw)
 	s.SetNodeInfo(&NodeInfo{
 		PubKey:     privKey.PubKey().Unwrap().(crypto.PubKeyEd25519),
 		Moniker:    cmn.Fmt("switch%d", i),
@@ -116,5 +123,5 @@ func MakeSwitch(cfg *config.Config, i int, network, version string, initSwitch f
 		ListenAddr: cmn.Fmt("%v:%v", network, rand.Intn(64512)+1023),
 	})
 	s.SetNodePrivKey(privKey)
-	return s
+	return s, nil
 }

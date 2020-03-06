@@ -1,34 +1,47 @@
-// Modified for MassNet
-// Copyright (c) 2013-2015 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package wire
 
 import (
+	"bytes"
 	"io"
+	"io/ioutil"
 )
 
-const CommandSize = 12
-
-const MaxMessagePayload = (1024 * 1024 * 32) // 32MB
-
-const (
-	CmdBlock  = "block"
-	CmdTx     = "tx"
-	CmdReject = "reject"
-)
-
-type MessageEncoding uint32
+// Mode to encode/decode data
+type CodecMode uint64
 
 const (
-	BaseEncoding MessageEncoding = 1 << iota
-	WitnessEncoding
+	DB CodecMode = iota
+	Packet
+	Plain
+	ID
+	WitnessID
+	PoCID
+	ChainID
 )
 
 type Message interface {
-	MassDecode(io.Reader, CodecMode) error
-	MassEncode(io.Writer, CodecMode) error
-	Command() string
-	MaxPayloadLength(uint32) uint32
+	Encode(io.Writer, CodecMode) (int, error)
+	Decode(io.Reader, CodecMode) (int, error)
+	Bytes(CodecMode) ([]byte, error)
+	SetBytes([]byte, CodecMode) error
+	PlainSize() int
+}
+
+func getBytes(msg Message, mode CodecMode) ([]byte, error) {
+	var buf bytes.Buffer
+	if _, err := msg.Encode(&buf, mode); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func setFromBytes(msg Message, bs []byte, mode CodecMode) error {
+	r := bytes.NewReader(bs)
+	_, err := msg.Decode(r, mode)
+	return err
+}
+
+func getPlainSize(msg Message) int {
+	n, _ := msg.Encode(ioutil.Discard, Plain)
+	return n
 }

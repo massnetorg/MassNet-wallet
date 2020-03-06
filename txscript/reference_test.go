@@ -1,4 +1,3 @@
-// Modified for MassNet
 // Copyright (c) 2013-2015 The btcsuite developers
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
@@ -97,7 +96,7 @@ func parseShortForm(script string) ([]byte, error) {
 			builder.TstConcatRawScript(bts)
 		} else if len(tok) >= 2 &&
 			tok[0] == '\'' && tok[len(tok)-1] == '\'' {
-			builder.AddFullData([]byte(tok[1:len(tok)-1]))
+			builder.AddFullData([]byte(tok[1 : len(tok)-1]))
 		} else if opcode, ok := shortFormOps[tok]; ok {
 			builder.AddOp(opcode)
 		} else {

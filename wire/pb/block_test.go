@@ -15,15 +15,13 @@ func TestBlock(t *testing.T) {
 		block := mockBlock(txCount)
 		buf, err := proto.Marshal(block)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 
 		newBlock := new(Block)
 		err = proto.Unmarshal(buf, newBlock)
 		if err != nil {
-			t.Error(err)
-			t.FailNow()
+			t.Fatal(err)
 		}
 
 		// compare block and newBlock
