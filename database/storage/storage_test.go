@@ -549,7 +549,7 @@ func testOverwrite(t *testing.T) {
 
 func TestCheckVersion(t *testing.T) {
 	dbdir := "testDb"
-	dbpath := filepath.Join(dbdir, ".ver")
+	dbpath := filepath.Join(dbdir, "")
 	dbtype := "testdb"
 
 	tests := []struct {
