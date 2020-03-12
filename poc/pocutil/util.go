@@ -17,10 +17,7 @@ func CutBigInt(bi *big.Int, bl int) PoCValue {
 // as little endian uint64, and masking result to bitLength value.
 func CutHash(hash Hash, bl int) PoCValue {
 	mask := PoCValue((1 << uint(bl)) - 1)
-	var b8 [8]byte
-	copy(b8[:], hash[:8])
-	h64 := binary.LittleEndian.Uint64(b8[:])
-
+	h64 := binary.LittleEndian.Uint64(hash[:8])
 	return mask & PoCValue(h64)
 }
 
@@ -57,9 +54,9 @@ func RecordSize(bl int) int {
 	return (bl + 7) >> 3
 }
 
-// PoCBytes sets vb and returns vb according to its bitLength,
+// NormalizePoCBytes sets vb and returns vb according to its bitLength,
 // upper bits would be set to zero.
-func PoCBytes(vb []byte, bl int) []byte {
+func NormalizePoCBytes(vb []byte, bl int) []byte {
 	size := RecordSize(bl)
 	if len(vb) < size {
 		return vb

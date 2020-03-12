@@ -29,11 +29,11 @@ func P(x PoCValue, bl int, pubKeyHash Hash) PoCValue {
 // PB calculates MASSSHA256(PoCPrefix || PubKeyHash || X).CutByBitLength(bitLength),
 // it takes in x as Byte Slice.
 func PB(x []byte, bl int, pubKeyHash Hash) PoCValue {
-	x = PoCBytes(x, bl)
-	raw := make([]byte, PoCPrefixLen+32+8)
+	var raw [PoCPrefixLen + 32 + 8]byte
 	copy(raw[:], PoCPrefix[:])
 	copy(raw[PoCPrefixLen:], pubKeyHash[:])
 	copy(raw[PoCPrefixLen+32:], x)
+	NormalizePoCBytes(raw[PoCPrefixLen+32:], bl)
 
 	return CutHash(MASSSHA256(raw[:]), bl)
 }
@@ -51,12 +51,13 @@ func F(x, xp PoCValue, bl int, pubKeyHash Hash) PoCValue {
 // FB calculates MASSSHA256(PoCPrefix || PubKeyHash || X || XP).CutByBitLength(bitLength),
 // it takes in (x, xp) as Byte Slice.
 func FB(x, xp []byte, bl int, pubKeyHash Hash) PoCValue {
-	x, xp = PoCBytes(x, bl), PoCBytes(xp, bl)
-	raw := make([]byte, PoCPrefixLen+32+8*2)
+	var raw [PoCPrefixLen + 32 + 8*2]byte
 	copy(raw[:], PoCPrefix[:])
 	copy(raw[PoCPrefixLen:], pubKeyHash[:])
 	copy(raw[PoCPrefixLen+32:], x)
 	copy(raw[PoCPrefixLen+32+8:], xp)
+	NormalizePoCBytes(raw[PoCPrefixLen+32:PoCPrefixLen+32+8], bl)
+	NormalizePoCBytes(raw[PoCPrefixLen+32+8:], bl)
 
 	return CutHash(MASSSHA256(raw[:]), bl)
 }

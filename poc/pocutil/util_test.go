@@ -241,7 +241,7 @@ func TestBytes2PoCValue(t *testing.T) {
 	}
 }
 
-func TestPoCBytes(t *testing.T) {
+func TestNormalizePoCBytes(t *testing.T) {
 	tests := []*struct {
 		vb   []byte
 		want []byte
@@ -294,8 +294,8 @@ func TestPoCBytes(t *testing.T) {
 		},
 	}
 	for i, test := range tests {
-		if got := pocutil.PoCBytes(test.vb, test.bl); !bytes.Equal(got, test.want) {
-			t.Errorf("%d, PoCBytes not equal, got = %x, want = %x", i, got, test.want)
+		if got := pocutil.NormalizePoCBytes(test.vb, test.bl); !bytes.Equal(got, test.want) {
+			t.Errorf("%d, NormalizePoCBytes not equal, got = %x, want = %x", i, got, test.want)
 		}
 	}
 }

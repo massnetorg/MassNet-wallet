@@ -18,11 +18,11 @@ const (
 	// MiB represents MiByte
 	MiB = 1024 * KiB
 
-	// minValidBitLength represents smallest BitLength
-	minValidBitLength = 24
+	// MinValidBitLength represents smallest BitLength
+	MinValidBitLength = 24
 
-	// maxValidBitLength represents biggest BitLength
-	maxValidBitLength = 40
+	// MaxValidBitLength represents biggest BitLength
+	MaxValidBitLength = 40
 )
 
 var (
@@ -30,7 +30,7 @@ var (
 	BitLengthDiskSize map[int]int
 
 	// MinDiskSize represents the disk size in byte of the smallest BitLength.
-	MinDiskSize = pocutil.RecordSize(24) * 2 * (1 << uint(24))
+	MinDiskSize = pocutil.RecordSize(MinValidBitLength) * 2 * (1 << uint(MinValidBitLength))
 
 	// validBitLength represents a slice of valid BitLength in increasing order.
 	validBitLength []int
@@ -38,7 +38,7 @@ var (
 
 func init() {
 	BitLengthDiskSize = make(map[int]int)
-	for i := minValidBitLength; i <= maxValidBitLength; i = i + 2 {
+	for i := MinValidBitLength; i <= MaxValidBitLength; i = i + 2 {
 		validBitLength = append(validBitLength, i)
 	}
 	for _, bl := range validBitLength {
@@ -55,7 +55,7 @@ type Proof struct {
 
 // EnsureBitLength returns whether it is a valid bitLength.
 func EnsureBitLength(bl int) bool {
-	if bl >= minValidBitLength && bl <= maxValidBitLength && bl%2 == 0 {
+	if bl >= MinValidBitLength && bl <= MaxValidBitLength && bl%2 == 0 {
 		return true
 	}
 	return false
@@ -96,7 +96,7 @@ func (proof *Proof) Decode(data []byte) error {
 }
 
 // VerifyProof verifies proof:
-// (1) make sure BitLength is Valid. Should be integer even number in [20, 40].
+// (1) make sure BitLength is Valid. Should be integer even number in [24, 40].
 // (2) perform function P on x and x_prime, the corresponding result
 //     y and y_prime should be a bit-flip pair.
 // (3) perform function F on x and x_prime, the result z should
