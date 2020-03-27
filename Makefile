@@ -8,6 +8,7 @@ build:
 	@echo "make build: begin"
 	@echo "building wallet to ./bin for current platform..."
 	@env GO111MODULE=on go build -o bin/masswallet
+	@env GO111MODULE=on go build -o bin/masswallet-cli cmd/masswalletcli/main.go
 	@echo "make build: end"
 
 test:
