@@ -97,43 +97,62 @@ func (w *WalletManager) autoConstructTxInAndChangeTxOut(msgTx *wire.MsgTx, LockT
 
 	// construct input and change output
 	for {
-		wantAmount, err := targetTxFee.Add(outAmounts)
-		if err != nil {
-			return outAmounts, err
-		}
-		// ensure no dust change output
-		wantAmount, err = wantAmount.Add(massutil.MinRelayTxFee())
-		if err != nil {
-			return outAmounts, err
-		}
-		utxos, firstAddr, foundAmount, _, err := w.findEligibleUtxos(wantAmount, addrs)
-		if err != nil {
-			return outAmounts, err
-		}
-
-		if foundAmount.Cmp(wantAmount) < 0 {
-			logging.CPrint(logging.ERROR, "Not enough mass to pay",
-				logging.LogFormat{
-					"foundAmount": foundAmount,
-					"wantAmount":  wantAmount,
-				})
-			return outAmounts, ErrInsufficient
-		}
-
-		txOutLen := len(msgTx.TxOut)
-		// construct change output
-		var changeOut *wire.TxOut
-		changeAmount, _ := foundAmount.Sub(wantAmount)
-		if !changeAmount.IsZero() {
-			if len(changeAddr) > 0 {
-				changeOut, err = amountToTxOut(changeAddr, changeAmount)
-			} else {
-				changeOut, err = amountToTxOut(firstAddr, changeAmount)
-			}
+		var (
+			adj       = massutil.ZeroAmount()
+			changeOut *wire.TxOut
+			txOutLen  int
+			utxos     []*txmgr.Credit
+		)
+		for {
+			want, err := targetTxFee.Add(outAmounts)
 			if err != nil {
 				return outAmounts, err
 			}
-			txOutLen++
+
+			// ensure no dust change output
+			wantAdj, err := want.Add(adj)
+			if err != nil {
+				return outAmounts, err
+			}
+
+			var (
+				firstAddr string
+				found     massutil.Amount
+			)
+
+			utxos, firstAddr, found, _, err = w.findEligibleUtxos(wantAdj, addrs)
+			if err != nil {
+				return outAmounts, err
+			}
+
+			if found.Cmp(wantAdj) < 0 {
+				logging.CPrint(logging.ERROR, "Not enough mass to pay",
+					logging.LogFormat{
+						"found": found,
+						"want":  wantAdj,
+					})
+				return outAmounts, ErrInsufficient
+			}
+
+			txOutLen = len(msgTx.TxOut)
+			// construct change output
+			changeAmount, _ := found.Sub(want)
+			if changeAmount.Cmp(massutil.MinRelayTxFee()) < 0 {
+				adj = massutil.MinRelayTxFee()
+				continue
+			}
+			if !changeAmount.IsZero() {
+				if len(changeAddr) > 0 {
+					changeOut, err = amountToTxOut(changeAddr, changeAmount)
+				} else {
+					changeOut, err = amountToTxOut(firstAddr, changeAmount)
+				}
+				if err != nil {
+					return outAmounts, err
+				}
+				txOutLen++
+			}
+			break
 		}
 
 		// calc acutal fee

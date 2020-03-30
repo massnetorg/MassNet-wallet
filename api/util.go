@@ -231,7 +231,7 @@ func checkPoCPubKeyAddress(address string, net *config.Params) (massutil.Address
 
 // not consensus requirement
 func checkFeeSecurity(amt, fee massutil.Amount) error {
-	if fee.IntValue() > amt.IntValue()*4/5 {
+	if fee.IntValue() > amt.IntValue() {
 		logging.CPrint(logging.ERROR, "Unreasonable fee", logging.LogFormat{
 			"fee":    fee,
 			"amount": amt,
