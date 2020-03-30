@@ -230,7 +230,7 @@ func NewDefaultConfig() *configpb.Config {
 				AddPeer:          make([]string, 0),
 				HandshakeTimeout: 30,
 				DialTimeout:      3,
-				ListenAddress:    "tcp://0.0.0.0:43453",
+				ListenAddress:    "tcp://0.0.0.0:43454",
 			},
 			API: &configpb.APIConfig{
 				Host:         "localhost",
