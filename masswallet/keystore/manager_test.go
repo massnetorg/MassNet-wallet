@@ -26,11 +26,12 @@ import (
 )
 
 const (
-	testDbRoot     = "testDbs"
-	keystoreBucket = "k"
-	utxoBucket     = "u"
-	txBucket       = "t"
-	syncBucket     = "s"
+	testDbRoot      = "testDbs"
+	keystoreBucket  = "k"
+	utxoBucket      = "u"
+	txBucket        = "t"
+	syncBucket      = "s"
+	addressGapLimit = 20
 )
 
 var (
@@ -141,7 +142,7 @@ func TestKeystoreManager_NewKeystore(t *testing.T) {
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		for _, scryptConfig := range testConfig {
 			start := time.Now()
-			_, _, err := km.NewKeystore(tx, 128, privPassphrase, "test", &config.ChainParams, scryptConfig)
+			_, _, err := km.NewKeystore(tx, 128, privPassphrase, "test", &config.ChainParams, scryptConfig, addressGapLimit)
 			if err != nil {
 				return err
 			}
@@ -177,29 +178,29 @@ func TestKeystoreManager_NewKeystore_NextAddress(t *testing.T) {
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != ErrCurrentKeystoreNotFound {
 			return fmt.Errorf("failed to catch err, %v", err)
 		}
@@ -209,17 +210,17 @@ func TestKeystoreManager_NewKeystore_NextAddress(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != ErrGapLimit {
 			return fmt.Errorf("failed to catch err, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, MaxAddressesPerAccount+1, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, MaxAddressesPerAccount+1, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != ErrExceedAllowedNumberPerAccount {
 			return fmt.Errorf("failed to catch err, %v", err)
 		}
 
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -253,7 +254,7 @@ func TestKeystoreManager_NewKeystore_NextAddress(t *testing.T) {
 	}
 
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-		_, err := km.NextAddresses(tx, checkFunc, false, 2, massutil.AddressClassWitnessV0)
+		_, err := km.NextAddresses(tx, checkFunc, false, 2, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return err
 		}
@@ -265,7 +266,7 @@ func TestKeystoreManager_NewKeystore_NextAddress(t *testing.T) {
 	}
 
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-		_, err := km.NextAddresses(tx, checkFunc, false, 1, massutil.AddressClassWitnessV0)
+		_, err := km.NextAddresses(tx, checkFunc, false, 1, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return err
 		}
@@ -302,12 +303,12 @@ func TestKeystoreManager_ExportKeystore_ImportKeystore(t *testing.T) {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -317,7 +318,7 @@ func TestKeystoreManager_ExportKeystore_ImportKeystore(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 2, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 2, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -333,7 +334,7 @@ func TestKeystoreManager_ExportKeystore_ImportKeystore(t *testing.T) {
 			}
 		}
 
-		internalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, true, 1, massutil.AddressClassWitnessV0)
+		internalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, true, 1, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -415,14 +416,14 @@ func TestKeystoreManager_ExportKeystore_ImportKeystore(t *testing.T) {
 		}
 
 		// import with wrong pass
-		_, err = km1.ImportKeystore(tx, checkFunc, keystoreJson, privPassphrase2)
+		_, err = km1.ImportKeystore(tx, checkFunc, keystoreJson, privPassphrase2, addressGapLimit)
 		if err != ErrInvalidPassphrase {
 			t.Fatalf("failed to catch err, %v", err)
 		}
 
 		// import keystore
 		start := time.Now()
-		addrManager, err := km1.ImportKeystore(tx, checkFunc, keystoreJson, privPassphrase)
+		addrManager, err := km1.ImportKeystore(tx, checkFunc, keystoreJson, privPassphrase, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to import keystore, %v", err)
 		}
@@ -481,7 +482,7 @@ func TestKeystoreManager_ImportKeystoreWithMnemonic(t *testing.T) {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -494,7 +495,7 @@ func TestKeystoreManager_ImportKeystoreWithMnemonic(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 10, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 10, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -549,7 +550,7 @@ func TestKeystoreManager_ImportKeystoreWithMnemonic(t *testing.T) {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		// import keystore
-		addrManager, err := km1.ImportKeystoreWithMnemonic(tx, checkFunc, mnemonic, remark, privPassphrase, externalIndex, internalIndex)
+		addrManager, err := km1.ImportKeystoreWithMnemonic(tx, checkFunc, mnemonic, remark, privPassphrase, externalIndex, internalIndex, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to import keystore, %v", err)
 		}
@@ -589,7 +590,7 @@ func TestKeystoreManager_ExportKeystore(t *testing.T) {
 	var accountID string
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		var err error
-		accountID, _, err = kmw.NewKeystore(tx, defaultBitSize, []byte("123456"), "first", &config.ChainParams, nil)
+		accountID, _, err = kmw.NewKeystore(tx, defaultBitSize, []byte("123456"), "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return err
 		}
@@ -606,7 +607,7 @@ func TestKeystoreManager_ExportKeystore(t *testing.T) {
 	}
 
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-		_, err := kmw.NextAddresses(tx, alwaysTrueCheck, false, 2, massutil.AddressClassWitnessV0)
+		_, err := kmw.NextAddresses(tx, alwaysTrueCheck, false, 2, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return err
 		}
@@ -668,7 +669,7 @@ func TestKeystoreManager_ExportKeystore(t *testing.T) {
 	showAddrManagerDetails(t, addrManager)
 
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-		_, err := kmw.NextAddresses(tx, alwaysTrueCheck, true, 2, massutil.AddressClassWitnessV0)
+		_, err := kmw.NextAddresses(tx, alwaysTrueCheck, true, 2, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return err
 		}
@@ -706,13 +707,13 @@ func TestKeystoreManager_DeleteKeystore(t *testing.T) {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		accountID = accountID1
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -722,7 +723,7 @@ func TestKeystoreManager_DeleteKeystore(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 2, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 2, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -738,7 +739,7 @@ func TestKeystoreManager_DeleteKeystore(t *testing.T) {
 			}
 		}
 
-		internalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, true, 1, massutil.AddressClassWitnessV0)
+		internalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, true, 1, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -827,7 +828,7 @@ func TestKeystoreManager_DeleteKeystore(t *testing.T) {
 	}
 
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-		addrManager, err := km.ImportKeystore(tx, checkFunc, keystoreJson, privPassphrase)
+		addrManager, err := km.ImportKeystore(tx, checkFunc, keystoreJson, privPassphrase, addressGapLimit)
 		if err != nil {
 			return err
 		}
@@ -861,7 +862,7 @@ func TestKeystoreManager_SignHash(t *testing.T) {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, fastScrypt)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -870,7 +871,7 @@ func TestKeystoreManager_SignHash(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
-		addrs, err := km.NextAddresses(tx, alwaysTrueCheck, false, 2, massutil.AddressClassWitnessV0)
+		addrs, err := km.NextAddresses(tx, alwaysTrueCheck, false, 2, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new address, %v", err)
 		}
@@ -968,24 +969,24 @@ func TestKeystoreManager_ChangePubPassphrase(t *testing.T) {
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, fastScrypt)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -995,12 +996,12 @@ func TestKeystoreManager_ChangePubPassphrase(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != ErrGapLimit {
 			return fmt.Errorf("failed to catch err, %v", err)
 		}
 
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -1076,13 +1077,13 @@ func TestKeystoreManager_ChangeRemark(t *testing.T) {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		accountID = accountID1
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1092,7 +1093,7 @@ func TestKeystoreManager_ChangeRemark(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysTrueCheck, false, 2, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysTrueCheck, false, 2, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -1153,25 +1154,25 @@ func TestKeystoreManager_GetManangedAddressByStdAddress(t *testing.T) {
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err = km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1181,12 +1182,12 @@ func TestKeystoreManager_GetManangedAddressByStdAddress(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != ErrGapLimit {
 			return fmt.Errorf("failed to catch err, %v", err)
 		}
 
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -1256,24 +1257,24 @@ func TestKeystoreManager_GetManangedAddressByScriptHash(t *testing.T) {
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1283,12 +1284,12 @@ func TestKeystoreManager_GetManangedAddressByScriptHash(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != ErrGapLimit {
 			return fmt.Errorf("failed to catch err, %v", err)
 		}
 
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -1346,12 +1347,12 @@ func TestKeystoreManager_GetMnemonic(t *testing.T) {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1360,7 +1361,7 @@ func TestKeystoreManager_GetMnemonic(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 3, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 3, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -1441,14 +1442,14 @@ func TestKeystoreManager_UseKeystoreForWallet(t *testing.T) {
 
 		// new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", &config.ChainParams, fastScrypt)
+		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
 
 		var mnemonic2 string
-		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", &config.ChainParams, fastScrypt)
+		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
@@ -1492,7 +1493,7 @@ func TestKeystoreManager_UseKeystoreForWallet(t *testing.T) {
 
 	err = mwdb.Update(ldb, func(dbTransaction mwdb.DBTransaction) error {
 		// new two external addresses for first account
-		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, false, 2, massutil.AddressClassWitnessStaking)
+		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, false, 2, addressGapLimit, massutil.AddressClassWitnessStaking)
 		if err != nil {
 			t.Fatalf("fialed to new 2 external addresses for first account, %v", err)
 		}
@@ -1514,7 +1515,7 @@ func TestKeystoreManager_UseKeystoreForWallet(t *testing.T) {
 
 	err = mwdb.Update(ldb, func(dbTransaction mwdb.DBTransaction) error {
 		// new two external addresses for second account
-		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, false, 2, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, false, 2, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			t.Fatalf("fialed to new 2 external addresses for second account, %v", err)
 		}
@@ -1536,7 +1537,7 @@ func TestKeystoreManager_UseKeystoreForWallet(t *testing.T) {
 
 	err = mwdb.Update(ldb, func(dbTransaction mwdb.DBTransaction) error {
 		// new two internal addresses for first account
-		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, true, 2, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, true, 2, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			t.Fatalf("fialed to new 2 internal addresses for first account, %v", err)
 		}
@@ -1580,24 +1581,24 @@ func TestKeystoreManager_GetAddrManager(t *testing.T) {
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1607,12 +1608,12 @@ func TestKeystoreManager_GetAddrManager(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != ErrGapLimit {
 			return fmt.Errorf("failed to catch err, %v", err)
 		}
 
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -1665,24 +1666,24 @@ func TestKeystoreManager_GetAddrs(t *testing.T) {
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1692,12 +1693,12 @@ func TestKeystoreManager_GetAddrs(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != ErrGapLimit {
 			return fmt.Errorf("failed to catch err, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysTrueCheck, false, 20, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysTrueCheck, false, 20, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -1752,14 +1753,14 @@ func TestKeystoreManager_GetAddrManagerByAccountID(t *testing.T) {
 
 		// new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", &config.ChainParams, fastScrypt)
+		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
 
 		var mnemonic2 string
-		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", &config.ChainParams, fastScrypt)
+		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
@@ -1778,7 +1779,7 @@ func TestKeystoreManager_GetAddrManagerByAccountID(t *testing.T) {
 
 	err = mwdb.Update(ldb, func(dbTransaction mwdb.DBTransaction) error {
 		// new two external addresses for first account
-		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, false, 2, massutil.AddressClassWitnessStaking)
+		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, false, 2, addressGapLimit, massutil.AddressClassWitnessStaking)
 		if err != nil {
 			t.Fatalf("fialed to new 2 external addresses for first account, %v", err)
 		}
@@ -1800,7 +1801,7 @@ func TestKeystoreManager_GetAddrManagerByAccountID(t *testing.T) {
 
 	err = mwdb.Update(ldb, func(dbTransaction mwdb.DBTransaction) error {
 		// new two external addresses for second account
-		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, false, 3, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(dbTransaction, alwaysTrueCheck, false, 3, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			t.Fatalf("fialed to new 2 external addresses for second account, %v", err)
 		}
@@ -1858,14 +1859,14 @@ func TestKeystoreManager_CheckPrivPassphrase(t *testing.T) {
 
 		// new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", &config.ChainParams, fastScrypt)
+		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
 
 		var mnemonic2 string
-		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", &config.ChainParams, fastScrypt)
+		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
@@ -1923,7 +1924,7 @@ func TestKeystoreManager_RemoveCachedKeystore(t *testing.T) {
 
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		var err error
-		_, _, err = kmw.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil)
+		_, _, err = kmw.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return err
 		}
@@ -1936,7 +1937,7 @@ func TestKeystoreManager_RemoveCachedKeystore(t *testing.T) {
 	var accountID2 string
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		var err error
-		accountID2, _, err = kmw.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, nil)
+		accountID2, _, err = kmw.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return err
 		}
@@ -1974,24 +1975,24 @@ func TestNewKeystoreManager(t *testing.T) {
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -2001,12 +2002,12 @@ func TestNewKeystoreManager(t *testing.T) {
 			return fmt.Errorf("failed to use keystore, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysFalseCheck, false, 21, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != ErrGapLimit {
 			return fmt.Errorf("failed to catch err, %v", err)
 		}
 
-		_, err = km.NextAddresses(tx, alwaysTrueCheck, false, 20, massutil.AddressClassWitnessV0)
+		_, err = km.NextAddresses(tx, alwaysTrueCheck, false, 20, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}
@@ -2068,7 +2069,7 @@ func TestKeystoreManager_NextAddresses_Mock(t *testing.T) {
 	var accountID string
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		var err error
-		accountID, _, err = km.NewKeystore(tx, 128, privPassphrase, "test", &config.ChainParams, fastScrypt)
+		accountID, _, err = km.NewKeystore(tx, 128, privPassphrase, "test", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return err
 		}
@@ -2094,7 +2095,7 @@ func TestKeystoreManager_NextAddresses_Mock(t *testing.T) {
 		zero.Bytes(saltPassphrase)
 		addrManager.unlocked = true
 
-		addrs, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, massutil.AddressClassWitnessV0)
+		addrs, err := km.NextAddresses(tx, alwaysTrueCheck, false, 20, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return err
 		}

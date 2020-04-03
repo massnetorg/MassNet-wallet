@@ -50,6 +50,8 @@ var (
 	allTxs map[wire.Hash]*wire.MsgTx
 
 	blks200 []*massutil.Block
+
+	cfg *config.Config
 )
 
 func init() {
@@ -87,6 +89,14 @@ func init() {
 			allTxs[*tx.Hash()] = tx.MsgTx()
 		}
 	}
+
+	cfg = &config.Config{
+		Config:      config.NewDefaultConfig(),
+		ConfigFile:  "",
+		ShowVersion: false,
+		Create:      false,
+	}
+
 }
 
 type mockServer struct {
@@ -179,7 +189,7 @@ func TestNewWallet(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown()
-	_, err = NewWalletManager(&mockServer{databaseDb}, walletDb, &config.ChainParams, pubPassphrase)
+	_, err = NewWalletManager(&mockServer{databaseDb}, walletDb, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -196,7 +206,7 @@ func TestWalletManager_CreateWallet_UseWallet_Wallets_WalletBalance(t *testing.T
 		t.Fatal("new walletDb error")
 	}
 	defer teardown()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -267,7 +277,7 @@ func TestWalletManager_NewAddress_GetAddresses(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -359,7 +369,7 @@ func TestWalletManager_ExportWallet_ImportWallet(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown1()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -395,7 +405,7 @@ func TestWalletManager_ExportWallet_ImportWallet(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown2()
-	w, err = NewWalletManager(&mockServer{databaseDb}, walletDb2, &config.ChainParams, pubPassphrase)
+	w, err = NewWalletManager(&mockServer{databaseDb}, walletDb2, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -482,7 +492,7 @@ func TestWalletManager_EstimateTxFee(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown1()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -608,7 +618,7 @@ func TestWalletManager_AutoConstructTx(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown1()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}

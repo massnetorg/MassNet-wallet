@@ -472,10 +472,12 @@ func (s *APIServer) CreateAddress(ctx context.Context, in *pb.CreateAddressReque
 			count++
 		}
 	}
-	if addressClass == massutil.AddressClassWitnessStaking && count >= 8 {
+	if addressClass == massutil.AddressClassWitnessStaking &&
+		count >= int(s.config.Advanced.MaxUnusedStakingAddress) {
 		return nil, status.New(ErrAPIUnusedAddressLimit, ErrCode[ErrAPIUnusedAddressLimit]).Err()
 	}
-	if addressClass == massutil.AddressClassWitnessV0 && count >= 12 {
+	if addressClass == massutil.AddressClassWitnessV0 &&
+		count >= int(s.config.Advanced.AddressGapLimit-s.config.Advanced.MaxUnusedStakingAddress) {
 		return nil, status.New(ErrAPIUnusedAddressLimit, ErrCode[ErrAPIUnusedAddressLimit]).Err()
 	}
 

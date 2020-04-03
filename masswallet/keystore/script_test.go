@@ -35,7 +35,7 @@ func Test_newWitnessScriptAddressForBtcec(t *testing.T) {
 
 		//new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil)
+		accountID1, mnemonic1, err = km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -52,7 +52,7 @@ func Test_newWitnessScriptAddressForBtcec(t *testing.T) {
 	}
 
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 3, massutil.AddressClassWitnessV0)
+		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 3, addressGapLimit, massutil.AddressClassWitnessV0)
 		if err != nil {
 			return fmt.Errorf("failed to new external address, %v", err)
 		}

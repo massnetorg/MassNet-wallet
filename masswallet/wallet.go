@@ -29,6 +29,7 @@ const (
 )
 
 type WalletManager struct {
+	config       *config.Config
 	db           mwdb.DB //walletdb
 	chainParams  *config.Params
 	chainFetcher ifc.ChainFetcher
@@ -49,7 +50,7 @@ type WalletManager struct {
 	wg sync.WaitGroup
 }
 
-func NewWalletManager(server Server, db mwdb.DB,
+func NewWalletManager(server Server, db mwdb.DB, config *config.Config,
 	chainParams *config.Params, pubpass string) (*WalletManager, error) {
 	if db == nil {
 		logging.CPrint(logging.ERROR, "db is nil", logging.LogFormat{
@@ -59,6 +60,7 @@ func NewWalletManager(server Server, db mwdb.DB,
 	}
 
 	w := &WalletManager{
+		config:       config,
 		db:           db,
 		chainParams:  chainParams,
 		chainFetcher: ifc.NewChainFetcher(server.ChainDB()),
@@ -274,7 +276,7 @@ func (w *WalletManager) CreateWallet(passphrase, remark string, bitSize int) (st
 	var walletId, mnemonic string
 	err := mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
 		var err error
-		walletId, mnemonic, err = w.ksmgr.NewKeystore(tx, bitSize, []byte(passphrase), remark, w.chainParams, &keystore.DefaultScryptOptions)
+		walletId, mnemonic, err = w.ksmgr.NewKeystore(tx, bitSize, []byte(passphrase), remark, w.chainParams, &keystore.DefaultScryptOptions, w.config.Advanced.AddressGapLimit)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to new keystore", logging.LogFormat{
 				"err": err,
@@ -309,8 +311,7 @@ func (w *WalletManager) ImportWallet(keystoreJSON, pass string) (*WalletSummary,
 	var ws *txmgr.WalletStatus
 	err := mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
 		var err error
-		// TODO: replace the function with one in chainFetcher
-		am, err = w.ksmgr.ImportKeystore(tx, w.chainFetcher.CheckScriptHashUsed, []byte(keystoreJSON), []byte(pass))
+		am, err = w.ksmgr.ImportKeystore(tx, w.chainFetcher.CheckScriptHashUsed, []byte(keystoreJSON), []byte(pass), w.config.Advanced.AddressGapLimit)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to import keystore", logging.LogFormat{
 				"err": err,
@@ -323,10 +324,28 @@ func (w *WalletManager) ImportWallet(keystoreJSON, pass string) (*WalletSummary,
 		ws = &txmgr.WalletStatus{
 			WalletID: am.Name(),
 		}
-		if len(am.ManagedAddresses()) == 0 {
+		addrs := am.ManagedAddresses()
+		if len(addrs) == 0 {
 			ws.SyncedHeight = txmgr.WalletSyncedDone
 		}
-		return w.syncStore.PutWalletStatus(tx, ws)
+		err = w.syncStore.PutWalletStatus(tx, ws)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "failed to put wallet status", logging.LogFormat{
+				"err": err,
+			})
+			return err
+		}
+
+		for _, managedAddr := range addrs {
+			err = w.utxoStore.PutNewAddress(tx, am.Name(), managedAddr.String(), massutil.AddressClassWitnessV0)
+			if err != nil {
+				logging.CPrint(logging.ERROR, "failed to put new address", logging.LogFormat{
+					"err": err,
+				})
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		if am != nil {
@@ -356,8 +375,7 @@ func (w *WalletManager) ImportWalletWithMnemonic(mnemonic, pass, remark string, 
 	var ws *txmgr.WalletStatus
 	err := mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
 		var err error
-		// TODO: replace the function with one in chainFetcher
-		am, err = w.ksmgr.ImportKeystoreWithMnemonic(tx, w.chainFetcher.CheckScriptHashUsed, mnemonic, remark, []byte(pass), externalIndex, internalIndex)
+		am, err = w.ksmgr.ImportKeystoreWithMnemonic(tx, w.chainFetcher.CheckScriptHashUsed, mnemonic, remark, []byte(pass), externalIndex, internalIndex, w.config.Advanced.AddressGapLimit)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to import keystore", logging.LogFormat{
 				"err": err,
@@ -370,10 +388,28 @@ func (w *WalletManager) ImportWalletWithMnemonic(mnemonic, pass, remark string, 
 		ws = &txmgr.WalletStatus{
 			WalletID: am.Name(),
 		}
-		if len(am.ManagedAddresses()) == 0 {
+		addrs := am.ManagedAddresses()
+		if len(addrs) == 0 {
 			ws.SyncedHeight = txmgr.WalletSyncedDone
 		}
-		return w.syncStore.PutWalletStatus(tx, ws)
+		err = w.syncStore.PutWalletStatus(tx, ws)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "failed to put wallet status", logging.LogFormat{
+				"err": err,
+			})
+			return err
+		}
+
+		for _, managedAddr := range addrs {
+			err = w.utxoStore.PutNewAddress(tx, am.Name(), managedAddr.String(), massutil.AddressClassWitnessV0)
+			if err != nil {
+				logging.CPrint(logging.ERROR, "failed to put new address", logging.LogFormat{
+					"err": err,
+				})
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		if am != nil {
@@ -668,7 +704,7 @@ func (w *WalletManager) GetUtxo(addrs []string) (map[string][]*UnspentDetail, er
 	return ret, nil
 }
 
-// TODO now only  generate external address default
+// TODO: only generate external address default
 func (w *WalletManager) NewAddress(addrClass uint16) (string, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -683,7 +719,7 @@ func (w *WalletManager) NewAddress(addrClass uint16) (string, error) {
 
 	var address string
 	err := mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
-		mas, err := w.ksmgr.NextAddresses(tx, w.chainFetcher.CheckScriptHashUsed, false, 1, addrClass)
+		mas, err := w.ksmgr.NextAddresses(tx, w.chainFetcher.CheckScriptHashUsed, false, 1, w.config.Advanced.AddressGapLimit, addrClass)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to nextAddress", logging.LogFormat{
 				"err": err,

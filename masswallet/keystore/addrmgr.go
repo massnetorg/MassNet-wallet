@@ -399,7 +399,7 @@ func (a *AddrManager) updatePrivKeys(pass []byte) error {
 	return nil
 }
 
-func (a *AddrManager) nextAddresses(dbTransaction db.DBTransaction, checkfunc func([]byte) (bool, error), internal bool, numAddresses uint32, net *config.Params, nRequired int, addressClass uint16) ([]*ManagedAddress, error) {
+func (a *AddrManager) nextAddresses(dbTransaction db.DBTransaction, checkfunc func([]byte) (bool, error), internal bool, numAddresses, addressGapLimit uint32, net *config.Params, nRequired int, addressClass uint16) ([]*ManagedAddress, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	am := dbTransaction.FetchBucket(a.storage)

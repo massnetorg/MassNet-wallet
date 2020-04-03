@@ -2,10 +2,13 @@ syntax = "proto3";
 package configpb;
 
 message Config {
-    AppConfig     app     = 1;
-    NetworkConfig network = 2;
-    LogConfig     log     = 3;
-    DataConfig   data   = 4;
+    AppConfig      app      = 1;
+    NetworkConfig  network  = 2;
+    LogConfig      log      = 3;
+    DataConfig     data     = 4;
+    AdvancedConfig advanced = 5; // Warning: Advanced settings can break compatibility.
+                                 // Do not attempt to set them if you dont know how they work.
+
 }
 
 message P2PConfig {
@@ -48,4 +51,9 @@ message DataConfig {
     string db_type  = 1;
     string db_dir = 2;
     string wallet_pub_pass = 3;
+}
+
+message AdvancedConfig {
+    uint32 address_gap_limit = 1;
+    uint32 max_unused_staking_address = 2;
 }

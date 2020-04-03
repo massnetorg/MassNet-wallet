@@ -113,7 +113,7 @@ func (l *Loader) createWallet(dbPath string) (*masswallet.WalletManager, error) 
 		logging.CPrint(logging.ERROR, "Error opening database", logging.LogFormat{"err": err})
 		return nil, err
 	}
-	w, err := masswallet.NewWalletManager(l.massServer, db, l.chainParams, l.cfg.Data.WalletPubPass)
+	w, err := masswallet.NewWalletManager(l.massServer, db, l.cfg, l.chainParams, l.cfg.Data.WalletPubPass)
 	if err != nil {
 		if e := db.Close(); e != nil {
 			logging.CPrint(logging.WARN, "Error closing database", logging.LogFormat{"dbPath": dbPath, "err": err})
@@ -145,7 +145,7 @@ func (l *Loader) openWallet(dbPath string) (*masswallet.WalletManager, error) {
 	if err != nil {
 		return nil, err
 	}
-	w, err := masswallet.NewWalletManager(l.massServer, db, l.chainParams, l.cfg.Data.WalletPubPass)
+	w, err := masswallet.NewWalletManager(l.massServer, db, l.cfg, l.chainParams, l.cfg.Data.WalletPubPass)
 	if err != nil {
 		if e := db.Close(); e != nil {
 			logging.CPrint(logging.WARN, "Error closing database", logging.LogFormat{"dbPath": dbPath, "err": err})

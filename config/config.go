@@ -37,6 +37,9 @@ const (
 	defaultBlockMinSize      = 0
 	defaultBlockMaxSize      = wire.MaxBlockPayload
 	defaultBlockPrioritySize = consensus.DefaultBlockPrioritySize
+
+	defaultAddressGapLimit         = 20
+	defaultMaxUnusedStakingAddress = 8
 )
 
 var (
@@ -177,6 +180,19 @@ func CheckConfig(cfg *Config) *Config {
 
 	// Checks for LogConfig
 	cfg.Log.LogDir = cleanAndExpandPath(cfg.Log.LogDir)
+
+	// Checks for AdvancedConfig
+	if cfg.Advanced.AddressGapLimit <= 1 {
+		err := errors.New(fmt.Sprintf("AddressGapLimit should be larger than 1"))
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(0)
+	}
+	if cfg.Advanced.AddressGapLimit <= cfg.Advanced.MaxUnusedStakingAddress {
+		cfg.Advanced.MaxUnusedStakingAddress = (uint32)(float32(cfg.Advanced.AddressGapLimit) * 0.2)
+	}
+	if cfg.Advanced.MaxUnusedStakingAddress == 0 {
+		cfg.Advanced.MaxUnusedStakingAddress = 1
+	}
 
 	return cfg
 }

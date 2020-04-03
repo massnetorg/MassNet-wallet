@@ -71,8 +71,12 @@ func iniWallet(walletName string) (*wallet, error) {
 		return nil, err
 	}
 
+	cfg := &config.Config{
+		Config: config.NewDefaultConfig(),
+	}
+
 	var w wallet
-	w.mgr, err = NewWalletManager(iniServer(), db, &config.ChainParams, pubpass)
+	w.mgr, err = NewWalletManager(iniServer(), db, cfg, &config.ChainParams, pubpass)
 	if err != nil {
 		db.Close()
 		return nil, err

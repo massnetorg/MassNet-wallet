@@ -26,8 +26,9 @@ import (
 
 // testDbRoot is the root directory used to create all test databases.
 const (
-	testDbRoot = "testDbs"
-	dbtype     = "leveldb"
+	testDbRoot      = "testDbs"
+	dbtype          = "leveldb"
+	addressGapLimit = uint32(20)
 )
 
 var (
@@ -370,7 +371,7 @@ func testTxStore(txStoreName string, databaseDb database.Db) (txstore *TxStore, 
 		// 	return err
 		// }
 		_, err = s.ksmgr.ImportKeystore(tx, func(scriptHash []byte) (bool, error) { return false, nil },
-			[]byte(ks_mainnet), privPassphrase_mainnet)
+			[]byte(ks_mainnet), privPassphrase_mainnet, addressGapLimit)
 		if err != nil {
 			return err
 		}

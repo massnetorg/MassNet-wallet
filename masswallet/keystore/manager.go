@@ -68,9 +68,6 @@ const (
 
 	// defaultBitSize is the default length of entropy
 	defaultBitSize = 128
-
-	// maximum number of unused addresses in a keystore
-	addressGapLimit = uint32(20)
 )
 
 type AddrUse uint8
@@ -175,7 +172,7 @@ func generateSeed(bitSize int, privpass []byte) ([]byte, string, []byte, error) 
 // multiple address derivation schems to be maintained concurrently.
 func createManagerKeyScope(km db.Bucket, root *hdkeychain.ExtendedKey,
 	cryptoKeyPub, cryptoKeyPriv EncryptorDecryptor, hdpath *hdPath, checkfunc func([]byte) (bool, error),
-	net *config.Params) (db.BucketMeta, error) {
+	net *config.Params, addressGapLimit uint32) (db.BucketMeta, error) {
 
 	scope := Net2KeyScope[net.HDCoinType]
 
@@ -528,7 +525,7 @@ func createManagerKeyScope(km db.Bucket, root *hdkeychain.ExtendedKey,
 	return accountBucket.GetBucketMeta(), nil
 }
 
-func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, remark string, net *config.Params,
+func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, remark string, net *config.Params, addressGapLimit uint32,
 	scryptConfig *ScryptOptions, hdPath *hdPath, pubPassphrase, privPassphrase, entropy, seed []byte, checkfunc func([]byte) (bool, error)) (db.BucketMeta, error) {
 	// get the km bucket created before
 	kmBucket := dbTransaction.FetchBucket(kmBucketMeta)
@@ -612,7 +609,7 @@ func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, 
 	zero.Bytes(entropy)
 
 	acctBucketMeta, err := createManagerKeyScope(kmBucket, rootKey,
-		cryptoKeyPub, cryptoKeyPriv, hdPath, checkfunc, net)
+		cryptoKeyPub, cryptoKeyPriv, hdPath, checkfunc, net, addressGapLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -667,7 +664,7 @@ func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, 
 // A ManagerError with an error code of ErrAlreadyExists will be returned the
 // address manager already exists in the specified namespace.
 func create(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, bitSize int, pubPassphrase, privPassphrase []byte,
-	usage AddrUse, remark string, net *config.Params, scryptConfig *ScryptOptions) (db.BucketMeta, string, error) {
+	usage AddrUse, remark string, net *config.Params, scryptConfig *ScryptOptions, addressGapLimit uint32) (db.BucketMeta, string, error) {
 	if !ValidatePassphrase(privPassphrase) {
 		return nil, "", ErrIllegalPassphrase
 	}
@@ -695,7 +692,7 @@ func create(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, bitSize 
 		ExternalChildNum: 0,
 	}
 
-	acctBucketMeta, err := initAcctBucket(dbTransaction, kmBucketMeta, remark, net, scryptConfig, hdpath, pubPassphrase,
+	acctBucketMeta, err := initAcctBucket(dbTransaction, kmBucketMeta, remark, net, addressGapLimit, scryptConfig, hdpath, pubPassphrase,
 		privPassphrase, entropy, seed, nil)
 	if err != nil {
 		return nil, "", err
@@ -906,12 +903,12 @@ func loadAddrManager(amBucket db.Bucket, pubPassphrase []byte, net *config.Param
 }
 
 func (km *KeystoreManager) NewKeystore(dbTransaction db.DBTransaction, bitSize int, privPassphrase []byte, remark string,
-	net *config.Params, scryptConfig *ScryptOptions) (string, string, error) {
+	net *config.Params, scryptConfig *ScryptOptions, addressGapLimit uint32) (string, string, error) {
 	km.mu.Lock()
 	defer km.mu.Unlock()
 
 	// create hd key chain and init the bucket
-	acctBucketMeta, mnemonic, err := create(dbTransaction, km.ksMgrMeta, bitSize, km.pubPassphrase, privPassphrase, WalletUsage, remark, net, scryptConfig)
+	acctBucketMeta, mnemonic, err := create(dbTransaction, km.ksMgrMeta, bitSize, km.pubPassphrase, privPassphrase, WalletUsage, remark, net, scryptConfig, addressGapLimit)
 	if err != nil {
 		return "", "", err
 	}
@@ -930,7 +927,7 @@ func (km *KeystoreManager) NewKeystore(dbTransaction db.DBTransaction, bitSize i
 }
 
 func (km *KeystoreManager) allocAddrMgrNamespace(dbTransaction db.DBTransaction, privPassphrase []byte, pubPassphrase []byte,
-	kStore *Keystore, checkfunc func([]byte) (bool, error), net *config.Params, scryptConfig *ScryptOptions) (db.BucketMeta, error) {
+	kStore *Keystore, checkfunc func([]byte) (bool, error), net *config.Params, scryptConfig *ScryptOptions, addressGapLimit uint32) (db.BucketMeta, error) {
 	masterKeyPrivParams, err := hex.DecodeString(kStore.Crypto.PrivParams)
 	if err != nil {
 		return nil, err
@@ -1037,7 +1034,7 @@ func (km *KeystoreManager) allocAddrMgrNamespace(dbTransaction db.DBTransaction,
 	}
 
 	acctBucketMeta, err := createManagerKeyScope(kmBucket, rootKey,
-		cryptoKeyPub, cryptoKeyPriv, &kStore.HDpath, checkfunc, net)
+		cryptoKeyPub, cryptoKeyPriv, &kStore.HDpath, checkfunc, net, addressGapLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -1074,7 +1071,7 @@ func (km *KeystoreManager) allocAddrMgrNamespace(dbTransaction db.DBTransaction,
 }
 
 func (km *KeystoreManager) ImportKeystore(dbTransaction db.DBTransaction, checkfunc func([]byte) (bool, error),
-	keystoreJson []byte, oldPrivPass []byte) (*AddrManager, error) {
+	keystoreJson []byte, oldPrivPass []byte, addressGapLimit uint32) (*AddrManager, error) {
 	km.mu.Lock()
 	defer km.mu.Unlock()
 
@@ -1099,7 +1096,7 @@ func (km *KeystoreManager) ImportKeystore(dbTransaction db.DBTransaction, checkf
 	}
 
 	// storage update
-	amBucketMeta, err := km.allocAddrMgrNamespace(dbTransaction, oldPrivPass, km.pubPassphrase, kStore, checkfunc, km.params, nil)
+	amBucketMeta, err := km.allocAddrMgrNamespace(dbTransaction, oldPrivPass, km.pubPassphrase, kStore, checkfunc, km.params, nil, addressGapLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -1116,7 +1113,7 @@ func (km *KeystoreManager) ImportKeystore(dbTransaction db.DBTransaction, checkf
 }
 
 func (km *KeystoreManager) ImportKeystoreWithMnemonic(dbTransaction db.DBTransaction, checkfunc func([]byte) (bool, error),
-	mnemonic, remark string, privPass []byte, externalIndex, internalIndex uint32) (*AddrManager, error) {
+	mnemonic, remark string, privPass []byte, externalIndex, internalIndex, addressGapLimit uint32) (*AddrManager, error) {
 	km.mu.Lock()
 	defer km.mu.Unlock()
 
@@ -1139,7 +1136,7 @@ func (km *KeystoreManager) ImportKeystoreWithMnemonic(dbTransaction db.DBTransac
 		hdpath.ExternalChildNum = 1
 	}
 
-	acctBucketMeta, err := initAcctBucket(dbTransaction, km.ksMgrMeta, remark, km.params, &DefaultScryptOptions, hdpath,
+	acctBucketMeta, err := initAcctBucket(dbTransaction, km.ksMgrMeta, remark, km.params, addressGapLimit, &DefaultScryptOptions, hdpath,
 		km.pubPassphrase, privPass, entropy, seed, checkfunc)
 	if err != nil {
 		return nil, err
@@ -1300,7 +1297,7 @@ func (km *KeystoreManager) RemoveCachedKeystore(accountID string) {
 	}
 }
 
-func (km *KeystoreManager) NextAddresses(dbTransaction db.DBTransaction, checkfunc func([]byte) (bool, error), internal bool, numAddresses uint32, addressClass uint16) ([]*ManagedAddress, error) {
+func (km *KeystoreManager) NextAddresses(dbTransaction db.DBTransaction, checkfunc func([]byte) (bool, error), internal bool, numAddresses, addressGapLimit uint32, addressClass uint16) ([]*ManagedAddress, error) {
 	km.mu.Lock()
 	defer km.mu.Unlock()
 
@@ -1309,7 +1306,7 @@ func (km *KeystoreManager) NextAddresses(dbTransaction db.DBTransaction, checkfu
 	}
 	accountID := km.currentKeystore.accountName
 	addrManager := km.managedKeystores[accountID]
-	managedAddresses, err := addrManager.nextAddresses(dbTransaction, checkfunc, internal, numAddresses, km.params, nRequiredDefault, addressClass)
+	managedAddresses, err := addrManager.nextAddresses(dbTransaction, checkfunc, internal, numAddresses, addressGapLimit, km.params, nRequiredDefault, addressClass)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "new address failed",
 			logging.LogFormat{
