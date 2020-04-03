@@ -1,6 +1,8 @@
 # MassNet Wallet
 
-  A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
+[![Build Status](https://travis-ci.org/mass-community/MassNet-wallet.svg)](https://travis-ci.org/mass-community/MassNet-wallet) [![MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)](./LICENSE)
+
+A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
 
 ## Requirements
 
