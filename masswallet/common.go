@@ -137,11 +137,11 @@ func (w *WalletManager) autoConstructTxInAndChangeTxOut(msgTx *wire.MsgTx, LockT
 			txOutLen = len(msgTx.TxOut)
 			// construct change output
 			changeAmount, _ := found.Sub(want)
-			if changeAmount.Cmp(massutil.MinRelayTxFee()) < 0 {
-				adj = massutil.MinRelayTxFee()
-				continue
-			}
 			if !changeAmount.IsZero() {
+				if changeAmount.Cmp(massutil.MinRelayTxFee()) < 0 {
+					adj = massutil.MinRelayTxFee()
+					continue
+				}
 				if len(changeAddr) > 0 {
 					changeOut, err = amountToTxOut(changeAddr, changeAmount)
 				} else {
