@@ -110,7 +110,7 @@ func (s *mockServer) ChainDB() database.Db {
 	return s.db
 }
 func (s *mockServer) TxMemPool() *blockchain.TxPool {
-	return nil
+	return blockchain.NewTxPool(nil, nil, nil)
 }
 
 // filesExists returns whether or not the named file or directory exists.

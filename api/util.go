@@ -270,12 +270,11 @@ func convertResponseError(err error) error {
 		})
 		return status.New(ErrAPIInvalidFlag, ErrCode[ErrAPIInvalidFlag]).Err()
 	case keystore.ErrUnexpectedPubKeyToSign,
-		masswallet.ErrUTXONotExists,
-		masswallet.ErrDoubleSpend:
-		logging.CPrint(logging.ERROR, ErrCode[ErrAPIUtxoNotExistsInTxIn], logging.LogFormat{
+		masswallet.ErrUTXONotExists:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIOutputNotExist], logging.LogFormat{
 			"err": err,
 		})
-		return status.New(ErrAPIUtxoNotExistsInTxIn, ErrCode[ErrAPIUtxoNotExistsInTxIn]).Err()
+		return status.New(ErrAPIOutputNotExist, ErrCode[ErrAPIOutputNotExist]).Err()
 	case masswallet.ErrSignWitnessTx,
 		keystore.ErrBuildWitnessScript:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPISignRawTx], logging.LogFormat{
@@ -370,8 +369,7 @@ func convertResponseError(err error) error {
 			"err": err,
 		})
 		return status.New(ErrAPIGapLimit, ErrCode[ErrAPIGapLimit]).Err()
-	case errors.ErrTxAlreadyExists,
-		blockchain.ErrDoubleSpend:
+	case errors.ErrTxAlreadyExists:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPITxAlreadyExists], logging.LogFormat{
 			"err": err,
 		})
@@ -385,15 +383,21 @@ func convertResponseError(err error) error {
 		return status.New(ErrAPINonStandardTxSize, ErrCode[ErrAPINonStandardTxSize]).Err()
 	case blockchain.ErrImmatureSpend,
 		blockchain.ErrSequenceNotSatisfied:
-		logging.CPrint(logging.ERROR, ErrCode[ErrAPIUnspendableUtxo], logging.LogFormat{
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIUnspendable], logging.LogFormat{
 			"err": err,
 		})
-		return status.New(ErrAPIUnspendableUtxo, ErrCode[ErrAPIUnspendableUtxo]).Err()
+		return status.New(ErrAPIUnspendable, ErrCode[ErrAPIUnspendable]).Err()
 	case blockchain.ErrInsufficientFee:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPIUserTxFee], logging.LogFormat{
 			"err": err,
 		})
 		return status.New(ErrAPIUserTxFee, ErrCode[ErrAPIUserTxFee]).Err()
+	case blockchain.ErrDoubleSpend,
+		masswallet.ErrDoubleSpend:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIDoubleSpend], logging.LogFormat{
+			"err": err,
+		})
+		return status.New(ErrAPIDoubleSpend, ErrCode[ErrAPIDoubleSpend]).Err()
 	default:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPIUnknownErr], logging.LogFormat{
 			"err": err,

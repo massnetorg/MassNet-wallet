@@ -7,7 +7,8 @@ const (
 	ErrAPIUserTxFee          = 1103
 	ErrAPIGetStakingTxDetail = 1105
 	ErrAPISignRawTx          = 1106
-	ErrAPIUnspendableUtxo    = 1107
+	ErrAPIUnspendable        = 1107
+	ErrAPIDoubleSpend        = 1108
 
 	// block err
 	ErrAPINewestHash          = 1201
@@ -18,7 +19,7 @@ const (
 	ErrAPIGetAddresses              = 1302
 	ErrAPINoWalletInUse             = 1303
 	ErrAPIInsufficientWalletBalance = 1304
-	ErrAPIUtxoNotExistsInTxIn       = 1305
+	ErrAPIOutputNotExist            = 1305
 	ErrAPIWalletUnready             = 1306
 	ErrAPIGapLimit                  = 1307
 	ErrAPIUnusedAddressLimit        = 1308
@@ -82,7 +83,7 @@ var ErrCode = map[uint32]string{
 	ErrAPIInvalidVersion:            "Invalid version",
 	ErrAPIInsufficientWalletBalance: "Insufficient wallet balance",
 	ErrAPIInvalidTxHex:              "Invalid txHex",
-	ErrAPIUtxoNotExistsInTxIn:       "UTXO of TxIn not exists in the wallet",
+	ErrAPIOutputNotExist:            "Output not exist",
 	ErrAPIDuplicateSeed:             "Duplicate seed in the wallet",
 	ErrAPIPrivPassSameAsPubPass:     "New private passphrase same as public passphrase",
 	ErrAPIWalletUnready:             "Wallet is unready, need to wait util wallet imported",
@@ -99,5 +100,6 @@ var ErrCode = map[uint32]string{
 	ErrAPIQueryDataFailed:    "Query for data failed",
 	ErrAPIAbnormalData:       "Abnormal data",
 	ErrAPIUnusedAddressLimit: "Too many unused address",
-	ErrAPIUnspendableUtxo:    "Unspendable utxo",
+	ErrAPIUnspendable:        "Unspendable output",
+	ErrAPIDoubleSpend:        "Output already spent",
 }

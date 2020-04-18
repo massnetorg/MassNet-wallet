@@ -66,7 +66,7 @@ func NewWalletManager(server Server, db mwdb.DB, config *config.Config,
 		chainFetcher: ifc.NewChainFetcher(server.ChainDB()),
 		bucketMeta:   &txmgr.StoreBucketMeta{},
 		server:       server,
-		usedCache:    cache.New(2*time.Minute, 5*time.Minute),
+		usedCache:    cache.New(5*time.Minute, 10*time.Minute),
 	}
 
 	err := mwdb.Update(db, func(tx mwdb.DBTransaction) error {

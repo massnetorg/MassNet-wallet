@@ -16,7 +16,7 @@ var (
 	ErrInsufficient          = errors.New("Insufficient balance")
 	ErrInvalidFlag           = errors.New("Invalid sighash parameter")
 	ErrInvalidIndex          = errors.New("Invalid OutPoint index")
-	ErrDoubleSpend           = errors.New("OutPoint index has been spent")
+	ErrDoubleSpend           = errors.New("Output already spent")
 
 	ErrSignWitnessTx = errors.New("Failed to sign witness tx")
 

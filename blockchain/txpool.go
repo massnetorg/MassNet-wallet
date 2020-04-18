@@ -434,6 +434,11 @@ func (tp *TxPool) checkPoolDoubleSpend(tx *massutil.Tx) error {
 	return nil
 }
 
+func (tp *TxPool) CheckPoolOutPointSpend(op *wire.OutPoint) bool {
+	_, exist := tp.outpoints[*op]
+	return exist
+}
+
 // FetchInputTransactions fetches the input transactions referenced by the
 // passed transaction.  First, it fetches from the main chain, then it tries to
 // fetch any missing inputs from the transaction pool.

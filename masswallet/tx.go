@@ -560,7 +560,7 @@ func (w *WalletManager) getUtxosExcludeBindingAndStaking(stdAddresses []string,
 			func(item *txmgr.Credit) (stopIter, selected bool) {
 				if item.Confirmations >= item.Maturity && !item.Flags.SpentByUnmined && !item.Flags.Spent &&
 					item.Flags.Class != txmgr.ClassBindingUtxo && item.Flags.Class != txmgr.ClassStakingUtxo &&
-					!w.UTXOUsed(&item.OutPoint) {
+					!w.UTXOUsed(&item.OutPoint) && !w.server.TxMemPool().CheckPoolOutPointSpend(&item.OutPoint) {
 					selector.submit(item)
 				}
 				return
