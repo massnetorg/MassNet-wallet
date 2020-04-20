@@ -73,3 +73,7 @@ func (s *topKSelector) Items() []*txmgr.Credit {
 	}
 	return result
 }
+
+func (s *topKSelector) K() int {
+	return s.k
+}

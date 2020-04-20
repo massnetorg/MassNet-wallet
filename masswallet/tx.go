@@ -424,39 +424,39 @@ func (w *WalletManager) estimateSignedSize(utxos []*txmgr.Credit, TxOutLen int) 
 }
 
 func (w *WalletManager) findEligibleUtxos(amount massutil.Amount, witnessAddr []string) (
-	[]*txmgr.Credit, string, massutil.Amount, massutil.Amount, error) {
+	[]*txmgr.Credit, string, massutil.Amount, bool, error) {
 	zeroAmount := massutil.ZeroAmount()
 	if len(witnessAddr) == 0 {
 		logging.CPrint(logging.ERROR, "inputParams can not be nil",
 			logging.LogFormat{
 				"err": ErrInvalidParameter,
 			})
-		return nil, "", zeroAmount, zeroAmount, ErrInvalidParameter
+		return nil, "", zeroAmount, false, ErrInvalidParameter
 	}
 	if amount.IsZero() {
 		logging.CPrint(logging.ERROR, "amount must be greater than 0",
 			logging.LogFormat{
 				"err": ErrInvalidParameter,
 			})
-		return nil, "", zeroAmount, zeroAmount, ErrInvalidParameter
+		return nil, "", zeroAmount, false, ErrInvalidParameter
 	}
 
-	utxos, err := w.getUtxosExcludeBindingAndStaking(witnessAddr, amount)
+	utxos, overfull, err := w.getUtxosExcludeBindingAndStaking(witnessAddr, amount)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "get utxos failed", logging.LogFormat{"err": err})
-		return nil, "", zeroAmount, zeroAmount, err
+		return nil, "", zeroAmount, false, err
 	}
 
-	utxosReturn, utBal, totalBal, err := optOutputs(amount, utxos)
+	selections, sumSelection, _, err := optOutputs(amount, utxos)
 	if err != nil {
-		return nil, "", zeroAmount, zeroAmount, err
+		return nil, "", zeroAmount, false, err
 	}
 	firstAddr := ""
-	if len(utxosReturn) > 0 {
+	if len(selections) > 0 {
 		am := w.ksmgr.CurrentKeystore()
 		for _, addr := range witnessAddr {
 			ma, _ := am.Address(addr)
-			if bytes.Equal(ma.ScriptAddress(), utxosReturn[0].ScriptHash) {
+			if bytes.Equal(ma.ScriptAddress(), selections[0].ScriptHash) {
 				firstAddr = addr
 				break
 			}
@@ -464,14 +464,14 @@ func (w *WalletManager) findEligibleUtxos(amount massutil.Amount, witnessAddr []
 		if len(firstAddr) == 0 {
 			logging.CPrint(logging.ERROR, "unexpected error: change address not found", logging.LogFormat{
 				"wallet":    am.Name(),
-				"first":     utxosReturn[0].ScriptHash,
+				"first":     selections[0].ScriptHash,
 				"addresses": witnessAddr,
 			})
-			return nil, "", zeroAmount, zeroAmount, fmt.Errorf("change address not found")
+			return nil, "", zeroAmount, false, fmt.Errorf("change address not found")
 		}
 	}
 
-	return utxosReturn, firstAddr, utBal, totalBal, nil
+	return selections, firstAddr, sumSelection, overfull && len(utxos) == len(selections), nil
 }
 
 func (w *WalletManager) getUtxos(addrs []string) (map[string][]*txmgr.Credit, []*txmgr.Credit, error) {
@@ -534,18 +534,18 @@ func (w *WalletManager) getUtxos(addrs []string) (map[string][]*txmgr.Credit, []
 }
 
 func (w *WalletManager) getUtxosExcludeBindingAndStaking(stdAddresses []string,
-	wantAmt massutil.Amount) ([]*txmgr.Credit, error) {
+	wantAmt massutil.Amount) ([]*txmgr.Credit, bool, error) {
 
 	am := w.ksmgr.CurrentKeystore()
 	if am == nil {
-		return nil, ErrNoWalletInUse
+		return nil, false, ErrNoWalletInUse
 	}
 
 	scriptSet := make(map[string]struct{})
 	for _, addr := range stdAddresses {
 		ma, err := am.Address(addr)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		scriptSet[string(ma.ScriptAddress())] = struct{}{}
 	}
@@ -568,19 +568,20 @@ func (w *WalletManager) getUtxosExcludeBindingAndStaking(stdAddresses []string,
 		return err
 	})
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return selector.Items(), nil
+	items := selector.Items()
+	return items, len(items) == selector.K(), nil
 }
 
 func optOutputs(amount massutil.Amount, utxos []*txmgr.Credit) ([]*txmgr.Credit, massutil.Amount, massutil.Amount, error) {
 	zeroAmount := massutil.ZeroAmount()
 	//sort the utxo by amount, bigger amount in front
 	var (
-		amountReturn = massutil.ZeroAmount()
 		optAmount    = massutil.ZeroAmount()
-		totalAmount  = massutil.ZeroAmount()
-		utsReturn    = make([]*txmgr.Credit, 0)
+		sumSelection = massutil.ZeroAmount()
+		sumReserve   = massutil.ZeroAmount()
+		selections   = make([]*txmgr.Credit, 0)
 	)
 	if amount.IsZero() {
 		return nil, zeroAmount, zeroAmount, nil
@@ -595,7 +596,7 @@ func optOutputs(amount massutil.Amount, utxos []*txmgr.Credit) ([]*txmgr.Credit,
 
 	var err error
 	for index, u11 := range utxos {
-		totalAmount, err = totalAmount.Add(u11.Amount)
+		sumReserve, err = sumReserve.Add(u11.Amount)
 		if err != nil {
 			return nil, zeroAmount, zeroAmount, err
 		}
@@ -627,21 +628,20 @@ func optOutputs(amount massutil.Amount, utxos []*txmgr.Credit) ([]*txmgr.Credit,
 			continue
 		}
 		selectedUtIndex = append(selectedUtIndex, index)
-		//utsReturn = append(utsReturn, u11)
 		if optAmount.Cmp(amount) == 0 {
 			break
 		}
 	}
 
 	for _, index := range selectedUtIndex {
-		amountReturn, err = amountReturn.Add(utxos[index].Amount)
+		sumSelection, err = sumSelection.Add(utxos[index].Amount)
 		if err != nil {
 			return nil, zeroAmount, zeroAmount, err
 		}
-		utsReturn = append(utsReturn, utxos[index])
+		selections = append(selections, utxos[index])
 	}
 
-	return utsReturn, amountReturn, totalAmount, nil
+	return selections, sumSelection, sumReserve, nil
 }
 
 func (w *WalletManager) SignHash(pub *btcec.PublicKey, hash, password []byte) (*btcec.Signature, error) {

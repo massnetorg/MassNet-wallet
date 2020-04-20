@@ -87,11 +87,7 @@ func massMain(serverChan chan<- *server) error {
 	// Load the block database.
 	db, err := loadBlockDB()
 	if err != nil {
-		logging.CPrint(logging.ERROR, "loadBlockDB error", logging.LogFormat{
-			"dbtype": cfg.Data.DbType,
-			"dir":    cfg.Data.DbDir,
-			"err":    err,
-		})
+		logging.CPrint(logging.ERROR, "loadBlockDB error", logging.LogFormat{"err": err})
 		return err
 	}
 
@@ -126,7 +122,6 @@ func massMain(serverChan chan<- *server) error {
 		closeDbChannel <- struct{}{}
 	})
 
-	// Start server
 	server.Start()
 	if serverChan != nil {
 		serverChan <- server
@@ -201,7 +196,7 @@ func blockDbPath(dbType string) string {
 // such warning the user if there are multiple databases which consume space on
 // the file system and ensuring the regression test database is clean when in
 // regression test mode.
-func setupBlockDB() (database.Db, error) {
+func setupBlockDB() (database.Db, bool, error) {
 	// The memdb backend does not have a file path associated with it, so
 	// handle it uniquely.  We also don't want to worry about the multiple
 	// database type warnings when running with the memory database.
@@ -209,75 +204,40 @@ func setupBlockDB() (database.Db, error) {
 		logging.CPrint(logging.INFO, "creating block database in memory", logging.LogFormat{})
 		db, err := database.CreateDB(cfg.Data.DbType)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		return db, nil
+		return db, false, nil
 	}
 
 	// Create the new path if needed.
 	err := os.MkdirAll(cfg.Data.DbDir, 0700)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	// check version file
-	verFile := filepath.Join(cfg.Data.DbDir, ".ver")
-	fi, err := os.Stat(verFile)
+	needUpgrade, err := checkVersion(cfg.Data.DbType, cfg.Data.DbDir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = storage.CheckVersion(cfg.Data.DbType, cfg.Data.DbDir, true)
-			if err != nil {
-				logging.CPrint(logging.ERROR, "ver file create error", logging.LogFormat{
-					"dbtype": cfg.Data.DbType,
-					"path":   cfg.Data.DbDir,
-					"err":    err,
-				})
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
-	}
-	if fi != nil {
-		err = storage.CheckVersion(cfg.Data.DbType, cfg.Data.DbDir, false)
-		if err != nil {
-			logging.CPrint(logging.ERROR, "ver file check error", logging.LogFormat{
-				"dbtype": cfg.Data.DbType,
-				"path":   cfg.Data.DbDir,
-				"err":    err,
-			})
-			return nil, err
-		}
+		logging.CPrint(logging.ERROR, "check db version failed", logging.LogFormat{"err": err})
+		return nil, false, err
 	}
 
-	// blocksd.db
 	dbPath := blockDbPath(cfg.Data.DbType)
-	logging.CPrint(logging.INFO, "loading block database", logging.LogFormat{"db type": cfg.Data.DbType, "from": dbPath})
-	var db database.Db
-	fi, err = os.Stat(dbPath)
+	db, err := database.OpenDB(cfg.Data.DbType, dbPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			db, err = database.CreateDB(cfg.Data.DbType, dbPath)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
-	}
-	if fi != nil {
-		db, err = database.OpenDB(cfg.Data.DbType, dbPath)
+		logging.CPrint(logging.WARN, "open db failed", logging.LogFormat{"err": err, "path": dbPath})
+		db, err = database.CreateDB(cfg.Data.DbType, dbPath)
 		if err != nil {
-			return nil, err
+			logging.CPrint(logging.ERROR, "create db failed", logging.LogFormat{"err": err, "path": dbPath})
+			return nil, false, err
 		}
 	}
 
-	return db, nil
+	return db, needUpgrade, nil
 }
 
 // loadBlockDB opens the block database and returns a handle to it.
 func loadBlockDB() (database.Db, error) {
-	db, err := setupBlockDB()
+	db, needUpgrade, err := setupBlockDB()
 	if err != nil {
 		return nil, err
 	}
@@ -301,6 +261,20 @@ func loadBlockDB() (database.Db, error) {
 		height = 0
 	}
 
+	if needUpgrade {
+		err = db.IndexPubkbl(false)
+		if err != nil {
+			db.Close()
+			logging.CPrint(logging.ERROR, "IndexPubkbl error", logging.LogFormat{"err": err})
+			return nil, err
+		}
+		err = storage.WriteVersion(filepath.Join(cfg.Data.DbDir, ".ver"), cfg.Data.DbType, storage.CurrentStorageVersion)
+		if err != nil {
+			db.Close()
+			return nil, err
+		}
+	}
+
 	logging.CPrint(logging.INFO, "block database loaded with block height", logging.LogFormat{"height": height})
 	return db, nil
 }
@@ -313,4 +287,41 @@ func FileExists(name string) bool {
 		}
 	}
 	return true
+}
+
+func checkVersion(dbtype, dir string) (needUpgrade bool, err error) {
+	create := false
+	verFile := filepath.Join(dir, ".ver")
+	_, err = os.Stat(verFile)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+		create, err = transV1VerFile(dir, verFile)
+		if err != nil {
+			return false, err
+		}
+	}
+	err = storage.CheckVersion(dbtype, dir, create)
+	if err == storage.ErrUpgradeRequired {
+		return true, nil
+	}
+	return false, err
+}
+
+// transition code, it will be removed soon
+func transV1VerFile(dir, newPath string) (notExistV1 bool, err error) {
+	path := filepath.Join(dir, "blocks.db.ver")
+	tp, ver, err := storage.ReadVersion(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return true, nil
+		}
+		return true, err
+	}
+	err = storage.WriteVersion(newPath, tp, ver)
+	if err != nil {
+		return true, err
+	}
+	return false, nil
 }

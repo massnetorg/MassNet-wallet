@@ -264,6 +264,11 @@ func convertResponseError(err error) error {
 			"err": err,
 		})
 		return status.New(ErrAPIInsufficientWalletBalance, ErrCode[ErrAPIInsufficientWalletBalance]).Err()
+	case masswallet.ErrOverfullUtxo:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIOverfullInputs], logging.LogFormat{
+			"err": err,
+		})
+		return status.New(ErrAPIOverfullInputs, ErrCode[ErrAPIOverfullInputs]).Err()
 	case masswallet.ErrInvalidFlag:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPIInvalidFlag], logging.LogFormat{
 			"err": err,

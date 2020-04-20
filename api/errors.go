@@ -9,6 +9,7 @@ const (
 	ErrAPISignRawTx          = 1106
 	ErrAPIUnspendable        = 1107
 	ErrAPIDoubleSpend        = 1108
+	ErrAPIOverfullInputs     = 1109
 
 	// block err
 	ErrAPINewestHash          = 1201
@@ -102,4 +103,5 @@ var ErrCode = map[uint32]string{
 	ErrAPIUnusedAddressLimit: "Too many unused address",
 	ErrAPIUnspendable:        "Unspendable output",
 	ErrAPIDoubleSpend:        "Output already spent",
+	ErrAPIOverfullInputs:     "Overfull inputs",
 }

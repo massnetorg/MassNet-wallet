@@ -14,6 +14,7 @@ var (
 	ErrInvalidParameter      = errors.New("Invalid parameter")
 	ErrEncode                = errors.New("Failed to encode data")
 	ErrInsufficient          = errors.New("Insufficient balance")
+	ErrOverfullUtxo          = errors.New("Overfull utxo")
 	ErrInvalidFlag           = errors.New("Invalid sighash parameter")
 	ErrInvalidIndex          = errors.New("Invalid OutPoint index")
 	ErrDoubleSpend           = errors.New("Output already spent")

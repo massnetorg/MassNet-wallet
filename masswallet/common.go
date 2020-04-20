@@ -118,19 +118,24 @@ func (w *WalletManager) autoConstructTxInAndChangeTxOut(msgTx *wire.MsgTx, LockT
 			var (
 				firstAddr string
 				found     massutil.Amount
+				overfull  bool
 			)
 
-			utxos, firstAddr, found, _, err = w.findEligibleUtxos(wantAdj, addrs)
+			utxos, firstAddr, found, overfull, err = w.findEligibleUtxos(wantAdj, addrs)
 			if err != nil {
 				return outAmounts, err
 			}
 
 			if found.Cmp(wantAdj) < 0 {
-				logging.CPrint(logging.ERROR, "Not enough mass to pay",
+				logging.CPrint(logging.WARN, "no enough mass to pay",
 					logging.LogFormat{
-						"found": found,
-						"want":  wantAdj,
+						"found":    found,
+						"want":     wantAdj,
+						"overfull": overfull,
 					})
+				if overfull {
+					return outAmounts, ErrOverfullUtxo
+				}
 				return outAmounts, ErrInsufficient
 			}
 
