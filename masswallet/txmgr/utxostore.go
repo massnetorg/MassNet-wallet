@@ -757,7 +757,7 @@ func (s *UtxoStore) GrossBalance(tx mwdb.ReadTransaction, keystoreName string) (
 
 // ScriptAddressBalance query balance by ManagedAddress.ScriptAddress
 func (s *UtxoStore) WalletBalance(tx mwdb.ReadTransaction, addrMgr *keystore.AddrManager,
-	minConf uint32, syncHeight uint64) (*BalanceDetail, error) {
+	minConf uint32, syncHeight uint64, txpool TxMemPool) (*BalanceDetail, error) {
 	ret := &BalanceDetail{
 		Total:               massutil.ZeroAmount(),
 		Spendable:           massutil.ZeroAmount(),
@@ -772,7 +772,7 @@ func (s *UtxoStore) WalletBalance(tx mwdb.ReadTransaction, addrMgr *keystore.Add
 	if len(filteredScripts) == 0 {
 		return ret, nil
 	}
-	bal, err := s.ScriptAddressBalance(tx, filteredScripts, minConf, syncHeight)
+	bal, err := s.ScriptAddressBalance(tx, filteredScripts, minConf, syncHeight, txpool)
 	if err != nil {
 		return nil, fmt.Errorf("error to get address Balance: %v", err)
 	}
@@ -800,7 +800,7 @@ func (s *UtxoStore) WalletBalance(tx mwdb.ReadTransaction, addrMgr *keystore.Add
 
 // ScriptAddressBalance scripts -- script address in string format
 func (s *UtxoStore) ScriptAddressBalance(tx mwdb.ReadTransaction, scripts map[string]struct{},
-	minConf uint32, syncHeight uint64) (map[string]*BalanceDetail, error) {
+	minConf uint32, syncHeight uint64, txpool TxMemPool) (map[string]*BalanceDetail, error) {
 
 	s.muUtxo.Lock()
 	defer s.muUtxo.Unlock()
@@ -877,7 +877,7 @@ func (s *UtxoStore) ScriptAddressBalance(tx mwdb.ReadTransaction, scripts map[st
 			if err != nil {
 				return nil, err
 			}
-			if confs >= uint64(cred.maturity) /* && !cred.flags.SpentByUnmined */ {
+			if confs >= uint64(cred.maturity) && !txpool.CheckPoolOutPointSpend(&cred.outPoint) {
 				if cred.isBinding() {
 					balance.WithdrawableBinding, err = balance.WithdrawableBinding.Add(cred.amount)
 					if err != nil {

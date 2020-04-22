@@ -560,7 +560,7 @@ func (w *WalletManager) WalletBalance(confs uint32, queryDetail bool) (*WalletBa
 			if err != nil {
 				return err
 			}
-			bal, err := w.utxoStore.WalletBalance(tx, am, confs, syncedTo.Height)
+			bal, err := w.utxoStore.WalletBalance(tx, am, confs, syncedTo.Height, w.server.TxMemPool())
 			if err != nil {
 				logging.VPrint(logging.ERROR, "failed to get wallet balance", logging.LogFormat{
 					"err":    err,
@@ -638,7 +638,7 @@ func (w *WalletManager) AddressBalance(confs uint32, addrs []string) ([]*Address
 			if err != nil {
 				return err
 			}
-			m, err := w.utxoStore.ScriptAddressBalance(tx, scriptSet, confs, syncedTo.Height)
+			m, err := w.utxoStore.ScriptAddressBalance(tx, scriptSet, confs, syncedTo.Height, w.server.TxMemPool())
 			if err != nil {
 				logging.CPrint(logging.ERROR, "failed to get scriptAddress balance", logging.LogFormat{
 					"err": err,

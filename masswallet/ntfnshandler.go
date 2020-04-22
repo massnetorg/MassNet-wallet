@@ -1003,7 +1003,7 @@ func (h *NtfnsHandler) processConnectedBlock(newBlock *wire.MsgBlock) error {
 }
 
 func (h *NtfnsHandler) proccessReceivedTx(tx *wire.MsgTx) error {
-	logging.CPrint(logging.INFO, "filter broadcast transaction",
+	logging.CPrint(logging.INFO, "recv tx",
 		logging.LogFormat{
 			"tx": tx.TxHash().String(),
 		})

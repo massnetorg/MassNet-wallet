@@ -462,3 +462,7 @@ func (s *StoreBucketMeta) CheckInit() error {
 	}
 	return nil
 }
+
+type TxMemPool interface {
+	CheckPoolOutPointSpend(op *wire.OutPoint) bool
+}

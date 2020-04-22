@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	crypto "github.com/massnetorg/tendermint/go-crypto"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 	"massnet.org/mass-wallet/config"
 	"massnet.org/mass-wallet/consensus"
 	"massnet.org/mass-wallet/errors"
@@ -22,8 +24,6 @@ import (
 	"massnet.org/mass-wallet/p2p/discover"
 	"massnet.org/mass-wallet/p2p/trust"
 	"massnet.org/mass-wallet/version"
-	crypto "github.com/massnetorg/tendermint/go-crypto"
-	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 const (
@@ -561,7 +561,7 @@ func (sw *Switch) listenerRoutine(l Listener) {
 
 func (sw *Switch) dialPeerWorker(a *NetAddress, wg *sync.WaitGroup) {
 	if err := sw.DialPeerWithAddress(a); err != nil {
-		logging.CPrint(logging.ERROR, "dialPeerWorker fail on dial peer", logging.LogFormat{"addr": a, "err": err})
+		logging.CPrint(logging.ERROR, "dialPeerWorker failed", logging.LogFormat{"remote": a, "err": err})
 	}
 	wg.Done()
 }

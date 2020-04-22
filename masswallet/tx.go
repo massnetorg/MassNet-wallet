@@ -504,7 +504,8 @@ func (w *WalletManager) getUtxos(addrs []string) (map[string][]*txmgr.Credit, []
 		}
 		m, err := w.utxoStore.ScriptAddressUnspents(tx, scriptSet, syncedTo.Height,
 			func(item *txmgr.Credit) (bool, bool) {
-				if !item.Flags.SpentByUnmined && !item.Flags.Spent {
+				if !item.Flags.Spent &&
+					!w.server.TxMemPool().CheckPoolOutPointSpend(&item.OutPoint) {
 					return false, true
 				}
 				return false, false

@@ -627,7 +627,7 @@ func (db *ChainDb) IndexPubkbl(rebuild bool) error {
 	if err != nil {
 		return err
 	}
-	logging.CPrint(logging.DEBUG, "build block-bl index start", logging.LogFormat{
+	logging.CPrint(logging.INFO, "build block-bl index start", logging.LogFormat{
 		"current": height,
 		"rebuild": rebuild,
 	})
