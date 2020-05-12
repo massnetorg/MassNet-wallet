@@ -435,6 +435,8 @@ func (tp *TxPool) checkPoolDoubleSpend(tx *massutil.Tx) error {
 }
 
 func (tp *TxPool) CheckPoolOutPointSpend(op *wire.OutPoint) bool {
+	tp.RLock()
+	defer tp.RUnlock()
 	_, exist := tp.outpoints[*op]
 	return exist
 }
