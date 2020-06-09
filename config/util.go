@@ -230,7 +230,7 @@ func NewDefaultConfig() *configpb.Config {
 				AddPeer:          make([]string, 0),
 				HandshakeTimeout: 30,
 				DialTimeout:      3,
-				ListenAddress:    "tcp://0.0.0.0:43454",
+				ListenAddress:    "tcp://0.0.0.0:43453",
 			},
 			API: &configpb.APIConfig{
 				Host:         "localhost",
@@ -252,8 +252,9 @@ func NewDefaultConfig() *configpb.Config {
 			WalletPubPass: "1234567890",
 		},
 		Advanced: &configpb.AdvancedConfig{
-			AddressGapLimit:         defaultAddressGapLimit,
-			MaxUnusedStakingAddress: defaultMaxUnusedStakingAddress,
+			AddressGapLimit:         DefaultAddressGapLimit,
+			MaxUnusedStakingAddress: DefaultMaxUnusedStakingAddress,
+			MaxTxFee:                DefaultMaxTxFee,
 		},
 	}
 }

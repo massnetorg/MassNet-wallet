@@ -10,56 +10,56 @@ import "google/protobuf/empty.proto";
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
 		title: "MASS-Wallet API";
-		version: "1.0";
-		contact: {
-			name: "MASS project";
-			url: "https://massnet.org/";
-			email: "contact@massnet.org";
-        };
-        license: {
-            name: "";
-            url: "";
-        };
-	};
-	// Overwriting host entry breaks tests, so this is not done here.
-	external_docs: {
-		url: "https://massnet.org/";
-		description: "MASS-Wallet API Documentation";
-	}
-	schemes: [HTTPS];
-	consumes: ["application/json", "application/x-foo-mime"];
-	produces: ["application/json", "application/x-foo-mime"];
-	responses: [{
-		key: "403";
-		value: {
-            description: "No permission.";
-            schema: {
-				json_schema: {
-					type: STRING;
-				}
-			}
-		}
-	}, {
-		key: "404";
-		value: {
-			description: "Not found.";
-			schema: {
-				json_schema: {
-					type: STRING;
-				}
-			}
-		}
-	}];
+version: "1.0";
+contact: {
+name: "MASS project";
+url: "https://massnet.org/";
+email: "contact@massnet.org";
+};
+license: {
+name: "";
+url: "";
+};
+};
+// Overwriting host entry breaks tests, so this is not done here.
+external_docs: {
+url: "https://massnet.org/";
+description: "MASS-Wallet API Documentation";
+}
+schemes: [HTTPS];
+consumes: ["application/json", "application/x-foo-mime"];
+produces: ["application/json", "application/x-foo-mime"];
+responses: [{
+key: "403";
+value: {
+description: "No permission.";
+schema: {
+json_schema: {
+type: STRING;
+}
+}
+}
+}, {
+key: "404";
+value: {
+description: "Not found.";
+schema: {
+json_schema: {
+type: STRING;
+}
+}
+}
+}];
 };
 
 
 // API Endpoints
 service ApiService {
-     rpc GetBestBlock (google.protobuf.Empty) returns (GetBestBlockResponse) {
-         option (google.api.http) = {
+    rpc GetBestBlock (google.protobuf.Empty) returns (GetBestBlockResponse) {
+        option (google.api.http) = {
              get: "/v1/blocks/best"
          };
-     }
+    }
     rpc GetClientStatus (google.protobuf.Empty) returns (GetClientStatusResponse){
         option (google.api.http) = {
               get: "/v1/client/status"
@@ -154,6 +154,12 @@ service ApiService {
         option (google.api.http) = {
               post: "/v1/addresses/utxos"
               body:"*"
+        };
+    }
+    rpc DecodeRawTransaction (DecodeRawTransactionRequest) returns (DecodeRawTransactionResponse){
+        option (google.api.http) = {
+            post: "/v1/transactions/decode"
+            body:"*"
         };
     }
     rpc CreateRawTransaction (CreateRawTransactionRequest) returns (CreateRawTransactionResponse){
@@ -282,18 +288,18 @@ message WalletsResponse {
         bool ready = 4; // false-importing, true-import completed
         uint64 synced_height = 5; // Indicates processed blocks when ready=false
     }
-	repeated WalletSummary wallets = 1;
+    repeated WalletSummary wallets = 1;
 }
 
 message UseWalletRequest {
     string wallet_id = 1;
 }
 message UseWalletResponse {
-	string chain_id = 1;
-	string wallet_id = 2; // wallet name
-	uint32 type = 3; // default 1
-	string total_balance = 4;
-	int32 external_key_count = 5;
+    string chain_id = 1;
+    string wallet_id = 2; // wallet name
+    uint32 type = 3; // default 1
+    string total_balance = 4;
+    int32 external_key_count = 5;
     int32 internal_key_count = 6;
     string remarks = 7;
 }
@@ -369,7 +375,7 @@ message ValidateAddressResponse {
 }
 
 message CreateAddressRequest {
-   int32 version = 1;  // 0-standard address, 1-staking address
+    int32 version = 1;  // 0-standard address, 1-staking address
 }
 message CreateAddressResponse {
     string address = 1;
@@ -433,16 +439,53 @@ message TransactionInput {
     uint32 vout = 2;
 }
 
+message DecodeRawTransactionRequest {
+    string hex = 1;
+}
+message DecodeRawTransactionResponse {
+    message Vin {
+        string tx_id = 1;
+        uint32 vout = 2;
+        uint64 sequence = 3;
+        repeated string witness= 4; // hex-encoded
+    }
+    message Vout {
+        string value = 1;
+        uint32 n = 2;
+        uint32 type = 3; // 1-transfer, 2-staking, 3-binding
+        string script_asm = 4;
+        string script_hex = 5; // hex-encoded script
+        repeated string addresses = 6;  // addresses[0]
+        //          recipient address
+        // addresses[1]
+        //          - not exists when type=1
+        //          - staking_address when type=2
+        //          - binding_address when type=3
+    }
+
+    string tx_id = 1;
+    int32 version = 2;
+    int64 lock_time = 3;
+    int32 size = 4;
+    repeated Vin vin = 5;
+    repeated Vout vout = 6;
+    string payload = 7;
+}
+
 message CreateRawTransactionRequest {
     repeated TransactionInput inputs = 1;
     map <string, string> amounts = 2;
     uint64 lock_time = 3;
+    string change_address = 4; // optional, if not specified, the first sender will be selected.
+    repeated string subtractfeefrom = 5; // optional, equally deduct fee from amount of selected address.
+    // If not specified, sender pays the fee.
 }
 message AutoCreateTransactionRequest {
     map <string, string> amounts = 1;
     uint64 lock_time = 2;
     string fee = 3;
-    string from_address = 4; //optional
+    string from_address = 4; // optional, specifies the sender.
+    string change_address = 5; // optional, if not specified, the first sender will be selected.
 }
 message CreateRawTransactionResponse {
     string hex = 1;
@@ -477,7 +520,7 @@ message GetStakingHistoryResponse {
     }
 
     message Tx {
-        string tx_id = 1; 
+        string tx_id = 1;
         uint32 status = 2;       // 0-pending staking, 1->immature staking, 2-mature staking, 3-expired, 4-withdrawing, 5-withdrawn
         uint64 block_height = 3; // 0 means not mined
         StakingUTXO utxo = 4;
@@ -516,10 +559,10 @@ message Vin {
         uint64 sequence = 3;
         repeated string witness= 4;
         repeated string addresses = 5;  // addresses[0]
-                                        //          holder_address of input utxo
-                                        // addresses[1]    -  not exists when type=1
-                                        //          type=2: staking_address
-                                        //          type=3: binding_address
+        //          holder_address of input utxo
+        // addresses[1]    -  not exists when type=1
+        //          type=2: staking_address
+        //          type=3: binding_address
     }
     string value = 1;
     uint32 n = 2;
@@ -533,10 +576,10 @@ message Vout {
         string hex = 2;
         int32 req_sigs = 3;
         repeated string addresses = 4;  // addresses[0]
-                                        //          holder_address of output utxo
-                                        // addresses[1]    -  not exists when type=1
-                                        //          type=2: staking_address
-                                        //          type=3: binding_address
+        //          holder_address of output utxo
+        // addresses[1]    -  not exists when type=1
+        //          type=2: staking_address
+        //          type=3: binding_address
     }
     string value = 1;
     uint32 n = 2;
@@ -549,14 +592,14 @@ message GetRawTransactionRequest {
 }
 message GetRawTransactionResponse {
     string hex = 1;
-	string tx_id = 2;
-	int32 version = 3;
-	int64 lock_time = 4;
+    string tx_id = 2;
+    int32 version = 3;
+    int64 lock_time = 4;
     BlockInfoForTx block = 5;
-	repeated Vin vin = 6;
-	repeated Vout vout = 7;
+    repeated Vin vin = 6;
+    repeated Vout vout = 7;
     string payload = 8;
-	uint64 confirmations = 9;
+    uint64 confirmations = 9;
     int32 size = 10;
     string fee = 11;
     int32 status = 12;
@@ -616,7 +659,7 @@ message GetBindingHistoryResponse {
         string amount = 5;
     }
     message History {
-        string tx_id = 1; 
+        string tx_id = 1;
         uint32 status = 2;    // 0-pending binding, 1-confirmed binding, 2-withdrawing, 3-withdrawn
         uint64 block_height = 3; // 0 means not mined
         BindingUTXO utxo = 4;

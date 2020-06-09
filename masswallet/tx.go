@@ -48,94 +48,99 @@ type BindingOutput struct {
 	Amount         massutil.Amount
 }
 
-func (w *WalletManager) constructTxIn(Inputs []*TxIn, LockTime uint64) (*wire.MsgTx, error) {
+func (w *WalletManager) constructTxIn(inputs []*TxIn, lockTime uint64) (*wire.MsgTx, []utils.PkScript, massutil.Amount, error) {
 	am := w.ksmgr.CurrentKeystore()
 	if am == nil {
-		return nil, ErrNoWalletInUse
+		return nil, nil, massutil.ZeroAmount(), ErrNoWalletInUse
 	}
-	mtxReturn := &wire.MsgTx{}
-	for _, input := range Inputs {
+
+	mtx := &wire.MsgTx{}
+	totalValue := massutil.ZeroAmount()
+	senders := make([]utils.PkScript, 0, len(inputs))
+	for _, input := range inputs {
 		txHash, err := wire.NewHashFromStr(input.TxId)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "exist err in constructTxin", logging.LogFormat{"err": err.Error()})
-			return nil, ErrShaHashFromStr
+			return nil, nil, massutil.ZeroAmount(), ErrShaHashFromStr
 		}
 
 		prevOut := wire.NewOutPoint(txHash, input.Vout)
 		txIn := wire.NewTxIn(prevOut, nil)
-		if LockTime != 0 {
+		if lockTime != 0 {
 			txIn.Sequence = wire.MaxTxInSequenceNum - 1
 		}
-		mtx, err := w.existsMsgTx(&txIn.PreviousOutPoint)
+		prevTx, err := w.existsMsgTx(&txIn.PreviousOutPoint)
 		if err == txmgr.ErrNotFound {
 			logging.CPrint(logging.INFO, "mined prev tx not found, check unmined tx", logging.LogFormat{})
-			mtx, err = w.existsUnminedTx(&txIn.PreviousOutPoint.Hash)
+			prevTx, err = w.existsUnminedTx(&txIn.PreviousOutPoint.Hash)
 		}
 		if err != nil {
 			logging.CPrint(logging.ERROR, "check prev tx failed", logging.LogFormat{"err": err})
-			return nil, ErrInvalidParameter
+			return nil, nil, massutil.ZeroAmount(), ErrInvalidParameter
 		}
 
-		txOut := mtx.TxOut[txIn.PreviousOutPoint.Index]
-		pks, err := utils.ParsePkScript(txOut.PkScript, w.chainParams)
+		prevTxOut := prevTx.TxOut[txIn.PreviousOutPoint.Index]
+		pks, err := utils.ParsePkScript(prevTxOut.PkScript, w.chainParams)
 		if err != nil {
-			logging.CPrint(logging.ERROR, "ParsePkScript error",
-				logging.LogFormat{
-					"err": err,
-				})
-			return nil, ErrInvalidParameter
+			logging.CPrint(logging.ERROR, "ParsePkScript error", logging.LogFormat{"err": err})
+			return nil, nil, massutil.ZeroAmount(), ErrInvalidParameter
 		}
 		_, err = am.Address(pks.StdEncodeAddress())
 		if err != nil {
-			return nil, ErrNoAddressInWallet
+			return nil, nil, massutil.ZeroAmount(), ErrNoAddressInWallet
 		}
 		if pks.IsStaking() {
 			txIn.Sequence = pks.Maturity()
 		}
 
-		mtxReturn.AddTxIn(txIn)
+		mtx.AddTxIn(txIn)
+		senders = append(senders, pks)
+		totalValue, err = totalValue.AddInt(prevTxOut.Value)
+		if err != nil {
+			return nil, nil, massutil.ZeroAmount(), ErrInvalidAmount
+		}
 	}
-	return mtxReturn, nil
+	return mtx, senders, totalValue, nil
 }
 
-func constructTxOut(amounts map[string]massutil.Amount, mtx *wire.MsgTx) (*wire.MsgTx, error) {
-	// Add all transaction outputs to the transaction after performing
-	// some validity checks.
+func (w *WalletManager) constructTxOut(
+	amounts map[string]massutil.Amount,
+	changeAddr string,
+	changeAmount massutil.Amount,
+	mtx *wire.MsgTx,
+) (*wire.MsgTx, error) {
 	for encodedAddr, amount := range amounts {
-		// Ensure amount is in the valid range for monetary amounts.
-		if amount.IsZero() || amount.Cmp(massutil.MaxAmount()) > 0 {
+		pkScript, err := PayToWitnessV0Address(encodedAddr, w.chainParams)
+		if err != nil {
+			return nil, err
+		}
+		mtx.AddTxOut(wire.NewTxOut(amount.IntValue(), pkScript))
+	}
+	if !changeAmount.IsZero() {
+		pkScript, err := PayToWitnessV0Address(changeAddr, w.chainParams)
+		if err != nil {
+			return nil, err
+		}
+		mtx.AddTxOut(wire.NewTxOut(changeAmount.IntValue(), pkScript))
+	}
+	// Ensure outputs are not dust.
+	for i, txOut := range mtx.TxOut {
+		isDust, err := blockchain.IsDust(txOut, massutil.MinRelayTxFee())
+		if err != nil {
+			logging.CPrint(logging.ERROR, "check dust error", logging.LogFormat{
+				"err":      err,
+				"vout":     i,
+				"value":    txOut.Value,
+				"isChange": !changeAmount.IsZero() && i == len(mtx.TxOut)-1,
+			})
 			return nil, ErrInvalidAmount
 		}
-
-		// Decode the provided wallet.
-		addr, err := massutil.DecodeAddress(encodedAddr, &config.ChainParams)
-		if err != nil {
-			logging.CPrint(logging.ERROR, "Failed to decode address", logging.LogFormat{
-				"err: ": err,
-			})
-			return nil, ErrFailedDecodeAddress
+		if isDust {
+			if !changeAmount.IsZero() && i == len(mtx.TxOut)-1 {
+				return nil, ErrDustChange
+			}
+			return nil, ErrDustAmount
 		}
-
-		// Ensure the wallet is one of the supported types and that
-		// the network encoded with the wallet matches the network the
-		// server is currently on.
-		if !massutil.IsWitnessV0Address(addr) {
-			logging.CPrint(logging.ERROR, "Invalid address or key", logging.LogFormat{"address": encodedAddr})
-			return nil, ErrInvalidAddress
-		}
-		if !addr.IsForNet(&config.ChainParams) {
-			return nil, ErrNet
-		}
-
-		// create a new script which pays to the provided wallet.
-		pkScript, err := txscript.PayToAddrScript(addr)
-		if err != nil {
-			logging.CPrint(logging.ERROR, "Failed to create pkScript", logging.LogFormat{})
-			return nil, ErrCreatePkScript
-		}
-
-		txOut := wire.NewTxOut(amount.IntValue(), pkScript)
-		mtx.AddTxOut(txOut)
 	}
 	return mtx, nil
 }
@@ -253,24 +258,29 @@ func messageToHex(msg wire.Message) (string, error) {
 	return hex.EncodeToString(buf.Bytes()), nil
 }
 
-func (w *WalletManager) EstimateTxFee(Amounts map[string]massutil.Amount, LockTime uint64, userTxFee massutil.Amount, from string) (
-	msgTx *wire.MsgTx, fee massutil.Amount, err error) {
+func (w *WalletManager) EstimateTxFee(
+	amounts map[string]massutil.Amount,
+	lockTime uint64,
+	userTxFee massutil.Amount,
+	fromAddr,
+	changeAddr string,
+) (msgTx *wire.MsgTx, fee massutil.Amount, err error) {
 
-	addrs, err := w.prepareFromAddresses(from)
+	addrs, err := w.prepareFromAddresses(fromAddr)
 	if err != nil {
 		return nil, massutil.ZeroAmount(), err
 	}
 
 	msgTx = wire.NewMsgTx()
 	// construct output
-	for encodedAddr, amount := range Amounts {
+	for encodedAddr, amount := range amounts {
 		txOut, err := amountToTxOut(encodedAddr, amount)
 		if err != nil {
 			return nil, massutil.ZeroAmount(), err
 		}
 		msgTx.AddTxOut(txOut)
 	}
-	u, err := w.autoConstructTxInAndChangeTxOut(msgTx, LockTime, addrs, userTxFee, defaultChangeAddress)
+	u, err := w.autoConstructTxInAndChangeTxOut(msgTx, lockTime, addrs, userTxFee, changeAddr)
 	if err != nil {
 		return nil, massutil.ZeroAmount(), err
 	}
@@ -317,56 +327,6 @@ func (w *WalletManager) EstimateBindingTxFee(outputs []*BindingOutput, LockTime 
 		return nil, massutil.ZeroAmount(), err
 	}
 	return msgTx, u, err
-}
-
-func amountToTxOut(encodedAddr string, amount massutil.Amount) (*wire.TxOut, error) {
-	if amount.IsZero() {
-		logging.CPrint(logging.ERROR, "invalid output amount",
-			logging.LogFormat{
-				"err": ErrInvalidAmount,
-			})
-		return nil, ErrInvalidAmount
-	}
-
-	// Decode the provided wallet.
-	addr, err := massutil.DecodeAddress(encodedAddr, &config.ChainParams)
-	if err != nil {
-		logging.CPrint(logging.ERROR, "decode address failed",
-			logging.LogFormat{
-				"err": err,
-			})
-		return nil, err
-	}
-	if !addr.IsForNet(&config.ChainParams) {
-		logging.CPrint(logging.ERROR, "address is not in the net",
-			logging.LogFormat{
-				"err":     ErrNet,
-				"address": encodedAddr,
-			})
-		return nil, ErrNet
-	}
-
-	// Ensure the wallet is one of the supported types and that
-	// the network encoded with the wallet matches the network the
-	// server is currently on.
-	if !massutil.IsWitnessV0Address(addr) {
-		logging.CPrint(logging.ERROR, "Invalid address or key", logging.LogFormat{"address": encodedAddr})
-		return nil, ErrInvalidAddress
-	}
-
-	// create a new script which pays to the provided wallet.
-	pkScript, err := txscript.PayToAddrScript(addr)
-	if err != nil {
-		logging.CPrint(logging.ERROR, "Failed to create pkScript",
-			logging.LogFormat{
-				"err": err,
-			})
-		return nil, err
-	}
-
-	txOut := wire.NewTxOut(amount.IntValue(), pkScript)
-
-	return txOut, nil
 }
 
 //

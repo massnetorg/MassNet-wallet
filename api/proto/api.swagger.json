@@ -486,6 +486,44 @@
         ]
       }
     },
+    "/v1/transactions/decode": {
+      "post": {
+        "operationId": "DecodeRawTransaction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufDecodeRawTransactionResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufDecodeRawTransactionRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
     "/v1/transactions/fee": {
       "post": {
         "operationId": "GetTransactionFee",
@@ -1474,6 +1512,9 @@
         },
         "from_address": {
           "type": "string"
+        },
+        "change_address": {
+          "type": "string"
         }
       }
     },
@@ -1559,6 +1600,15 @@
         "lock_time": {
           "type": "string",
           "format": "uint64"
+        },
+        "change_address": {
+          "type": "string"
+        },
+        "subtractfeefrom": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -1614,6 +1664,99 @@
         },
         "mnemonic": {
           "type": "string"
+        }
+      }
+    },
+    "rpcprotobufDecodeRawTransactionRequest": {
+      "type": "object",
+      "properties": {
+        "hex": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufDecodeRawTransactionResponse": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "lock_time": {
+          "type": "string",
+          "format": "int64"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "vin": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufDecodeRawTransactionResponseVin"
+          }
+        },
+        "vout": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufDecodeRawTransactionResponseVout"
+          }
+        },
+        "payload": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufDecodeRawTransactionResponseVin": {
+      "type": "object",
+      "properties": {
+        "tx_id": {
+          "type": "string"
+        },
+        "vout": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "sequence": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "witness": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rpcprotobufDecodeRawTransactionResponseVout": {
+      "type": "object",
+      "properties": {
+        "value": {
+          "type": "string"
+        },
+        "n": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "script_asm": {
+          "type": "string"
+        },
+        "script_hex": {
+          "type": "string"
+        },
+        "addresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

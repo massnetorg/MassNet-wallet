@@ -875,23 +875,71 @@ func (w *WalletManager) GetAddresses(addressClass uint16) ([]*txmgr.AddressDetai
 	return result, nil
 }
 
-func (w *WalletManager) CreateRawTransaction(Inputs []*TxIn, Outputs map[string]massutil.Amount, lockTime uint64) (string, error) {
-	// Add all transaction inputs to a new transaction after performing
-	// some validity checks.
-	mtx, err := w.constructTxIn(Inputs, lockTime)
+func (w *WalletManager) CreateRawTransaction(
+	inputs []*TxIn,
+	amounts map[string]massutil.Amount,
+	lockTime uint64,
+	changeAddr string,
+	subtractfeefrom map[string]struct{},
+) (string, massutil.Amount, error) {
+	// senders are transfer addresses corresponding to inputs
+	mtx, senders, totalIn, err := w.constructTxIn(inputs, lockTime)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "Failed to constructTxIn", logging.LogFormat{
 			"err": err,
 		})
-		return "", err
+		return "", massutil.ZeroAmount(), err
 	}
 
-	mtx, err = constructTxOut(Outputs, mtx)
+	// if change address not specified, use first sender address(non-staking address)
+	if len(changeAddr) == 0 {
+		changeAddr = senders[0].StdEncodeAddress()
+	}
+
+	// no change
+	noChangeRequiredFee, err := w.EstimateManualTxFee(inputs, len(amounts))
+	if err != nil {
+		return "", massutil.ZeroAmount(), err
+	}
+	newAmounts, noChangeTotalOutAndFee, err := maybeSubtractFeeFromAmounts(amounts, subtractfeefrom, noChangeRequiredFee)
+	if err != nil {
+		return "", massutil.ZeroAmount(), err
+	}
+	if totalIn.Cmp(noChangeTotalOutAndFee) < 0 { // "<"
+		return "", massutil.ZeroAmount(), ErrNotEnoughInputs
+	}
+	changeAmount, err := totalIn.Sub(noChangeTotalOutAndFee)
+	if err != nil {
+		return "", massutil.ZeroAmount(), err
+	}
+	if !changeAmount.IsZero() {
+		var (
+			totalOutAndFee massutil.Amount
+		)
+		// change
+		withChangeRequiredFee, err := w.EstimateManualTxFee(inputs, len(amounts)+1)
+		if err != nil {
+			return "", massutil.ZeroAmount(), err
+		}
+		newAmounts, totalOutAndFee, err = maybeSubtractFeeFromAmounts(amounts, subtractfeefrom, withChangeRequiredFee)
+		if err != nil {
+			return "", massutil.ZeroAmount(), err
+		}
+		if totalIn.Cmp(totalOutAndFee) <= 0 { // "<="
+			return "", massutil.ZeroAmount(), ErrNotEnoughInputs
+		}
+		changeAmount, err = totalIn.Sub(totalOutAndFee)
+		if err != nil {
+			return "", massutil.ZeroAmount(), err
+		}
+	}
+
+	mtx, err = w.constructTxOut(newAmounts, changeAddr, changeAmount, mtx)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "Failed to constructTxOut", logging.LogFormat{
 			"err": err,
 		})
-		return "", err
+		return "", massutil.ZeroAmount(), err
 	}
 	// Set the Locktime, if given.
 	mtx.LockTime = lockTime
@@ -906,19 +954,37 @@ func (w *WalletManager) CreateRawTransaction(Inputs []*TxIn, Outputs map[string]
 		logging.CPrint(logging.ERROR, "Error in messageToHex(mtx)", logging.LogFormat{
 			"err": err,
 		})
-		return "", err
+		return "", massutil.ZeroAmount(), err
 	}
+
+	totalOut := massutil.ZeroAmount()
+	for _, txOut := range mtx.TxOut {
+		totalOut, err = totalOut.AddInt(txOut.Value)
+		if err != nil {
+			return "", massutil.ZeroAmount(), err
+		}
+	}
+	fee, err := totalIn.Sub(totalOut)
+	if err != nil {
+		return "", massutil.ZeroAmount(), err
+	}
+
 	w.MarkUsedUTXO(mtx)
-	return mtxHex, nil
+	return mtxHex, fee, nil
 }
 
-func (w *WalletManager) AutoCreateRawTransaction(Amounts map[string]massutil.Amount, LockTime uint64,
-	userTxFee massutil.Amount, from string) (string, massutil.Amount, error) {
+func (w *WalletManager) AutoCreateRawTransaction(
+	amounts map[string]massutil.Amount,
+	lockTime uint64,
+	userTxFee massutil.Amount,
+	fromAddr,
+	changeAddr string,
+) (string, massutil.Amount, error) {
 
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	mtx, txFee, err := w.EstimateTxFee(Amounts, LockTime, userTxFee, from)
+	mtx, txFee, err := w.EstimateTxFee(amounts, lockTime, userTxFee, fromAddr, changeAddr)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "estimate txFee failed", logging.LogFormat{
 			"err": err,
@@ -926,7 +992,7 @@ func (w *WalletManager) AutoCreateRawTransaction(Amounts map[string]massutil.Amo
 		return "", massutil.ZeroAmount(), err
 	}
 
-	mtx.LockTime = LockTime
+	mtx.LockTime = lockTime
 	mtx.Version = wire.TxVersion
 	mtxHex, err := messageToHex(mtx)
 	if err != nil {
@@ -939,14 +1005,19 @@ func (w *WalletManager) AutoCreateRawTransaction(Amounts map[string]massutil.Amo
 	return mtxHex, txFee, nil
 }
 
-func (w *WalletManager) CreateStakingTransaction(fromAddr string, Outputs []*StakingTxOut, lockTime uint64, userTxFee massutil.Amount) (string, error) {
+func (w *WalletManager) CreateStakingTransaction(
+	fromAddr string,
+	Outputs []*StakingTxOut,
+	lockTime uint64,
+	userTxFee massutil.Amount,
+) (string, massutil.Amount, error) {
 
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	msgTx, _, err := w.EstimateStakingTxFee(Outputs, lockTime, userTxFee, fromAddr, defaultChangeAddress)
+	msgTx, fee, err := w.EstimateStakingTxFee(Outputs, lockTime, userTxFee, fromAddr, "")
 	if err != nil {
-		return "", err
+		return "", massutil.ZeroAmount(), err
 	}
 
 	msgTx.LockTime = lockTime
@@ -956,20 +1027,24 @@ func (w *WalletManager) CreateStakingTransaction(fromAddr string, Outputs []*Sta
 		logging.CPrint(logging.ERROR, "Error in messageToHex(mtx)", logging.LogFormat{
 			"err": err,
 		})
-		return "", err
+		return "", massutil.ZeroAmount(), err
 	}
 	w.MarkUsedUTXO(msgTx)
-	return mtxHex, nil
+	return mtxHex, fee, nil
 }
 
-func (w *WalletManager) CreateBindingTransaction(fromAddress string, txFee massutil.Amount, output []*BindingOutput) (string, error) {
+func (w *WalletManager) CreateBindingTransaction(
+	fromAddress string,
+	txFee massutil.Amount,
+	output []*BindingOutput,
+) (string, massutil.Amount, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
 	locktime := uint64(0)
-	msgTx, _, err := w.EstimateBindingTxFee(output, locktime, txFee, fromAddress, defaultChangeAddress)
+	msgTx, fee, err := w.EstimateBindingTxFee(output, locktime, txFee, fromAddress, "")
 	if err != nil {
-		return "", err
+		return "", massutil.ZeroAmount(), err
 	}
 
 	msgTx.LockTime = locktime
@@ -979,10 +1054,10 @@ func (w *WalletManager) CreateBindingTransaction(fromAddress string, txFee massu
 		logging.CPrint(logging.ERROR, "Error in messageToHex(mtx)", logging.LogFormat{
 			"err": err,
 		})
-		return "", err
+		return "", massutil.ZeroAmount(), err
 	}
 	w.MarkUsedUTXO(msgTx)
-	return mtxHex, nil
+	return mtxHex, fee, nil
 }
 
 // MarkUsed marks utxo used in cache

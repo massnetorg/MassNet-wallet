@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/hex"
+	"strconv"
+	"strings"
 
 	pb "massnet.org/mass-wallet/api/proto"
 	"massnet.org/mass-wallet/blockchain"
@@ -94,6 +96,64 @@ func (s *APIServer) createTxRawResult(mtx *wire.MsgTx, blkHeader *wire.BlockHead
 	}
 
 	return txReply, nil
+}
+
+func (s *APIServer) buildDecodeRawTxResponse(mtx *wire.MsgTx) (*pb.DecodeRawTransactionResponse, error) {
+
+	resp := &pb.DecodeRawTransactionResponse{
+		TxId:     mtx.TxHash().String(),
+		Version:  int32(mtx.Version),
+		LockTime: int64(mtx.LockTime),
+		Size:     int32(mtx.PlainSize()),
+		Vin:      make([]*pb.DecodeRawTransactionResponse_Vin, 0, len(mtx.TxIn)),
+		Vout:     make([]*pb.DecodeRawTransactionResponse_Vout, 0, len(mtx.TxOut)),
+		Payload:  hex.EncodeToString(mtx.Payload),
+	}
+
+	for _, txIn := range mtx.TxIn {
+		resp.Vin = append(resp.Vin, &pb.DecodeRawTransactionResponse_Vin{
+			TxId:     txIn.PreviousOutPoint.Hash.String(),
+			Vout:     txIn.PreviousOutPoint.Index,
+			Sequence: txIn.Sequence,
+			Witness:  witnessToHex(txIn.Witness),
+		})
+	}
+
+	for n, txOut := range mtx.TxOut {
+		disbuf, err := txscript.DisasmString(txOut.PkScript)
+		if err != nil {
+			logging.CPrint(logging.WARN, "DisasmString error", logging.LogFormat{"err": err})
+			return nil, err
+		}
+
+		scriptClass, addrs, _, _, err := txscript.ExtractPkScriptAddrs(txOut.PkScript, &cfg.ChainParams)
+		if err != nil {
+			return nil, err
+		}
+
+		encodedAddrs := make([]string, 0, len(addrs))
+		for _, addr := range addrs {
+			if scriptClass == txscript.StakingScriptHashTy {
+				std, err := massutil.NewAddressWitnessScriptHash(addr.ScriptAddress(), &cfg.ChainParams)
+				if err != nil {
+					return nil, err
+				}
+				encodedAddrs = append(encodedAddrs, std.EncodeAddress())
+			}
+			encodedAddrs = append(encodedAddrs, addr.EncodeAddress())
+		}
+
+		vout := &pb.DecodeRawTransactionResponse_Vout{
+			Value:     strconv.Itoa(int(txOut.Value)),
+			N:         uint32(n),
+			Type:      uint32(scriptClass),
+			ScriptAsm: disbuf,
+			ScriptHex: hex.EncodeToString(txOut.PkScript),
+			Addresses: encodedAddrs,
+		}
+		resp.Vout = append(resp.Vout, vout)
+	}
+	return resp, nil
 }
 
 func witnessToHex(witness wire.TxWitness) []string {
@@ -377,6 +437,39 @@ func (s *APIServer) GetRawTransaction(ctx context.Context, in *pb.GetRawTransact
 	return rep, nil
 }
 
+func (s *APIServer) DecodeRawTransaction(ctx context.Context, in *pb.DecodeRawTransactionRequest) (*pb.DecodeRawTransactionResponse, error) {
+	logging.CPrint(logging.INFO, "api: DecodeRawTransaction", logging.LogFormat{})
+
+	serializedTx, err := decodeHexStr(in.Hex)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "decodeHexStr error", logging.LogFormat{
+			"err": err,
+		})
+		st := status.New(ErrAPIInvalidTxHex, ErrCode[ErrAPIInvalidTxHex])
+		return nil, st.Err()
+	}
+	var mtx wire.MsgTx
+	err = mtx.SetBytes(serializedTx, wire.Packet)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "deserialize tx error", logging.LogFormat{"err": err.Error()})
+		st := status.New(ErrAPIInvalidTxHex, ErrCode[ErrAPIInvalidTxHex])
+		return nil, st.Err()
+	}
+
+	resp, err := s.buildDecodeRawTxResponse(&mtx)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "buildDecodeRawTxResponse error",
+			logging.LogFormat{
+				"txid": mtx.TxHash(),
+				"err":  err,
+			})
+		st := status.New(ErrAPIRawTx, ErrCode[ErrAPIRawTx])
+		return nil, st.Err()
+	}
+	logging.CPrint(logging.INFO, "api: DecodeRawTransaction completed", logging.LogFormat{})
+	return resp, nil
+}
+
 func (s *APIServer) CreateRawTransaction(ctx context.Context, in *pb.CreateRawTransactionRequest) (*pb.CreateRawTransactionResponse, error) {
 	logging.CPrint(logging.INFO, "api: CreateRawTransaction", logging.LogFormat{"params": in})
 
@@ -397,32 +490,51 @@ func (s *APIServer) CreateRawTransaction(ctx context.Context, in *pb.CreateRawTr
 		return nil, err
 	}
 
+	// inputs
 	inputs := make([]*masswallet.TxIn, 0)
 	for _, txInput := range in.Inputs {
-		err := checkTransactionIdLen(txInput.TxId)
+		txid := strings.TrimSpace(txInput.TxId)
+		err := checkTransactionIdLen(txid)
 		if err != nil {
 			return nil, err
 		}
 		input := &masswallet.TxIn{
-			TxId: txInput.TxId,
+			TxId: txid,
 			Vout: txInput.Vout,
 		}
 		inputs = append(inputs, input)
 	}
+
+	// outputs
 	amounts := make(map[string]massutil.Amount)
-	for addr, value := range in.Amounts {
+	for addr, valStr := range in.Amounts {
+		addr = strings.TrimSpace(addr)
 		err := checkAddressLen(addr)
 		if err != nil {
 			return nil, err
 		}
-		val, err := checkParseAmount(value)
+		valStr = strings.TrimSpace(valStr)
+		val, err := checkParseAmount(valStr)
 		if err != nil {
 			return nil, err
 		}
 		amounts[addr] = val
 	}
 
-	mtxHex, err := s.massWallet.CreateRawTransaction(inputs, amounts, in.LockTime)
+	// change
+	changeAddr := strings.TrimSpace(in.ChangeAddress)
+
+	// subtractfeefrom
+	subtractfeefrom := make(map[string]struct{})
+	for _, subfrom := range in.Subtractfeefrom {
+		subfrom = strings.TrimSpace(subfrom)
+		if len(subfrom) == 0 {
+			continue
+		}
+		subtractfeefrom[subfrom] = struct{}{}
+	}
+
+	mtxHex, fee, err := s.massWallet.CreateRawTransaction(inputs, amounts, in.LockTime, changeAddr, subtractfeefrom)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "CreateRawTransaction failed", logging.LogFormat{"err": err})
 		cvtErr := convertResponseError(err)
@@ -431,6 +543,12 @@ func (s *APIServer) CreateRawTransaction(ctx context.Context, in *pb.CreateRawTr
 		}
 		return nil, cvtErr
 	}
+
+	err = checkTxFeeLimit(s.config.Config, fee)
+	if err != nil {
+		return nil, err
+	}
+
 	logging.CPrint(logging.INFO, "api: CreateRawTransaction completed", logging.LogFormat{})
 	return &pb.CreateRawTransactionResponse{Hex: mtxHex}, nil
 }
@@ -445,12 +563,7 @@ func (s *APIServer) CreateStakingTransaction(ctx context.Context, in *pb.CreateS
 
 	valFee, err := checkParseAmount(in.Fee)
 	if err != nil {
-		return nil, err
-	}
-
-	err = checkFeeSecurity(val, valFee)
-	if err != nil {
-		return nil, err
+		return nil, status.New(ErrAPIUserTxFee, ErrCode[ErrAPIUserTxFee]).Err()
 	}
 
 	if len(in.FromAddress) > 0 {
@@ -473,7 +586,7 @@ func (s *APIServer) CreateStakingTransaction(ctx context.Context, in *pb.CreateS
 	}
 	outputs = append(outputs, output)
 
-	mtxHex, err := s.massWallet.CreateStakingTransaction(in.FromAddress, outputs, uint64(0), valFee)
+	mtxHex, fee, err := s.massWallet.CreateStakingTransaction(in.FromAddress, outputs, uint64(0), valFee)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "AutoCreateStakingTransaction failed", logging.LogFormat{"err": err})
 		cvtErr := convertResponseError(err)
@@ -481,6 +594,11 @@ func (s *APIServer) CreateStakingTransaction(ctx context.Context, in *pb.CreateS
 			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 		}
 		return nil, cvtErr
+	}
+
+	err = checkTxFeeLimit(s.config.Config, fee)
+	if err != nil {
+		return nil, err
 	}
 
 	logging.CPrint(logging.INFO, "api: CreateStakingTransaction completed", logging.LogFormat{})
@@ -514,11 +632,6 @@ func (s *APIServer) CreateBindingTransaction(ctx context.Context, in *pb.CreateB
 		return nil, status.New(ErrAPIUserTxFee, ErrCode[ErrAPIUserTxFee]).Err()
 	}
 
-	err = checkFeeSecurity(totalOutValue, txFee)
-	if err != nil {
-		return nil, err
-	}
-
 	if len(in.FromAddress) > 0 {
 		_, err = checkWitnessAddress(in.FromAddress, false, &cfg.ChainParams)
 		if err != nil {
@@ -549,7 +662,7 @@ func (s *APIServer) CreateBindingTransaction(ctx context.Context, in *pb.CreateB
 		outPut = append(outPut, tempBindingOutput)
 	}
 	//construct binding transaction
-	mtxHex, err := s.massWallet.CreateBindingTransaction(in.FromAddress, txFee, outPut)
+	mtxHex, fee, err := s.massWallet.CreateBindingTransaction(in.FromAddress, txFee, outPut)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "CreateBindingTransaction failed", logging.LogFormat{"err": err})
 		cvtErr := convertResponseError(err)
@@ -557,6 +670,11 @@ func (s *APIServer) CreateBindingTransaction(ctx context.Context, in *pb.CreateB
 			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 		}
 		return nil, cvtErr
+	}
+
+	err = checkTxFeeLimit(s.config.Config, fee)
+	if err != nil {
+		return nil, err
 	}
 
 	logging.CPrint(logging.INFO, "api: CreateBindingTransaction completed", logging.LogFormat{})
@@ -573,24 +691,19 @@ func (s *APIServer) AutoCreateTransaction(ctx context.Context, in *pb.AutoCreate
 		return nil, err
 	}
 
-	totalAmount := massutil.ZeroAmount()
 	amounts := make(map[string]massutil.Amount)
-	for addr, amt := range in.Amounts {
+	for addr, valStr := range in.Amounts {
+		addr = strings.TrimSpace(addr)
 		err := checkAddressLen(addr)
 		if err != nil {
 			return nil, err
 		}
-
-		val, err := checkParseAmount(amt)
+		valStr = strings.TrimSpace(valStr)
+		val, err := checkParseAmount(valStr)
 		if err != nil {
 			return nil, err
 		}
 		amounts[addr] = val
-		totalAmount, err = totalAmount.Add(val)
-		if err != nil {
-			logging.CPrint(logging.ERROR, "total amount error", logging.LogFormat{"err": err})
-			return nil, status.New(ErrAPIInvalidAmount, ErrCode[ErrAPIInvalidAmount]).Err()
-		}
 	}
 
 	txFee, err := checkParseAmount(in.Fee)
@@ -598,19 +711,22 @@ func (s *APIServer) AutoCreateTransaction(ctx context.Context, in *pb.AutoCreate
 		return nil, status.New(ErrAPIUserTxFee, ErrCode[ErrAPIUserTxFee]).Err()
 	}
 
-	err = checkFeeSecurity(totalAmount, txFee)
-	if err != nil {
-		return nil, err
+	fromAddr := strings.TrimSpace(in.FromAddress)
+	if len(fromAddr) > 0 {
+		_, err = checkWitnessAddress(fromAddr, false, &cfg.ChainParams)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	if len(in.FromAddress) > 0 {
-		_, err = checkWitnessAddress(in.FromAddress, false, &cfg.ChainParams)
+	changeAddr := strings.TrimSpace(in.ChangeAddress)
+	if len(changeAddr) > 0 {
+		_, err = checkWitnessAddress(changeAddr, false, &cfg.ChainParams)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	mtxHex, _, err := s.massWallet.AutoCreateRawTransaction(amounts, in.LockTime, txFee, in.FromAddress)
+	mtxHex, fee, err := s.massWallet.AutoCreateRawTransaction(amounts, in.LockTime, txFee, fromAddr, changeAddr)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "AutoCreateRawTransaction failed", logging.LogFormat{"err": err})
 		cvtErr := convertResponseError(err)
@@ -618,6 +734,11 @@ func (s *APIServer) AutoCreateTransaction(ctx context.Context, in *pb.AutoCreate
 			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 		}
 		return nil, cvtErr
+	}
+
+	err = checkTxFeeLimit(s.config.Config, fee)
+	if err != nil {
+		return nil, err
 	}
 
 	logging.CPrint(logging.INFO, "api: AutoCreateTransaction completed", logging.LogFormat{})

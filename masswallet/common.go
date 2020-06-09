@@ -5,8 +5,10 @@ import (
 	"strconv"
 	"strings"
 
+	"massnet.org/mass-wallet/config"
 	"massnet.org/mass-wallet/consensus"
 	"massnet.org/mass-wallet/massutil/safetype"
+	"massnet.org/mass-wallet/txscript"
 
 	"massnet.org/mass-wallet/blockchain"
 
@@ -16,10 +18,6 @@ import (
 	"massnet.org/mass-wallet/masswallet/txmgr"
 	"massnet.org/mass-wallet/masswallet/utils"
 	"massnet.org/mass-wallet/wire"
-)
-
-const (
-	defaultChangeAddress = ""
 )
 
 // for current wallet
@@ -136,7 +134,7 @@ func (w *WalletManager) autoConstructTxInAndChangeTxOut(msgTx *wire.MsgTx, LockT
 				if overfull {
 					return outAmounts, ErrOverfullUtxo
 				}
-				return outAmounts, ErrInsufficient
+				return outAmounts, ErrInsufficientFunds
 			}
 
 			txOutLen = len(msgTx.TxOut)
@@ -237,4 +235,125 @@ func AmountToString(m int64) (string, error) {
 		return sInt + "." + sFrac, nil
 	}
 	return sInt, nil
+}
+
+// Calculates new amounts after subtracting fee from amounts.
+// If selectedAddresses not specified, nothing will be changed, means that the sender pays the fee.
+func maybeSubtractFeeFromAmounts(
+	amounts map[string]massutil.Amount,
+	selectedAddresses map[string]struct{},
+	requiredFee massutil.Amount,
+) (
+	newAmounts map[string]massutil.Amount,
+	totalAndFee massutil.Amount,
+	err error,
+) {
+
+	for addr := range selectedAddresses {
+		if _, ok := amounts[addr]; !ok {
+			return nil, massutil.ZeroAmount(), ErrUnknownSubfeefrom
+		}
+	}
+
+	totalAndFee = massutil.ZeroAmount()
+
+	// sender pays the fee
+	numOfSelected := int64(len(selectedAddresses))
+	if numOfSelected == 0 {
+		totalAndFee, err = totalAndFee.Add(requiredFee)
+		if err != nil {
+			return nil, massutil.ZeroAmount(), err
+		}
+		for _, amount := range amounts {
+			totalAndFee, err = totalAndFee.Add(amount)
+			if err != nil {
+				return nil, massutil.ZeroAmount(), err
+			}
+		}
+		return amounts, totalAndFee, nil
+	}
+
+	// subtract fee from amounts
+	newAmounts = make(map[string]massutil.Amount)
+	eachSub := (requiredFee.IntValue() + numOfSelected - 1) / numOfSelected
+	eachSubAmt, err := massutil.NewAmountFromInt(eachSub)
+	if err != nil {
+		return nil, massutil.ZeroAmount(), err
+	}
+
+	actualFee, err := massutil.NewAmountFromInt(eachSub * numOfSelected)
+	if err != nil {
+		return nil, massutil.ZeroAmount(), err
+	}
+	totalAndFee, err = totalAndFee.Add(actualFee)
+	if err != nil {
+		return nil, massutil.ZeroAmount(), err
+	}
+	for addr, amount := range amounts {
+		newAmount := amount
+		if _, ok := selectedAddresses[addr]; ok {
+			newAmount, err = amount.Sub(eachSubAmt)
+			if err != nil {
+				return nil, massutil.ZeroAmount(), err
+			}
+		}
+		newAmounts[addr] = newAmount
+		totalAndFee, err = totalAndFee.Add(newAmount)
+		if err != nil {
+			return nil, massutil.ZeroAmount(), err
+		}
+	}
+	return newAmounts, totalAndFee, nil
+}
+
+// PayToWitnessV0Address builds TxOut script after performing
+// some validity checks.
+func PayToWitnessV0Address(encodedAddr string, netParams *config.Params) (pkScript []byte, err error) {
+	// Decode the provided wallet.
+	addr, err := massutil.DecodeAddress(encodedAddr, netParams)
+	if err != nil {
+		logging.CPrint(logging.WARN, "Failed to decode address", logging.LogFormat{
+			"err":     err,
+			"address": encodedAddr,
+		})
+		return nil, ErrFailedDecodeAddress
+	}
+
+	// Ensure the wallet is one of the supported types and that
+	// the network encoded with the wallet matches the network the
+	// server is currently on.
+	if !massutil.IsWitnessV0Address(addr) {
+		logging.CPrint(logging.WARN, "Invalid witness address", logging.LogFormat{"address": encodedAddr})
+		return nil, ErrInvalidAddress
+	}
+	if !addr.IsForNet(netParams) {
+		return nil, ErrNet
+	}
+
+	// create a new script which pays to the provided wallet.
+	pkScript, err = txscript.PayToAddrScript(addr)
+	if err != nil {
+		logging.CPrint(logging.WARN, "Failed to create pkScript", logging.LogFormat{
+			"err":     err,
+			"address": encodedAddr,
+		})
+		return nil, ErrCreatePkScript
+	}
+	return pkScript, nil
+}
+
+func amountToTxOut(encodedAddr string, amount massutil.Amount) (*wire.TxOut, error) {
+	if amount.IsZero() {
+		logging.CPrint(logging.ERROR, "invalid output amount",
+			logging.LogFormat{
+				"err": ErrInvalidAmount,
+			})
+		return nil, ErrInvalidAmount
+	}
+
+	pkScript, err := PayToWitnessV0Address(encodedAddr, &config.ChainParams)
+	if err != nil {
+		return nil, err
+	}
+	return wire.NewTxOut(amount.IntValue(), pkScript), nil
 }

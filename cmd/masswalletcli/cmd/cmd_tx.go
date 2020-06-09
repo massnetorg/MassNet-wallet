@@ -24,61 +24,38 @@ var (
 	historyCount    uint32
 )
 
+var decodeRawTransactionCmd = &cobra.Command{
+	Use:   "decoderawtransaction <hex>",
+	Short: "Decodes hex-encoded transaction.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		logging.VPrint(logging.INFO, "decoderawtransaction called", logging.LogFormat{})
+		resp := &pb.DecodeRawTransactionResponse{}
+		return ClientCall("/v1/transactions/decode", POST, &pb.DecodeRawTransactionRequest{Hex: args[0]}, resp)
+	},
+}
+
 var createRawTransactionCmd = &cobra.Command{
-	Use:   "createrawtransaction <inputs> <outputs> [locktime=?]",
+	Use:   "createrawtransaction <json_data>",
 	Short: "Creates a raw transaction spending given inputs of current wallet.",
 	Long: "Creates a raw transaction spending given inputs of current wallet.\n" +
-		"\nArguments:\n" +
-		"  <outputs>     a ToAddress-Value map\n" +
-		"  <inputs>      an array of TxOut object\n" +
-		"  [locktime]    optional, a integer, default 0\n",
-	Example: `  createrawtransaction '[{"tx_id": "0234abef", "vout": 0},{"tx_id": "abdafe232", "vout": 1}, ...]' '{"ms1qq7xrhu6dh6r02ep42p563nmku3d9t8e6mu6yz0h7k9rnc4gr53a7sl7tw3r": "1.2",...}'` +
-		"\n  // win\n" +
-		`  createrawtransaction "[{\"tx_id\": \"0234abef\", \"vout\": 0},{\"tx_id\": \"abdafe232\", \"vout\": 1}, ...]" "{\"ms1qq7xrhu6dh6r02ep42p563nmku3d9t8e6mu6yz0h7k9rnc4gr53a7sl7tw3r\": \"1.2\",...}"`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.RangeArgs(2, 3)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-		inputs = make([]*pb.TransactionInput, 0)
-		if err := json.Unmarshal([]byte(args[0]), &inputs); err != nil {
-			return err
-		}
-
-		outputs = make(map[string]string)
-		if err := json.Unmarshal([]byte(args[1]), &outputs); err != nil {
-			return err
-		}
-
-		for i := 2; i < len(args); i++ {
-			key, value, err := parseCommandVar(args[i])
-			if err != nil {
-				return err
-			}
-			switch key {
-			case "locktime":
-				locktime, err = strconv.ParseUint(value, 10, 64)
-				if err != nil {
-					return err
-				}
-			default:
-				return errorUnknownCommandParam(key)
-			}
-		}
-
-		return nil
-	},
+		"\n<json_data>:\n" +
+		"  - inputs			required\n" +
+		"  - amounts			required\n" +
+		"  - lock_time			optional\n" +
+		"  - change_address		optional, the first sender address will be used by default.\n" +
+		"  - subtractfeefrom	optional, if not provided, the sender pays the fee.\n",
+	Example: `  createrawtransaction '{"inputs":[{"tx_id": "af03d3916639143e343628ba9286c33a70752bf6bc495512dbd093c18e033bc0", "vout": 1}],` +
+		`"amounts":{"ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut": "0.999"},` +
+		`"change_address":"ms1qq8mg72nwy02g0zpej0247rwtccycy3zrjmv8na5vl3yp6dgttd7ds0pa2df",` +
+		`"subtractfeefrom": ["ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut"]}'`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logging.VPrint(logging.INFO, "createrawtransaction called", logging.LogFormat{
-			"inputs":   inputs,
-			"outputs":  outputs,
-			"locktime": locktime,
-		})
+		logging.VPrint(logging.INFO, "createrawtransaction called", logging.LogFormat{})
 
-		req := &pb.CreateRawTransactionRequest{
-			Inputs:   inputs,
-			Amounts:  outputs,
-			LockTime: locktime,
+		req := &pb.CreateRawTransactionRequest{}
+		if err := json.Unmarshal([]byte(args[0]), req); err != nil {
+			return err
 		}
 
 		resp := &pb.CreateRawTransactionResponse{}
@@ -87,63 +64,25 @@ var createRawTransactionCmd = &cobra.Command{
 }
 
 var autoCreateRawTransactionCmd = &cobra.Command{
-	Use:   "autocreaterawtransaction <outputs> [locktime=?] [fee=?] [from=?]",
+	Use:   "autocreaterawtransaction <json_data>",
 	Short: "Creates a raw transaction spending randomly selected inputs of current wallet.",
 	Long: "Creates a raw transaction spending randomly selected inputs of current wallet.\n" +
-		"\nArguments:\n" +
-		"  <outputs>    a ToAddress-Amount map\n" +
-		"  [fee]        optional, a real with max 8 decimal places\n" +
-		"  [locktime]   optional, a integer, default 0\n" +
-		"  [from]       optional, a standard mass address, if not provided the inputs may be selected from any address of current wallet\n",
-	Example: `  autocreaterawtransaction '{"ms1qq7xrhu6dh6r02ep42p563nmku3d9t8e6mu6yz0h7k9rnc4gr53a7sl7tw3r": "10.05", ...}' fee=3.3 from=ms1qq3lkfcujch750lt0vc2ygfgfhs3eewntfyhfy86qyclnjansksnhsxymr8g` +
-		"\n  // win\n" +
-		`  autocreaterawtransaction "{\"ms1qq7xrhu6dh6r02ep42p563nmku3d9t8e6mu6yz0h7k9rnc4gr53a7sl7tw3r\": \"10.05\", ...}" fee=3.3 from=ms1qq3lkfcujch750lt0vc2ygfgfhs3eewntfyhfy86qyclnjansksnhsxymr8g`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.RangeArgs(1, 4)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-
-		outputs = make(map[string]string)
-		err := json.Unmarshal([]byte(args[0]), &outputs)
-		if err != nil {
-			return err
-		}
-
-		for i := 1; i < len(args); i++ {
-			key, value, err := parseCommandVar(args[i])
-			if err != nil {
-				return err
-			}
-			switch key {
-			case "locktime":
-				locktime, err = strconv.ParseUint(value, 10, 64)
-				if err != nil {
-					return err
-				}
-			case "fee":
-				fee = value
-			case "from":
-				from = value
-			default:
-				return errorUnknownCommandParam(key)
-			}
-		}
-		return nil
-	},
+		"\n<json_data>:\n" +
+		"  - amounts		required\n" +
+		"  - fee			optional, floating fee with max 8 decimal places\n" +
+		"  - lock_time		optional\n" +
+		"  - change_address	optional, the first sender address will be used by default.\n" +
+		"  - from_address	optional, specific sender, if not provided, the inputs may be selected from any address of current wallet\n",
+	Example: `	autocreaterawtransaction '{"amounts":{"ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut": "1.01"},` +
+		`"change_address":"ms1qq8mg72nwy02g0zpej0247rwtccycy3zrjmv8na5vl3yp6dgttd7ds0pa2df",` +
+		`"fee":"0.005"}'`,
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logging.VPrint(logging.INFO, "autocreaterawtransaction called", logging.LogFormat{
-			"outputs":  outputs,
-			"locktime": locktime,
-			"fee":      fee,
-			"from":     from,
-		})
+		logging.VPrint(logging.INFO, "autocreaterawtransaction called", logging.LogFormat{})
 
-		req := &pb.AutoCreateTransactionRequest{
-			Amounts:     outputs,
-			LockTime:    locktime,
-			Fee:         fee,
-			FromAddress: from,
+		req := &pb.AutoCreateTransactionRequest{}
+		if err := json.Unmarshal([]byte(args[0]), req); err != nil {
+			return err
 		}
 
 		resp := &pb.CreateRawTransactionResponse{}

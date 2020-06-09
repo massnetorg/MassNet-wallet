@@ -20,6 +20,7 @@
 * [GetAddressBalance](#getaddressbalance)
 * [ValidateAddress](#validateaddress)
 * [GetUtxo](#getutxo)
+* [DecodeRawTransaction](#decoderawtransaction)
 * [CreateRawTransaction](#createrawtransaction)
 * [AutoCreateTransaction](#autocreatetransaction)
 * [SignRawTransaction](#signrawtransaction)
@@ -528,6 +529,80 @@ null
             ]
         }
     ]
+}
+```
+
+## DecodeRawTransaction
+    POST /v1/transactions/decode
+### Parameters
+| param | type | meaning | notes |
+| ------ | ------ | ------ | ------ |
+| hex | string | hex-encoded transaction |  |
+
+### Returns
+- `String` - tx_id 
+- `Integer` - version 
+- `Integer` - lock_time 
+- `Integer` - size 
+- `Array of Vin` - vin, inputs of transaction
+    - Vin
+        - `String` - tx_id 
+        - `Integer` - vout 
+        - `Integer` - sequence 
+        - `Array of String`, witness
+- `Array of Vout` - vout, outputs of transaction
+    - Vout
+        - `String` - value 
+        - `Integer` - n 
+        - `Integer` - type
+            - `1` - transfer
+            - `2` - staking
+            - `3` - binding
+        - `String` - script_asm 
+        - `String` - script_hex 
+        - `Array of String`, addresses
+            - `0` - utxo recipient address
+            - `1` - staking address(type=2),
+                    binding address(type=3),
+                    none(type=1)
+- `String` - payload 
+### Example
+```json
+// Request
+{
+	"hex":"080112a4010a280a24093e146ba1a03af113ac38692ba28363419125549bcf62b757021c03b039fd3d0db1001124847304402200c32d95597e7f9df8463d4260fdba320dd3f972182jd8wckc766b71b27fc02206da7e97a66ba1a0f36960fe86a38e19ffad809065b23a141c91affb20ef45dd801122551210356830b4780dc5f5463aa91eeaa6508f93698e039fce8cf17db363ba99afd790451ae19ffffffffffffffff1a2908909fd32f1222002076c83de3af1270125e4cf2db9b2b6c80d63d1043d9d0a57875193ad9d55783ef1a2708904e122200203498e06bb5508a12320488872db0f3ed19f8903a6a16b6f9b1a2708cc7b1222002041c47db9db9b076bd6c29e1461b46c7d26b44b08abc38f297d8b47db9dbec0c38"
+}
+
+// Response
+{
+    "tx_id": "e5b35b35510149ee98c4865285141cb0149ee98c4563825fdfedf1757d9853ee",
+    "version": 1,
+    "lock_time": "0",
+    "size": 333,
+    "vin": [
+        {
+            "tx_id": "af03d3916639143e3436d0939286c33a70752bf6bc495512dbd093c18e033bc0",
+            "vout": 1,
+            "sequence": "18446744073709551615",
+            "witness": [
+                "47304402200c32d95597e7f9df8463d42623a14f9721e737e360dd55c766b71b27fc0245d7e97a66ba1a09f0fe86a38e19ffad809065b23a141c91affb20ef45dd801",
+                "51210356830b4780dc5f54a91eea99a508f93698e039fce8cf17dba913ba99afd790451ae"
+            ]
+        }
+    ],
+    "vout": [
+        {
+            "value": "99930000",
+            "n": 0,
+            "type": 1,
+            "script_asm": "0 76c83de3af1270125e4cf2db5e4cf2db96c80d63d1043d9d0a57875193ad9d55783ef",
+            "script_hex": "002076c83de3d0a70125e4cf2db9b2bdb966d0a3d9d0a57875193ad9d55783ef",
+            "addresses": [
+                "ms1qqwmyrmca0zfcpyhjvmcadek2mvsrtr6yzrm8g227r4ryadn42hs0htr6yz"
+            ]
+        },
+    ],
+    "payload": ""
 }
 ```
 

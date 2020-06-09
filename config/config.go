@@ -38,8 +38,9 @@ const (
 	defaultBlockMaxSize      = wire.MaxBlockPayload
 	defaultBlockPrioritySize = consensus.DefaultBlockPrioritySize
 
-	defaultAddressGapLimit         = 20
-	defaultMaxUnusedStakingAddress = 8
+	DefaultAddressGapLimit         = 20
+	DefaultMaxUnusedStakingAddress = 8
+	DefaultMaxTxFee                = "1.0" // MASS
 )
 
 var (
@@ -192,6 +193,9 @@ func CheckConfig(cfg *Config) *Config {
 	}
 	if cfg.Advanced.MaxUnusedStakingAddress == 0 {
 		cfg.Advanced.MaxUnusedStakingAddress = 1
+	}
+	if len(cfg.Advanced.MaxTxFee) == 0 {
+		cfg.Advanced.MaxTxFee = DefaultMaxTxFee
 	}
 
 	return cfg

@@ -264,6 +264,10 @@ func checkPkScriptStandard(txOut *wire.TxOut, msgTx *wire.MsgTx,
 	return txOutClass, nil
 }
 
+func IsDust(txOut *wire.TxOut, minRelayTxFee massutil.Amount) (bool, error) {
+	return isDust(txOut, minRelayTxFee)
+}
+
 // isDust returns whether or not the passed transaction output amount is
 // considered dust or not based on the passed minimum transaction relay fee.
 // Dust is defined in terms of the minimum transaction relay fee.  In

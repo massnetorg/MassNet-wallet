@@ -10,6 +10,7 @@ const (
 	ErrAPIUnspendable        = 1107
 	ErrAPIDoubleSpend        = 1108
 	ErrAPIOverfullInputs     = 1109
+	ErrAPIBigTransactionFee  = 1110
 
 	// block err
 	ErrAPINewestHash          = 1201
@@ -51,6 +52,10 @@ const (
 	ErrAPIInvalidTxId            = 1518
 	ErrAPIInvalidTxHistoryCount  = 1519
 	ErrAPIMismatchedKeystoreJson = 1520
+	ErrAPIUnknownSubfeefrom      = 1521
+	ErrAPIDustChange             = 1522
+	ErrAPIDustAmount             = 1523
+	ErrAPINotEnoughInputs        = 1524
 
 	// other err
 	ErrAPIUnknownErr      = 1701
@@ -96,6 +101,10 @@ var ErrCode = map[uint32]string{
 	ErrAPIInvalidTxId:               "Invalid transaction id",
 	ErrAPIInvalidTxHistoryCount:     "Invalid count for transaction history",
 	ErrAPIMismatchedKeystoreJson:    "Keystore json does not match the client or network",
+	ErrAPIUnknownSubfeefrom:         "Unknown subtractfeefrom",
+	ErrAPIDustChange:                "Change is dust",
+	ErrAPIDustAmount:                "Amount is dust",
+	ErrAPINotEnoughInputs:           "Not enough inputs",
 
 	ErrAPISignRawTx:          "Failed to sign raw transaction",
 	ErrAPIQueryDataFailed:    "Query for data failed",
@@ -104,4 +113,5 @@ var ErrCode = map[uint32]string{
 	ErrAPIUnspendable:        "Unspendable output",
 	ErrAPIDoubleSpend:        "Output already spent",
 	ErrAPIOverfullInputs:     "Overfull inputs",
+	ErrAPIBigTransactionFee:  "Big transaction fee",
 }

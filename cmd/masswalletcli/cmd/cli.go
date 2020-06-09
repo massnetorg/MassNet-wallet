@@ -55,6 +55,7 @@ func init() {
 	rootCmd.AddCommand(getTransactionFeeCmd)
 	rootCmd.AddCommand(sendRawTransactionCmd)
 	rootCmd.AddCommand(getRawTransactionCmd)
+	rootCmd.AddCommand(decodeRawTransactionCmd)
 	rootCmd.AddCommand(getTxStatusCmd)
 	rootCmd.AddCommand(listTrasactionsCmd)
 

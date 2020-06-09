@@ -18,6 +18,8 @@ import (
 	"massnet.org/mass-wallet/massutil/safetype"
 	"massnet.org/mass-wallet/masswallet"
 	"massnet.org/mass-wallet/masswallet/keystore"
+
+	configpb "massnet.org/mass-wallet/config/pb"
 )
 
 const (
@@ -229,14 +231,20 @@ func checkPoCPubKeyAddress(address string, net *config.Params) (massutil.Address
 	return addr, nil
 }
 
-// not consensus requirement
-func checkFeeSecurity(amt, fee massutil.Amount) error {
-	if fee.IntValue() > amt.IntValue() {
-		logging.CPrint(logging.ERROR, "Unreasonable fee", logging.LogFormat{
-			"fee":    fee,
-			"amount": amt,
+func checkTxFeeLimit(cfg *configpb.Config, fee massutil.Amount) error {
+	max, err := checkParseAmount(cfg.Advanced.MaxTxFee)
+	if err != nil {
+		logging.CPrint(logging.WARN, "invalid max_tx_fee", logging.LogFormat{
+			"err": err,
 		})
-		st := status.New(ErrAPIUserTxFee, ErrCode[ErrAPIUserTxFee])
+		max, _ = checkParseAmount(config.DefaultMaxTxFee)
+	}
+	if max.Cmp(fee) < 0 {
+		logging.CPrint(logging.ERROR, "big transaction fee", logging.LogFormat{
+			"fee": fee,
+			"max": max,
+		})
+		st := status.New(ErrAPIBigTransactionFee, ErrCode[ErrAPIBigTransactionFee])
 		return st.Err()
 	}
 	return nil
@@ -259,11 +267,16 @@ func convertResponseError(err error) error {
 			"err": err,
 		})
 		return status.New(ErrAPINoAddressInWallet, ErrCode[ErrAPINoAddressInWallet]).Err()
-	case masswallet.ErrInsufficient:
+	case masswallet.ErrInsufficientFunds:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPIInsufficientWalletBalance], logging.LogFormat{
 			"err": err,
 		})
 		return status.New(ErrAPIInsufficientWalletBalance, ErrCode[ErrAPIInsufficientWalletBalance]).Err()
+	case masswallet.ErrNotEnoughInputs:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPINotEnoughInputs], logging.LogFormat{
+			"err": err,
+		})
+		return status.New(ErrAPINotEnoughInputs, ErrCode[ErrAPINotEnoughInputs]).Err()
 	case masswallet.ErrOverfullUtxo:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPIOverfullInputs], logging.LogFormat{
 			"err": err,
@@ -296,6 +309,21 @@ func convertResponseError(err error) error {
 			"err": err,
 		})
 		return status.New(ErrAPIInvalidAmount, ErrCode[ErrAPIInvalidAmount]).Err()
+	case masswallet.ErrDustChange:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIDustChange], logging.LogFormat{
+			"err": err,
+		})
+		return status.New(ErrAPIDustChange, ErrCode[ErrAPIDustChange]).Err()
+	case masswallet.ErrDustAmount:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIDustAmount], logging.LogFormat{
+			"err": err,
+		})
+		return status.New(ErrAPIDustAmount, ErrCode[ErrAPIDustAmount]).Err()
+	case masswallet.ErrUnknownSubfeefrom:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIUnknownSubfeefrom], logging.LogFormat{
+			"err": err,
+		})
+		return status.New(ErrAPIUnknownSubfeefrom, ErrCode[ErrAPIUnknownSubfeefrom]).Err()
 	case masswallet.ErrShaHashFromStr:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPIInvalidTxId], logging.LogFormat{
 			"err": err,
@@ -412,12 +440,11 @@ func convertResponseError(err error) error {
 }
 
 func checkAddressLen(addr string) error {
-	if len(addr) > AddressMaxLen {
-		logging.CPrint(logging.ERROR, "address is too long", logging.LogFormat{
-			"address":     addr,
-			"length":      len(addr),
-			"max allowed": AddressMaxLen,
-		})
+	if len(addr) == 0 || len(addr) > AddressMaxLen {
+		logging.CPrint(logging.ERROR, "illegal address length",
+			logging.LogFormat{
+				"address": addr,
+			})
 		st := status.New(ErrAPIInvalidAddress, ErrCode[ErrAPIInvalidAddress])
 		return st.Err()
 	}

@@ -13,11 +13,15 @@ var (
 	ErrInvalidLockTime       = errors.New("Invalid locktime")
 	ErrInvalidParameter      = errors.New("Invalid parameter")
 	ErrEncode                = errors.New("Failed to encode data")
-	ErrInsufficient          = errors.New("Insufficient balance")
+	ErrInsufficientFunds     = errors.New("Insufficient funds")
 	ErrOverfullUtxo          = errors.New("Overfull utxo")
 	ErrInvalidFlag           = errors.New("Invalid sighash parameter")
 	ErrInvalidIndex          = errors.New("Invalid OutPoint index")
 	ErrDoubleSpend           = errors.New("Output already spent")
+	ErrUnknownSubfeefrom     = errors.New("Unknown subtractfeefrom")
+	ErrDustChange            = errors.New("Change is dust")
+	ErrDustAmount            = errors.New("Amount is dust")
+	ErrNotEnoughInputs       = errors.New("Not enough inputs")
 
 	ErrSignWitnessTx = errors.New("Failed to sign witness tx")
 

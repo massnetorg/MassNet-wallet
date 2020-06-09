@@ -464,21 +464,34 @@ Return:
 }
 ```
 
+## decoderawtransaction
+    decoderawtransaction <hex>
+Decodes hex-encoded transaction.
+
+Parameter:
+
+    <hex>     hex encoded transaction.
+
+Example:
+```bash
+```
+
 ## createrawtransaction
-    createrawtransaction <inputs> <outputs> [locktime=?]
-Creates a normal transaction.
+    createrawtransaction <json_data>
+Creates a transaction spending given inputs of current wallet.
 
 Parameter:  
 
-    inputs      
-                [{"tx_id":"...","vout":0},...]
-    outputs     
-                {"address1":"vlaue1","address2":"vlaue2",...}, value unit:  MASS
-    locktime    optional.
+    <json_data>:
+        - inputs              required
+        - amounts             required
+        - lock_time           optional
+        - change_address      optional, the first sender address will be used by default.
+        - subtractfeefrom     optional, if not provided, the sender pays the fee.
 
 Example:  
 ```bash
-> masswallet-cli createrawtransaction '[{"tx_id":"08e60b73ef43f5bfcf3f954f103f618e8bc69995ba414fdf97d2098841863695","vout":0}]' '{"ms1qqgq750hhj0lcem3pmv6gymvvmfmrzmvhyxqwyp4fey2cmec372pjq3uw7yg":"19.99999"}'
+> masswallet-cli createrawtransaction '{"inputs":[{"tx_id": "af03d3916639143e343628ba9286c33a70752bf6bc495512dbd093c18e033bc0", "vout": 1}],"amounts":{"ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut": "0.999"},"change_address":"ms1qq8mg72nwy02g0zpej0247rwtccycy3zrjmv8na5vl3yp6dgttd7ds0pa2df","subtractfeefrom": ["ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut"]}'
 ```
 
 Return:  
@@ -489,21 +502,21 @@ Return:
 ```
 
 ## autocreaterawtransaction
-    autocreaterawtransaction <outputs> [locktime=?] [fee=?] [from=?]
+    autocreaterawtransaction <json_data>
 Creates a transaction with randomly selected utxos from the current wallet.
 
-Parameter:    
+Parameter:   
 
-    outputs     fixed value,format:  {"address":"value",...}
-    fee         optional
-    from        optional.Specify the source address of utxo, otherwise select randomly from all addresses of wallet
+    <json_data>: 
+        - amounts             required  
+        - fee                 optional, floating fee with max 8 decimal places
+        - lock_time           optional
+        - change_address      optional, the first sender address will be used by default.
+        - from_address        optional, specific sender, if not provided, the inputs may be selected from any address of current wallet.
 
 Example:  
 ```bash
-> masswallet-cli autocreaterawtransaction '{"ms1qqgq750hhj0lcem3pmv6gymvvmfmrzmvhyxqwyp4fey2cmec372pjq3uw7yg": "19.99999", ...}' from=ms1qqf8870v59cdaanj3cxgfq97d3xpz94g9gqqsvz0wnj7lmlp9ehr2sxdj0um
-
-// win
-> masswallet-cli autocreaterawtransaction "{\"ms1qqgq750hhj0lcem3pmv6gymvvmfmrzmvhyxqwyp4fey2cmec372pjq3uw7yg\": \"19.99999\", ...}" from=ms1qqf8870v59cdaanj3cxgfq97d3xpz94g9gqqsvz0wnj7lmlp9ehr2sxdj0um
+> masswallet-cli autocreaterawtransaction '{"amounts":{"ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut": "1.01"},"change_address":"ms1qq8mg72nwy02g0zpej0247rwtccycy3zrjmv8na5vl3yp6dgttd7ds0pa2df","fee":"0.005"}'
 ```
 
 Return:  

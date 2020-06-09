@@ -581,7 +581,7 @@ func TestWalletManager_EstimateTxFee(t *testing.T) {
 		addr1: amt1,
 	}
 	//minTxFee
-	incompleteTx, txFee, err := w.EstimateTxFee(txOuts, 0, massutil.ZeroAmount(), "")
+	incompleteTx, txFee, err := w.EstimateTxFee(txOuts, 0, massutil.ZeroAmount(), "", "")
 	if err != nil {
 		t.Fatal("estimate txFee error", err.Error())
 	}
@@ -594,7 +594,7 @@ func TestWalletManager_EstimateTxFee(t *testing.T) {
 	//SetTxFee
 	amt, err := massutil.NewAmountFromUint(10e8)
 	assert.Nil(t, err)
-	incompleteTx0, txFee0, err := w.EstimateTxFee(txOuts, 0, amt, "")
+	incompleteTx0, txFee0, err := w.EstimateTxFee(txOuts, 0, amt, "", "")
 	if err != nil {
 		t.Fatal("estimate txFee error", err.Error())
 	}
@@ -707,7 +707,7 @@ func TestWalletManager_AutoConstructTx(t *testing.T) {
 	}
 	amt, err := massutil.NewAmountFromUint(10e8)
 	assert.Nil(t, err)
-	txHex, txFee, err := w.AutoCreateRawTransaction(txOuts, 0, amt, "")
+	txHex, txFee, err := w.AutoCreateRawTransaction(txOuts, 0, amt, "", "")
 	if err != nil {
 		t.Fatal("AutoCreateRawTransaction error", err.Error())
 	}

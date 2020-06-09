@@ -2,13 +2,12 @@ syntax = "proto3";
 package configpb;
 
 message Config {
-    AppConfig      app      = 1;
-    NetworkConfig  network  = 2;
-    LogConfig      log      = 3;
-    DataConfig     data     = 4;
+    AppConfig     app     = 1;
+    NetworkConfig network = 2;
+    LogConfig     log     = 3;
+    DataConfig   data   = 4;
     AdvancedConfig advanced = 5; // Warning: Advanced settings can break compatibility.
-                                 // Do not attempt to set them if you dont know how they work.
-
+    // Do not attempt to set them if you dont kown how they work.
 }
 
 message P2PConfig {
@@ -56,4 +55,5 @@ message DataConfig {
 message AdvancedConfig {
     uint32 address_gap_limit = 1;
     uint32 max_unused_staking_address = 2;
+    string max_tx_fee = 3; // never create transactions larger than max_tx_fee, floating fee(default: 1.0) in MASS
 }

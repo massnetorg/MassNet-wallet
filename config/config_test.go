@@ -1,11 +1,10 @@
-package config_test
+package config
 
 import (
 	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"massnet.org/mass-wallet/config"
 )
 
 var (
@@ -28,30 +27,64 @@ var (
 				"rpc_key": "./cert.key"
 			}
 		},
-		"chain": {
-			"data_dir": "ldb/chain"
+		"data": {
+			"db_dir": "chain",
+			"db_type": "leveldb"
 		},
 		"log": {
-			"log_dir": "ldb/logs",
+			"log_dir": "logs",
 			"log_level": "info"
 		},
-		"wallet": {
-			"data_dir": "ldb/wallet",
-			"pub_pass": "passphrase"
+		"advanced": {
+			"address_gap_limit": 3000
 		}
 	}   
 	`
 )
 
 func TestMarshal(t *testing.T) {
-	cfg := &config.Config{
-		Config: config.NewDefaultConfig(),
+	cfg := &Config{
+		Config: NewDefaultConfig(),
 	}
 	err := json.Unmarshal([]byte(cfgjson), cfg.Config)
 	assert.Nil(t, err)
-	config.CheckConfig(cfg)
-	if cfg.Config.Network.API.DisableTls {
-		assert.Empty(t, cfg.Config.Network.API.RpcCert)
-		assert.Empty(t, cfg.Config.Network.API.RpcKey)
+	CheckConfig(cfg)
+	assert.Empty(t, cfg.Config.Network.API.RpcCert)
+	assert.Empty(t, cfg.Config.Network.API.RpcKey)
+}
+
+func TestMarshalMaxTxFee(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfgjson string
+		expect  string
+	}{
+		{
+			"notset",
+			`{
+				"advanced": {}
+			}`,
+			DefaultMaxTxFee,
+		},
+		{
+			"valid",
+			`{
+				"advanced": {
+					"max_tx_fee": "5.555"
+				}
+			}`,
+			"5.555",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := &Config{
+				Config: NewDefaultConfig(),
+			}
+			err := json.Unmarshal([]byte(test.cfgjson), cfg.Config)
+			assert.Nil(t, err)
+			CheckConfig(cfg)
+			assert.True(t, cfg.Config.Advanced.MaxTxFee == test.expect)
+		})
 	}
 }
