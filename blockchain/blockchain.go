@@ -63,10 +63,6 @@ type Blockchain struct {
 	hashCache *txscript.HashCache
 }
 
-func (chain *Blockchain) TstgetPrevNodeFromBlock(block *massutil.Block) (*BlockNode, error) {
-	return chain.getPrevNodeFromBlock(block)
-}
-
 func NewBlockchain(db database.Db, dbPath string, server Server) (*Blockchain, error) {
 	chain := &Blockchain{
 		db:             db,
