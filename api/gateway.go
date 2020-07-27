@@ -78,7 +78,7 @@ func Run(cfg *config.Config) error {
 		grpc.WithInsecure(),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)),
 	}
-	err := gw.RegisterApiServiceHandlerFromEndpoint(ctx, mux, ":"+cfg.Network.API.GRPCPort, opts)
+	err := gw.RegisterApiServiceHandlerFromEndpoint(ctx, mux, "localhost:"+cfg.Network.API.GRPCPort, opts)
 	if err != nil {
 		return err
 	}
