@@ -4,9 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"sort"
-
-	"massnet.org/mass-wallet/consensus"
-
+	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/ptypes/empty"
@@ -15,8 +13,10 @@ import (
 	pb "massnet.org/mass-wallet/api/proto"
 	"massnet.org/mass-wallet/blockchain"
 	cfg "massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/consensus"
 	"massnet.org/mass-wallet/logging"
 	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/masswallet/keystore"
 	"massnet.org/mass-wallet/masswallet/utils"
 	"massnet.org/mass-wallet/txscript"
 	"massnet.org/mass-wallet/wire"
@@ -197,99 +197,125 @@ func (s *APIServer) SendRawTransaction(ctx context.Context, in *pb.SendRawTransa
 
 }
 
-func (s *APIServer) GetLatestRewardList(ctx context.Context, in *empty.Empty) (*pb.GetLatestRewardListResponse, error) {
+func (s *APIServer) GetBlockStakingReward(ctx context.Context, in *pb.GetBlockStakingRewardRequest) (*pb.GetBlockStakingRewardResponse, error) {
 
-	bestHeight := s.node.Blockchain().BestBlockHeight()
-	logging.CPrint(logging.INFO, "api: GetLatestRewardList", logging.LogFormat{"height": bestHeight})
+	logging.CPrint(logging.INFO, "api: GetBlockStakingReward", logging.LogFormat{"height": in.Height})
+	if in.Height > s.node.Blockchain().BestBlockHeight() {
+		return nil, status.New(ErrAPIInvalidParameter, ErrCode[ErrAPIInvalidParameter]).Err()
+	}
 
-	ranks, count, err := s.node.Blockchain().GetRewardStakingTx(bestHeight)
+	height := in.Height
+	if height == 0 {
+		height = s.node.Blockchain().BestBlockHeight()
+	}
+	ranks, err := s.node.Blockchain().GetBlockStakingRewardRankOnList(height)
 	if err != nil {
-		logging.CPrint(logging.ERROR, "GetRewardLockTx failed", logging.LogFormat{"err": err, "height": bestHeight})
+		logging.CPrint(logging.ERROR, "GetBlockStakingRewardList failed", logging.LogFormat{"err": err, "height": height})
 		return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
 	}
 
-	scriptHashExist := make(map[[sha256.Size]byte]struct{})
-	for _, rank := range ranks {
-		scriptHashExist[rank.ScriptHash] = struct{}{}
-	}
-
-	block, err := s.node.Blockchain().GetBlockByHeight(bestHeight)
+	block, err := s.node.Blockchain().GetBlockByHeight(height)
 	if err != nil {
-		logging.CPrint(logging.ERROR, "GetBlockByHeight failed", logging.LogFormat{"err": err, "height": bestHeight})
+		logging.CPrint(logging.ERROR, "GetBlockByHeight failed", logging.LogFormat{"err": err, "height": height})
 		return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
 	}
 	coinbase, err := block.Tx(0)
 	if err != nil {
-		logging.CPrint(logging.ERROR, "coinbase error", logging.LogFormat{"err": err, "height": bestHeight})
+		logging.CPrint(logging.ERROR, "coinbase error", logging.LogFormat{"err": err, "height": height})
 		return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 	}
-
-	txOuts := coinbase.MsgTx().TxOut
 
 	coinbasePayload := blockchain.NewCoinbasePayload()
 	err = coinbasePayload.SetBytes(coinbase.MsgTx().Payload)
 	if err != nil {
-		logging.CPrint(logging.ERROR, "coinbase payload error", logging.LogFormat{"err": err, "height": bestHeight})
+		logging.CPrint(logging.ERROR, "coinbase payload error", logging.LogFormat{"err": err, "height": height})
 		return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 	}
-	numLock := coinbasePayload.NumStakingReward()
-	addrToProfit := make(map[[sha256.Size]byte]int64)
-	for j := 0; uint32(j) < numLock; j++ {
+
+	txOuts := coinbase.MsgTx().TxOut
+	rankToProfit := make(map[[sha256.Size]byte]int64)
+	for _, rank := range ranks {
+		rankToProfit[rank.ScriptHash] = 0
+	}
+
+	for j := 0; uint32(j) < coinbasePayload.NumStakingReward(); j++ {
 		class, pops := txscript.GetScriptInfo(txOuts[j].PkScript)
 		_, hash, err := txscript.GetParsedOpcode(pops, class)
 		if err != nil {
-			logging.CPrint(logging.ERROR, "pkscript error", logging.LogFormat{"err": err, "height": bestHeight})
+			logging.CPrint(logging.ERROR, "pkscript error", logging.LogFormat{"err": err, "height": height})
 			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 		}
 
-		if _, ok := scriptHashExist[hash]; !ok {
-			break
+		if profit, ok := rankToProfit[hash]; !ok || profit != 0 {
+			logging.CPrint(logging.ERROR, "unexpected staking reward",
+				logging.LogFormat{
+					"exist":  ok,
+					"height": height,
+					"profit": profit,
+				})
+			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 		}
-		addrToProfit[hash] = txOuts[j].Value
+		rankToProfit[hash] = txOuts[j].Value
 	}
 
-	var address string
-	details := make([]*pb.GetLatestRewardListResponse_RewardDetail, 0)
-	for _, rank := range ranks {
+	list := make([]*pb.GetBlockStakingRewardResponse_RewardDetail, 0)
+	for idx, rank := range ranks {
+		if rankToProfit[rank.ScriptHash] == 0 {
+			break
+		}
 
-		key := make([]byte, sha256.Size)
-		copy(key, rank.ScriptHash[:])
-		scriptHashStruct, err := massutil.NewAddressStakingScriptHash(key, &cfg.ChainParams)
+		scriptHashStruct, err := massutil.NewAddressStakingScriptHash(rank.ScriptHash[:], &cfg.ChainParams)
 		if err != nil {
-			logging.CPrint(logging.ERROR, "script hash error", logging.LogFormat{"err": err, "height": bestHeight})
+			logging.CPrint(logging.ERROR, "script hash error", logging.LogFormat{
+				"err":        err,
+				"height":     height,
+				"rank_index": idx,
+			})
 			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 		}
-		address = scriptHashStruct.EncodeAddress()
+		address := scriptHashStruct.EncodeAddress()
 		if err != nil {
-			logging.CPrint(logging.ERROR, "encode address error", logging.LogFormat{"err": err, "height": bestHeight})
+			logging.CPrint(logging.ERROR, "encode address error", logging.LogFormat{
+				"err":        err,
+				"height":     height,
+				"rank_index": idx,
+			})
 			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 		}
 
 		total := massutil.ZeroAmount()
-		for _, ltxInfo := range rank.StakingTx {
-			total, err = total.AddInt(int64(ltxInfo.Value))
+		for _, stk := range rank.StakingTx {
+			total, err = total.AddInt(int64(stk.Value))
 			if err != nil {
-				logging.CPrint(logging.ERROR, "total amount error", logging.LogFormat{"err": err, "height": bestHeight})
+				logging.CPrint(logging.ERROR, "total amount error", logging.LogFormat{
+					"err":        err,
+					"height":     height,
+					"rank_index": idx,
+				})
 				return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 			}
 		}
 		amt, err := AmountToString(total.IntValue())
 		if err != nil {
 			logging.CPrint(logging.ERROR, "AmountToString error", logging.LogFormat{
-				"err":    err,
-				"height": bestHeight,
+				"err":        err,
+				"height":     height,
+				"rank_index": idx,
 			})
 			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 		}
-		profit, err := AmountToString(addrToProfit[rank.ScriptHash])
+
+		profit, err := AmountToString(rankToProfit[rank.ScriptHash])
 		if err != nil {
 			logging.CPrint(logging.ERROR, "AmountToString failed", logging.LogFormat{
-				"err":    err,
-				"height": bestHeight,
+				"err":        err,
+				"height":     height,
+				"rank_index": idx,
 			})
 			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 		}
-		details = append(details, &pb.GetLatestRewardListResponse_RewardDetail{
+
+		list = append(list, &pb.GetBlockStakingRewardResponse_RewardDetail{
 			Rank:    rank.Rank,
 			Address: address,
 			Weight:  rank.Weight.Float64(),
@@ -298,15 +324,23 @@ func (s *APIServer) GetLatestRewardList(ctx context.Context, in *empty.Empty) (*
 		})
 	}
 
-	sort.Slice(details, func(i, j int) bool {
-		return details[i].Rank < details[j].Rank
-	})
-
-	reply := &pb.GetLatestRewardListResponse{
-		Details: details,
+	if int(coinbasePayload.NumStakingReward()) != len(list) {
+		logging.CPrint(logging.ERROR, "unexpected error",
+			logging.LogFormat{
+				"reward":      coinbasePayload.NumStakingReward(),
+				"list_length": len(list),
+				"height":      height,
+			})
+		return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
 	}
-	logging.CPrint(logging.INFO, "api: GetLatestRewardList completed", logging.LogFormat{
-		"number": count,
+
+	reply := &pb.GetBlockStakingRewardResponse{
+		Details: list,
+		Height:  height,
+	}
+	logging.CPrint(logging.INFO, "api: GetBlockStakingReward completed", logging.LogFormat{
+		"number_of_rank": len(ranks),
+		"number_of_list": len(list),
 	})
 	return reply, nil
 }
@@ -347,10 +381,10 @@ func (s *APIServer) TxHistory(ctx context.Context, in *pb.TxHistoryRequest) (*pb
 	return reps, nil
 }
 
-func (s *APIServer) GetStakingHistory(ctx context.Context, in *empty.Empty) (*pb.GetStakingHistoryResponse, error) {
+func (s *APIServer) GetStakingHistory(ctx context.Context, in *pb.GetStakingHistoryRequest) (*pb.GetStakingHistoryResponse, error) {
 	logging.CPrint(logging.INFO, "api: GetStakingHistory", logging.LogFormat{})
 	newestHeight := s.node.Blockchain().BestBlockHeight()
-	rewards, _, err := s.node.Blockchain().GetInStakingTx(newestHeight)
+	rewards, err := s.node.Blockchain().GetUnexpiredStakingRank(newestHeight)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "Failed to FetchAllLockTx from chainDB", logging.LogFormat{
 			"err": err,
@@ -358,8 +392,11 @@ func (s *APIServer) GetStakingHistory(ctx context.Context, in *empty.Empty) (*pb
 		st := status.New(ErrAPIGetStakingTxDetail, ErrCode[ErrAPIGetStakingTxDetail])
 		return nil, st.Err()
 	}
-
-	stakingTxs, err := s.massWallet.GetStakingHistory()
+	excludeWithdrawn := true
+	if in.Type == "all" {
+		excludeWithdrawn = false
+	}
+	stakingTxs, err := s.massWallet.GetStakingHistory(excludeWithdrawn)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "Failed to GetStakingHistory from walletDB", logging.LogFormat{
 			"err": err,
@@ -710,6 +747,7 @@ func (s *APIServer) UseWallet(ctx context.Context, in *pb.UseWalletRequest) (*pb
 		ChainId:          info.ChainID,
 		WalletId:         info.WalletID,
 		Type:             info.Type,
+		Version:          uint32(info.Version),
 		TotalBalance:     totalBalance,
 		ExternalKeyCount: info.ExternalKeyCount,
 		InternalKeyCount: info.InternalKeyCount,
@@ -731,13 +769,24 @@ func (s *APIServer) Wallets(ctx context.Context, in *empty.Empty) (*pb.WalletsRe
 		return nil, cvtErr
 	}
 	for _, summary := range summaries {
-		wallets = append(wallets, &pb.WalletsResponse_WalletSummary{
-			WalletId:     summary.WalletID,
-			Type:         summary.Type,
-			Remarks:      summary.Remarks,
-			Ready:        summary.Ready,
-			SyncedHeight: summary.SyncedHeight,
-		})
+		ws := &pb.WalletsResponse_WalletSummary{
+			WalletId: summary.WalletID,
+			Type:     summary.Type,
+			Version:  uint32(summary.Version),
+			Remarks:  summary.Remarks,
+		}
+		switch {
+		case summary.Status.IsRemoved():
+			ws.Status = walletStatusRemoving
+			ws.StatusMsg = walletStatusMsg[walletStatusRemoving]
+		case summary.Status.Ready():
+			ws.Status = walletStatusReady
+			ws.StatusMsg = walletStatusMsg[walletStatusReady]
+		default:
+			ws.Status = walletStatusImporting
+			ws.StatusMsg = strconv.Itoa(int(summary.Status.SyncedHeight))
+		}
+		wallets = append(wallets, ws)
 	}
 
 	logging.CPrint(logging.INFO, "api: Wallets completed", logging.LogFormat{})
@@ -821,26 +870,35 @@ func (s *APIServer) ImportWallet(ctx context.Context, in *pb.ImportWalletRequest
 		Ok:       true,
 		WalletId: ws.WalletID,
 		Type:     ws.Type,
+		Version:  uint32(ws.Version),
 		Remarks:  ws.Remarks,
 	}, nil
 }
 
-func (s *APIServer) ImportWalletWithMnemonic(ctx context.Context, in *pb.ImportWalletWithMnemonicRequest) (*pb.ImportWalletResponse, error) {
-	logging.CPrint(logging.INFO, "api: ImportWalletWithMnemonic", logging.LogFormat{"remarks": in.Remarks})
+func (s *APIServer) ImportMnemonic(ctx context.Context, in *pb.ImportMnemonicRequest) (*pb.ImportWalletResponse, error) {
+	logging.CPrint(logging.INFO, "api: ImportMnemonic", logging.LogFormat{"remarks": in.Remarks})
 
-	err := checkPassLen(in.Passphrase)
-	if err != nil {
-		return nil, err
-	}
-
-	err = checkMnemonicLen(in.Mnemonic)
+	err := checkMnemonicLen(in.Mnemonic)
 	if err != nil {
 		return nil, err
 	}
 
 	remarks := checkRemarksLen(in.Remarks)
 
-	ws, err := s.massWallet.ImportWalletWithMnemonic(in.Mnemonic, in.Passphrase, remarks, in.ExternalIndex, in.InternalIndex)
+	err = checkPassLen(in.Passphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	params := &keystore.WalletParams{
+		Mnemonic:          in.Mnemonic,
+		PrivatePassphrase: []byte(in.Passphrase),
+		Remarks:           remarks,
+		ExternalIndex:     in.ExternalIndex,
+		InternalIndex:     in.InternalIndex,
+		AddressGapLimit:   s.config.Advanced.AddressGapLimit,
+	}
+	ws, err := s.massWallet.ImportWalletWithMnemonic(params)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "ImportWalletWithMnemonic failed", logging.LogFormat{"err": err})
 		cvtErr := convertResponseError(err)
@@ -858,6 +916,7 @@ func (s *APIServer) ImportWalletWithMnemonic(ctx context.Context, in *pb.ImportW
 		Ok:       true,
 		WalletId: ws.WalletID,
 		Type:     ws.Type,
+		Version:  uint32(ws.Version),
 		Remarks:  ws.Remarks,
 	}, nil
 }
@@ -876,7 +935,7 @@ func (s *APIServer) CreateWallet(ctx context.Context, in *pb.CreateWalletRequest
 
 	remarks := checkRemarksLen(in.Remarks)
 
-	name, mnemonic, err := s.massWallet.CreateWallet(in.Passphrase, remarks, int(in.BitSize))
+	name, mnemonic, version, err := s.massWallet.CreateWallet(in.Passphrase, remarks, int(in.BitSize))
 	if err != nil {
 		logging.CPrint(logging.ERROR, "CreateWallet failed", logging.LogFormat{"err": err})
 		cvtErr := convertResponseError(err)
@@ -890,6 +949,7 @@ func (s *APIServer) CreateWallet(ctx context.Context, in *pb.CreateWalletRequest
 	return &pb.CreateWalletResponse{
 		WalletId: name,
 		Mnemonic: mnemonic,
+		Version:  uint32(version),
 	}, nil
 }
 
@@ -951,6 +1011,33 @@ func (s *APIServer) RemoveWallet(ctx context.Context, in *pb.RemoveWalletRequest
 	}, nil
 }
 
+/* func (s *APIServer) ChangePrivPassphrase(ctx context.Context, in *pb.ChangePrivPassphraseRequest) (*pb.ChangePrivPassphraseResponse, error) {
+	logging.CPrint(logging.INFO, "api: ChangePrivPassphrase")
+
+	err := checkPassLen(in.OldPassphrase)
+	if err != nil {
+		return nil, err
+	}
+
+	err = checkPassLen(in.NewPassphrase)
+	if err != nil {
+		return nil, status.New(ErrAPIInvalidNewPassphrase, ErrCode[ErrAPIInvalidNewPassphrase]).Err()
+	}
+
+	err = s.massWallet.ChangePrivPassphrase(in.OldPassphrase, in.NewPassphrase)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "ChangePrivPassphrase failed", logging.LogFormat{
+			"err": err,
+		})
+		cvtErr := convertResponseError(err)
+		if cvtErr == apiUnknownError {
+			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+		}
+		return nil, cvtErr
+	}
+	return &pb.ChangePrivPassphraseResponse{Ok: true}, nil
+} */
+
 func (s *APIServer) GetAddressBinding(ctx context.Context, in *pb.GetAddressBindingRequest) (*pb.GetAddressBindingResponse, error) {
 	logging.CPrint(logging.INFO, "api: GetAddressBinding", logging.LogFormat{"addresses": in.Addresses})
 
@@ -1003,10 +1090,14 @@ func (s *APIServer) GetAddressBinding(ctx context.Context, in *pb.GetAddressBind
 	}, nil
 }
 
-func (s *APIServer) GetBindingHistory(ctx context.Context, in *empty.Empty) (*pb.GetBindingHistoryResponse, error) {
+func (s *APIServer) GetBindingHistory(ctx context.Context, in *pb.GetBindingHistoryRequest) (*pb.GetBindingHistoryResponse, error) {
 	logging.CPrint(logging.INFO, "api: GetBindingHistory", logging.LogFormat{})
 
-	details, err := s.massWallet.GetBindingHistory()
+	excludeWithdrawn := true
+	if in.Type == "all" {
+		excludeWithdrawn = false
+	}
+	details, err := s.massWallet.GetBindingHistory(excludeWithdrawn)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "GetBindingHistory failed", logging.LogFormat{"err": err})
 		cvtErr := convertResponseError(err)
@@ -1115,13 +1206,18 @@ func (s *APIServer) GetWalletMnemonic(ctw context.Context, in *pb.GetWalletMnemo
 		return nil, err
 	}
 
-	mnemonic, err := s.massWallet.GetMnemonic(in.WalletId, in.Passphrase)
+	mnemonic, version, err := s.massWallet.GetMnemonic(in.WalletId, in.Passphrase)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "GetMnemonic failed", logging.LogFormat{"err": err})
-		return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
+		cvtErr := convertResponseError(err)
+		if cvtErr == apiUnknownError {
+			return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
+		}
+		return nil, cvtErr
 	}
 	logging.CPrint(logging.INFO, "api: GetWalletMnemonic completed", logging.LogFormat{})
 	return &pb.GetWalletMnemonicResponse{
 		Mnemonic: mnemonic,
+		Version:  uint32(version),
 	}, nil
 }

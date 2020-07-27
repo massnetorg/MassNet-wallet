@@ -9,6 +9,8 @@ import (
 )
 
 var (
+	keystoreVersionName = []byte("kver")
+
 	//
 	masterKMPubKeyName = []byte("mkmpub")
 
@@ -135,6 +137,24 @@ func fetchMasterKeyParams(b db.Bucket) ([]byte, []byte, error) {
 	}
 
 	return pubParams, privParams, nil
+}
+
+func putVersion(b db.Bucket, version uint8) error {
+	buf := make([]byte, 1)
+	buf[0] = version
+	err := b.Put(keystoreVersionName, buf)
+	if err != nil {
+		return fmt.Errorf("failed to store keystore version, %v", err)
+	}
+	return nil
+}
+
+func fetchVersion(b db.Bucket) (uint8, error) {
+	val, err := b.Get(keystoreVersionName)
+	if err != nil || len(val) == 0 {
+		return 0, err
+	}
+	return val[0], nil
 }
 
 func putEntropy(b db.Bucket, entropyEnc []byte) error {

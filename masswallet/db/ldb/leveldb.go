@@ -71,6 +71,8 @@ type transaction struct {
 	readOnly bool
 	b        *batch
 	l        *LevelDB
+
+	cache map[db.BucketMeta]*levelBucket
 }
 
 func newBatch() *batch {
@@ -155,6 +157,7 @@ func (l *LevelDB) BeginTx() (db.DBTransaction, error) {
 		readOnly: false,
 		b:        newBatch(),
 		l:        l,
+		cache:    make(map[db.BucketMeta]*levelBucket),
 	}, nil
 }
 
@@ -163,6 +166,7 @@ func (l *LevelDB) BeginReadTx() (db.ReadTransaction, error) {
 	return &transaction{
 		readOnly: true,
 		l:        l,
+		cache:    make(map[db.BucketMeta]*levelBucket),
 	}, nil
 }
 
@@ -246,32 +250,37 @@ func (tx *transaction) BucketNames() (names []string, err error) {
 	return names, nil
 }
 
-// FetchBucket ...
+// FetchBucket returns Bucket
 func (tx *transaction) FetchBucket(meta db.BucketMeta) db.Bucket {
 	if meta == nil {
 		return nil
 	}
-	path := joinBucketPath(meta.Paths()...)
-	key := []byte(joinBucketPath(bucketNameBucket, path))
+	bkt, ok := tx.cache[meta]
+	if !ok {
+		path := joinBucketPath(meta.Paths()...)
+		key := []byte(joinBucketPath(bucketNameBucket, path))
 
-	_, err := tx.l.ldb.Get(key, nil)
-	if !tx.readOnly && err == leveldb.ErrNotFound {
-		if v, _ := tx.b.Get(key); v != nil {
-			err = nil
+		_, err := tx.l.ldb.Get(key, nil)
+		if !tx.readOnly && err == leveldb.ErrNotFound {
+			if v, _ := tx.b.Get(key); v != nil {
+				err = nil
+			}
 		}
-	}
-	if err != nil {
-		return nil
-	}
-	//TOCONFIRM: check value == name
+		if err != nil {
+			return nil
+		}
+		//TOCONFIRM: check value == name
 
-	return &levelBucket{
-		tx:      tx,
-		name:    meta.Name(),
-		path:    path,
-		pathLen: len(path),
-		depth:   meta.Depth(),
+		bkt = &levelBucket{
+			tx:      tx,
+			name:    meta.Name(),
+			path:    path,
+			pathLen: len(path),
+			depth:   meta.Depth(),
+		}
+		tx.cache[meta] = bkt
 	}
+	return bkt
 }
 
 // CreateTopLevelBucket ...

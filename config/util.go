@@ -251,6 +251,8 @@ func NewDefaultConfig() *configpb.Config {
 			DbDir:         DefaultChainDataDir,
 			WalletPubPass: "1234567890",
 		},
+		// Warning: Advanced settings can break compatibility.
+		// Do not attempt to set them if you dont kown how they work.
 		Advanced: &configpb.AdvancedConfig{
 			AddressGapLimit:         DefaultAddressGapLimit,
 			MaxUnusedStakingAddress: DefaultMaxUnusedStakingAddress,

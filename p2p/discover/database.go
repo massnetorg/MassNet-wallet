@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
+	gowire "github.com/massnetorg/tendermint/go-wire"
 	configpb "massnet.org/mass-wallet/config/pb"
 	"massnet.org/mass-wallet/database/storage"
 	"massnet.org/mass-wallet/logging"
-	gowire "github.com/massnetorg/tendermint/go-wire"
 )
 
 var (

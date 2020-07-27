@@ -24,6 +24,7 @@ type AddrManager struct {
 
 	keystoreName string
 	remark       string
+	version      KeystoreVersion
 
 	// in number of second
 	expires time.Duration
@@ -90,6 +91,7 @@ type hdPath struct {
 }
 
 type cryptoJSON struct {
+	Version             uint8  `json:"version,omitempty"`
 	Cipher              string `json:"cipher,omitempty"`
 	EntropyEnc          string `json:"entropyEnc"`
 	KDF                 string `json:"kdf,omitempty"`
@@ -198,6 +200,10 @@ func unmarshalMasterPrivKey(masterPrivKey *snacl.SecretKey, privPass []byte, mas
 }
 
 func export(b db.Bucket, keyscope KeyScope) (*Keystore, error) {
+	version, err := fetchVersion(b)
+	if err != nil {
+		return nil, err
+	}
 	remarkBytes, err := fetchRemark(b)
 	if err != nil {
 		return nil, err
@@ -224,6 +230,7 @@ func export(b db.Bucket, keyscope KeyScope) (*Keystore, error) {
 	}
 
 	cryptoStruct := cryptoJSON{
+		Version:             version,
 		Cipher:              "Stream cipher",
 		EntropyEnc:          hex.EncodeToString(entropyEncBytes),
 		KDF:                 "scrypt",
@@ -288,8 +295,8 @@ func (a *AddrManager) clearPrivKeys() {
 	}
 	if a.acctInfo.acctKeyPriv != nil {
 		a.acctInfo.acctKeyPriv.Zero()
+		a.acctInfo.acctKeyPriv = nil
 	}
-	a.acctInfo.acctKeyPriv = nil
 
 	if a.branchInfo.externalBranchPriv != nil {
 		a.branchInfo.externalBranchPriv.Zero()
@@ -307,10 +314,12 @@ func (a *AddrManager) clearPrivKeys() {
 	if a.cryptoKeyPriv != nil {
 		a.cryptoKeyPriv.Zero()
 	}
+
 	zero.Bytea64(&a.hashedPrivPassphrase)
 	return
 }
 
+// for TEST
 // check the pass before. IMPORTANT!!!
 func (a *AddrManager) updatePrivKeys(pass []byte) error {
 	a.mu.Lock()
@@ -395,6 +404,10 @@ func (a *AddrManager) updatePrivKeys(pass []byte) error {
 		mAddr.privKey = cKeyBtPriv
 		cKeyExPriv.Zero()
 	}
+
+	saltPassphrase := append(a.privPassphraseSalt[:], pass...)
+	a.hashedPrivPassphrase = sha512.Sum512(saltPassphrase)
+	zero.Bytes(saltPassphrase)
 	a.unlocked = true
 	return nil
 }
@@ -667,10 +680,12 @@ func (a *AddrManager) signBtcec(hash []byte, addr string, password []byte) (sign
 		return nil, err
 	}
 	// update cache, mark unlocked
-	saltPassphrase := append(a.privPassphraseSalt[:], password...)
-	a.hashedPrivPassphrase = sha512.Sum512(saltPassphrase)
-	zero.Bytes(saltPassphrase)
-	a.unlocked = true
+	if !a.unlocked {
+		saltPassphrase := append(a.privPassphraseSalt[:], password...)
+		a.hashedPrivPassphrase = sha512.Sum512(saltPassphrase)
+		zero.Bytes(saltPassphrase)
+		a.unlocked = true
+	}
 
 	var privKey *btcec.PrivateKey
 	privKey, err = a.getPrivKeyBtcec(addr, password)
@@ -717,16 +732,29 @@ func (a *AddrManager) changeRemark(dbTransaction db.DBTransaction, newRemark str
 	return nil
 }
 
-func (a *AddrManager) getMnemonic(dbTransaction db.ReadTransaction, privpass []byte) (string, error) {
+func (a *AddrManager) getMnemonic(dbTransaction db.ReadTransaction, privpass []byte) (string, uint8, error) {
+	err := a.checkPassword(privpass)
+	if err != nil {
+		return "", 0, err
+	}
+	if !a.unlocked {
+		defer a.masterKeyPriv.Zero()
+	}
+
 	amBucket := dbTransaction.FetchBucket(a.storage)
+	version, err := fetchVersion(amBucket)
+	if err != nil {
+		return "", 0, err
+	}
+
 	entropyEnc, err := fetchEntropy(amBucket)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	cryptoEntropyKeyBytes, err := a.masterKeyPriv.Decrypt(a.cryptoKeyEntropyEncrypted)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	var cryptoEntropyKey cryptoKey
@@ -736,21 +764,104 @@ func (a *AddrManager) getMnemonic(dbTransaction db.ReadTransaction, privpass []b
 
 	entropy, err := cryptoEntropyKey.Decrypt(entropyEnc)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
 	mnemonic, err := NewMnemonic(entropy)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "failed to new mnemonic", logging.LogFormat{"error": err})
-		return "", err
+		return "", 0, err
 	}
 	zero.Bytes(entropy)
 
-	return mnemonic, nil
+	return mnemonic, version, nil
+}
+
+func (a *AddrManager) changePrivPassphrase(dbTransaction db.ReadTransaction, oldPrivPass, newPrivPass []byte, scryptConfig *ScryptOptions) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.unlocked {
+		return ErrBadTimingForChangingPass
+	}
+
+	if a.version == KeystoreVersion0 {
+		return ErrChangePassNotAllowed
+	}
+
+	err := a.checkPassword(oldPrivPass)
+	if err != nil {
+		return err
+	}
+
+	amBucket := dbTransaction.FetchBucket(a.storage)
+	cryptoPrivateKeyBytes, err := a.masterKeyPriv.Decrypt(a.cryptoKeyPrivEncrypted)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "failed to decrypt cryptoPrivateKey", logging.LogFormat{
+			"err": err,
+		})
+		return err
+	}
+	defer zero.Bytes(cryptoPrivateKeyBytes)
+
+	cryptoEntropyKeyBytes, err := a.masterKeyPriv.Decrypt(a.cryptoKeyEntropyEncrypted)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "failed to decrypt cryptoEntropyKey", logging.LogFormat{
+			"err": err,
+		})
+		return err
+	}
+	defer zero.Bytes(cryptoEntropyKeyBytes)
+
+	a.masterKeyPriv.Zero()
+
+	newMasterPrivKey, err := secretKeyGen(&newPrivPass, scryptConfig)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "failed to generate new secretKey", logging.LogFormat{
+			"err": err,
+		})
+		return err
+	}
+	defer newMasterPrivKey.Zero()
+
+	newPrivParams := newMasterPrivKey.Marshal()
+
+	cryptoKeyPrivateEncNew, err := newMasterPrivKey.Encrypt(cryptoPrivateKeyBytes)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "failed to encrypt cryptoPrivateKey", logging.LogFormat{
+			"err": err,
+		})
+		return err
+	}
+	cryptoKeyEntropyEncNew, err := newMasterPrivKey.Encrypt(cryptoEntropyKeyBytes)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "failed to encrypt cryptoEntropyKey", logging.LogFormat{
+			"err": err,
+		})
+		return err
+	}
+
+	err = putMasterKeyParams(amBucket, nil, newPrivParams)
+	if err != nil {
+		return err
+	}
+	err = putCryptoKeys(amBucket, nil, cryptoKeyPrivateEncNew, cryptoKeyEntropyEncNew)
+	if err != nil {
+		return err
+	}
+
+	copy(a.cryptoKeyPrivEncrypted, cryptoKeyPrivateEncNew)
+	copy(a.cryptoKeyEntropyEncrypted, cryptoKeyEntropyEncNew)
+
+	a.masterKeyPriv = newMasterPrivKey
+	return nil
 }
 
 func (a *AddrManager) Name() string {
 	return a.keystoreName
+}
+
+func (a *AddrManager) Version() KeystoreVersion {
+	return a.version
 }
 
 func (a *AddrManager) Remarks() string {

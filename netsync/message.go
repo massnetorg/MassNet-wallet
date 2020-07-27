@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	gowire "github.com/massnetorg/tendermint/go-wire"
 	"massnet.org/mass-wallet/massutil"
 	"massnet.org/mass-wallet/wire"
-	gowire "github.com/massnetorg/tendermint/go-wire"
 )
 
 //protocol msg byte

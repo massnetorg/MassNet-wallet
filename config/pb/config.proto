@@ -6,8 +6,8 @@ message Config {
     NetworkConfig network = 2;
     LogConfig     log     = 3;
     DataConfig   data   = 4;
-    AdvancedConfig advanced = 5; // Warning: Advanced settings can break compatibility.
-    // Do not attempt to set them if you dont kown how they work.
+    AdvancedConfig advanced = 5; // Warning: Advanced settings can break compatibility. 
+                                 // Do not attempt to set them if you dont kown how they work.
 }
 
 message P2PConfig {

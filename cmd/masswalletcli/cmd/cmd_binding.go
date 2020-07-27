@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/spf13/cobra"
 	pb "massnet.org/mass-wallet/api/proto"
@@ -71,14 +72,20 @@ var createBindingTransactionCmd = &cobra.Command{
 }
 
 var getBindingHistoryCmd = &cobra.Command{
-	Use:   "listbindingtransactions",
-	Short: "Returns all binding transaction of current wallet.",
-	Args:  cobra.NoArgs,
+	Use:   "listbindingtransactions [all]",
+	Short: "Returns binding transaction of current wallet.",
+	Long: "By default, returns bindings not withdrawn.\n" +
+		"\nArguments:\n" +
+		"  [all]                returns all bindings, including withdrawn.\n",
+	Args: cobra.MinimumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logging.VPrint(logging.INFO, "listbindingtransactions called", EmptyLogFormat)
+		logging.VPrint(logging.INFO, "listbindingtransactions called", logging.LogFormat{"args": args})
 
 		resp := &pb.GetBindingHistoryResponse{}
-		return ClientCall("/v1/transactions/binding/history", GET, nil, resp)
+		if len(args) == 0 || strings.ToLower(args[0]) != "all" {
+			return ClientCall("/v1/transactions/binding/history", GET, nil, resp)
+		}
+		return ClientCall("/v1/transactions/binding/history/all", GET, nil, resp)
 	},
 }
 

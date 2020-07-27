@@ -299,6 +299,10 @@
                 </li>
               
                 <li>
+                  <a href="#rpcprotobuf.GetBindingHistoryRequest"><span class="badge">M</span>GetBindingHistoryRequest</a>
+                </li>
+              
+                <li>
                   <a href="#rpcprotobuf.GetBindingHistoryResponse"><span class="badge">M</span>GetBindingHistoryResponse</a>
                 </li>
               
@@ -308,6 +312,18 @@
               
                 <li>
                   <a href="#rpcprotobuf.GetBindingHistoryResponse.History"><span class="badge">M</span>GetBindingHistoryResponse.History</a>
+                </li>
+              
+                <li>
+                  <a href="#rpcprotobuf.GetBlockStakingRewardRequest"><span class="badge">M</span>GetBlockStakingRewardRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#rpcprotobuf.GetBlockStakingRewardResponse"><span class="badge">M</span>GetBlockStakingRewardResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#rpcprotobuf.GetBlockStakingRewardResponse.RewardDetail"><span class="badge">M</span>GetBlockStakingRewardResponse.RewardDetail</a>
                 </li>
               
                 <li>
@@ -327,19 +343,15 @@
                 </li>
               
                 <li>
-                  <a href="#rpcprotobuf.GetLatestRewardListResponse"><span class="badge">M</span>GetLatestRewardListResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#rpcprotobuf.GetLatestRewardListResponse.RewardDetail"><span class="badge">M</span>GetLatestRewardListResponse.RewardDetail</a>
-                </li>
-              
-                <li>
                   <a href="#rpcprotobuf.GetRawTransactionRequest"><span class="badge">M</span>GetRawTransactionRequest</a>
                 </li>
               
                 <li>
                   <a href="#rpcprotobuf.GetRawTransactionResponse"><span class="badge">M</span>GetRawTransactionResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#rpcprotobuf.GetStakingHistoryRequest"><span class="badge">M</span>GetStakingHistoryRequest</a>
                 </li>
               
                 <li>
@@ -407,15 +419,15 @@
                 </li>
               
                 <li>
+                  <a href="#rpcprotobuf.ImportMnemonicRequest"><span class="badge">M</span>ImportMnemonicRequest</a>
+                </li>
+              
+                <li>
                   <a href="#rpcprotobuf.ImportWalletRequest"><span class="badge">M</span>ImportWalletRequest</a>
                 </li>
               
                 <li>
                   <a href="#rpcprotobuf.ImportWalletResponse"><span class="badge">M</span>ImportWalletResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#rpcprotobuf.ImportWalletWithMnemonicRequest"><span class="badge">M</span>ImportWalletWithMnemonicRequest</a>
                 </li>
               
                 <li>
@@ -1085,6 +1097,13 @@
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>version</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -1599,6 +1618,30 @@
 
         
       
+        <h3 id="rpcprotobuf.GetBindingHistoryRequest">GetBindingHistoryRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>&#34;&#34;       - excluding withdrawn </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="rpcprotobuf.GetBindingHistoryResponse">GetBindingHistoryResponse</h3>
         <p></p>
 
@@ -1717,6 +1760,113 @@
                   <td>from_addresses</td>
                   <td><a href="#string">string</a></td>
                   <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="rpcprotobuf.GetBlockStakingRewardRequest">GetBlockStakingRewardRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>height</td>
+                  <td><a href="#uint64">uint64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="rpcprotobuf.GetBlockStakingRewardResponse">GetBlockStakingRewardResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>details</td>
+                  <td><a href="#rpcprotobuf.GetBlockStakingRewardResponse.RewardDetail">GetBlockStakingRewardResponse.RewardDetail</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>height</td>
+                  <td><a href="#uint64">uint64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="rpcprotobuf.GetBlockStakingRewardResponse.RewardDetail">GetBlockStakingRewardResponse.RewardDetail</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>rank</td>
+                  <td><a href="#int32">int32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>amount</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>weight</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>address</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>profit</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
                   <td><p> </p></td>
                 </tr>
               
@@ -1914,82 +2064,6 @@
 
         
       
-        <h3 id="rpcprotobuf.GetLatestRewardListResponse">GetLatestRewardListResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>details</td>
-                  <td><a href="#rpcprotobuf.GetLatestRewardListResponse.RewardDetail">GetLatestRewardListResponse.RewardDetail</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="rpcprotobuf.GetLatestRewardListResponse.RewardDetail">GetLatestRewardListResponse.RewardDetail</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>rank</td>
-                  <td><a href="#int32">int32</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>amount</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>weight</td>
-                  <td><a href="#double">double</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>address</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>profit</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p>Non-cumulative income </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
         <h3 id="rpcprotobuf.GetRawTransactionRequest">GetRawTransactionRequest</h3>
         <p></p>
 
@@ -2113,6 +2187,30 @@
                   <td><a href="#bool">bool</a></td>
                   <td></td>
                   <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="rpcprotobuf.GetStakingHistoryRequest">GetStakingHistoryRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>type</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>&#34;&#34;       - excluding withdrawn </p></td>
                 </tr>
               
             </tbody>
@@ -2639,6 +2737,65 @@
                   <td><p> </p></td>
                 </tr>
               
+                <tr>
+                  <td>version</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="rpcprotobuf.ImportMnemonicRequest">ImportMnemonicRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>mnemonic</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>passphrase</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>remarks</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>external_index</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>internal_index</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
             </tbody>
           </table>
 
@@ -2709,39 +2866,8 @@
                 </tr>
               
                 <tr>
-                  <td>remarks</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="rpcprotobuf.ImportWalletWithMnemonicRequest">ImportWalletWithMnemonicRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>mnemonic</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>passphrase</td>
-                  <td><a href="#string">string</a></td>
+                  <td>version</td>
+                  <td><a href="#uint32">uint32</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -2749,20 +2875,6 @@
                 <tr>
                   <td>remarks</td>
                   <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>external_index</td>
-                  <td><a href="#uint32">uint32</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>internal_index</td>
-                  <td><a href="#uint32">uint32</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -3299,6 +3411,13 @@
                 </tr>
               
                 <tr>
+                  <td>version</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
                   <td>total_balance</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
@@ -3638,6 +3757,13 @@
                 </tr>
               
                 <tr>
+                  <td>version</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
                   <td>remarks</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
@@ -3645,17 +3771,17 @@
                 </tr>
               
                 <tr>
-                  <td>ready</td>
-                  <td><a href="#bool">bool</a></td>
+                  <td>status</td>
+                  <td><a href="#uint32">uint32</a></td>
                   <td></td>
-                  <td><p>false-importing, true-import completed </p></td>
+                  <td><p>0-ready, 1-syncing, 2-removing </p></td>
                 </tr>
               
                 <tr>
-                  <td>synced_height</td>
-                  <td><a href="#uint64">uint64</a></td>
+                  <td>status_msg</td>
+                  <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p>Indicates processed blocks when ready=false </p></td>
+                  <td><p>&#34;ready&#34; - when status=0 </p></td>
                 </tr>
               
             </tbody>
@@ -3683,6 +3809,13 @@
                 <td>GetBestBlock</td>
                 <td><a href="#google.protobuf.Empty">.google.protobuf.Empty</a></td>
                 <td><a href="#rpcprotobuf.GetBestBlockResponse">GetBestBlockResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>GetBlockStakingReward</td>
+                <td><a href="#rpcprotobuf.GetBlockStakingRewardRequest">GetBlockStakingRewardRequest</a></td>
+                <td><a href="#rpcprotobuf.GetBlockStakingRewardResponse">GetBlockStakingRewardResponse</a></td>
                 <td><p></p></td>
               </tr>
             
@@ -3729,8 +3862,8 @@
               </tr>
             
               <tr>
-                <td>ImportWalletWithMnemonic</td>
-                <td><a href="#rpcprotobuf.ImportWalletWithMnemonicRequest">ImportWalletWithMnemonicRequest</a></td>
+                <td>ImportMnemonic</td>
+                <td><a href="#rpcprotobuf.ImportMnemonicRequest">ImportMnemonicRequest</a></td>
                 <td><a href="#rpcprotobuf.ImportWalletResponse">ImportWalletResponse</a></td>
                 <td><p></p></td>
               </tr>
@@ -3862,20 +3995,6 @@
               </tr>
             
               <tr>
-                <td>GetStakingHistory</td>
-                <td><a href="#google.protobuf.Empty">.google.protobuf.Empty</a></td>
-                <td><a href="#rpcprotobuf.GetStakingHistoryResponse">GetStakingHistoryResponse</a></td>
-                <td><p></p></td>
-              </tr>
-            
-              <tr>
-                <td>GetLatestRewardList</td>
-                <td><a href="#google.protobuf.Empty">.google.protobuf.Empty</a></td>
-                <td><a href="#rpcprotobuf.GetLatestRewardListResponse">GetLatestRewardListResponse</a></td>
-                <td><p>returns staking rewards in latest block</p></td>
-              </tr>
-            
-              <tr>
                 <td>TxHistory</td>
                 <td><a href="#rpcprotobuf.TxHistoryRequest">TxHistoryRequest</a></td>
                 <td><a href="#rpcprotobuf.TxHistoryResponse">TxHistoryResponse</a></td>
@@ -3890,8 +4009,15 @@
               </tr>
             
               <tr>
+                <td>GetStakingHistory</td>
+                <td><a href="#rpcprotobuf.GetStakingHistoryRequest">GetStakingHistoryRequest</a></td>
+                <td><a href="#rpcprotobuf.GetStakingHistoryResponse">GetStakingHistoryResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
                 <td>GetBindingHistory</td>
-                <td><a href="#google.protobuf.Empty">.google.protobuf.Empty</a></td>
+                <td><a href="#rpcprotobuf.GetBindingHistoryRequest">GetBindingHistoryRequest</a></td>
                 <td><a href="#rpcprotobuf.GetBindingHistoryResponse">GetBindingHistoryResponse</a></td>
                 <td><p></p></td>
               </tr>
@@ -3927,6 +4053,16 @@
                 <td>GetBestBlock</td>
                 <td>GET</td>
                 <td>/v1/blocks/best</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>GetBlockStakingReward</td>
+                <td>GET</td>
+                <td>/v1/blocks/{height}/stakingreward</td>
                 <td></td>
               </tr>
               
@@ -3994,7 +4130,7 @@
               
               
               <tr>
-                <td>ImportWalletWithMnemonic</td>
+                <td>ImportMnemonic</td>
                 <td>POST</td>
                 <td>/v1/wallets/import/mnemonic</td>
                 <td>*</td>
@@ -4184,26 +4320,6 @@
               
               
               <tr>
-                <td>GetStakingHistory</td>
-                <td>GET</td>
-                <td>/v1/transactions/staking/history</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>GetLatestRewardList</td>
-                <td>GET</td>
-                <td>/v1/transactions/staking/latestreward</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
                 <td>TxHistory</td>
                 <td>POST</td>
                 <td>/v1/transactions/history</td>
@@ -4222,6 +4338,30 @@
               
             
               
+              
+              <tr>
+                <td>GetStakingHistory</td>
+                <td>GET</td>
+                <td>/v1/transactions/staking/history/{type}</td>
+                <td></td>
+              </tr>
+              
+              <tr>
+                <td>GetStakingHistory</td>
+                <td>GET</td>
+                <td>/v1/transactions/staking/history</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>GetBindingHistory</td>
+                <td>GET</td>
+                <td>/v1/transactions/binding/history/{type}</td>
+                <td></td>
+              </tr>
               
               <tr>
                 <td>GetBindingHistory</td>

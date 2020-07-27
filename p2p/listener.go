@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 	configpb "massnet.org/mass-wallet/config/pb"
 	"massnet.org/mass-wallet/errors"
 	"massnet.org/mass-wallet/logging"
 	"massnet.org/mass-wallet/p2p/upnp"
-	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 const (

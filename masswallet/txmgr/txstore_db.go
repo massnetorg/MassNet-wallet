@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"massnet.org/mass-wallet/database"
 	"massnet.org/mass-wallet/logging"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/wire"
@@ -26,7 +27,7 @@ func deleteRawUnmined(ns mwdb.Bucket, k []byte) error {
 	return ns.Delete(k)
 }
 
-func valueTxRecord(rec *TxRecord) ([]byte, error) {
+func valueUnmined(rec *TxRecord) ([]byte, error) {
 	bs, err := rec.MsgTx.Bytes(wire.DB)
 	if err != nil {
 		return nil, err
@@ -47,25 +48,39 @@ func keyTxRecord(txHash *wire.Hash, block *BlockMeta) []byte {
 
 func putTxRecord(ns mwdb.Bucket, rec *TxRecord, block *BlockMeta) error {
 	k := keyTxRecord(&rec.Hash, block)
-	v, err := valueTxRecord(rec)
-	if err != nil {
-		return err
-	}
-	err = ns.Put(k, v)
-	if err != nil {
+	buf := make([]byte, 28)
+	binary.BigEndian.PutUint32(buf[0:4], block.Loc.File)
+	binary.BigEndian.PutUint64(buf[4:12], block.Loc.Offset)
+	binary.BigEndian.PutUint64(buf[12:20], block.Loc.Length)
+	binary.BigEndian.PutUint32(buf[20:24], uint32(rec.TxLoc.TxStart))
+	binary.BigEndian.PutUint32(buf[24:28], uint32(rec.TxLoc.TxLen))
+
+	if err := ns.Put(k, buf); err != nil {
 		return fmt.Errorf("failed to put tx record: %v, err: %v", rec.Hash, err)
 	}
 	return nil
+}
+
+func readTxRecordLoc(v []byte) (*database.BlockLoc, *wire.TxLoc, error) {
+	if len(v) != 28 {
+		return nil, nil, fmt.Errorf("short TxRecord value (expected 28 bytes, read %d)", len(v))
+	}
+	blkLoc := &database.BlockLoc{
+		File:   binary.BigEndian.Uint32(v[0:4]),
+		Offset: binary.BigEndian.Uint64(v[4:12]),
+		Length: binary.BigEndian.Uint64(v[12:20]),
+	}
+	txLoc := &wire.TxLoc{
+		TxStart: int(binary.BigEndian.Uint32(v[20:24])),
+		TxLen:   int(binary.BigEndian.Uint32(v[24:28])),
+	}
+	return blkLoc, txLoc, nil
 }
 
 func existsTxRecord(ns mwdb.Bucket, txHash *wire.Hash, block *BlockMeta) (k, v []byte) {
 	k = keyTxRecord(txHash, block)
 	v, _ = ns.Get(k)
 	return
-}
-
-func existsRawTxRecord(ns mwdb.Bucket, k []byte) ([]byte, error) {
-	return ns.Get(k)
 }
 
 func fetchRawTxRecordByTxHashHeight(ns mwdb.Bucket, txHash *wire.Hash, height uint64) ([]byte, error) {
@@ -133,23 +148,6 @@ func fetchLatestRawTxRecordOfHash(ns mwdb.Bucket, txHash *wire.Hash) (*mwdb.Entr
 	return found, nil
 }
 
-// func existsRawTxRecord(ns mwdb.Bucket, k []byte) (v []byte) {
-// 	v, _ = ns.Get(k)
-// 	return
-// }
-
-func deleteTxRecord(ns mwdb.Bucket, txHash *wire.Hash, block *BlockMeta) error {
-	k := keyTxRecord(txHash, block)
-	return ns.Delete(k)
-}
-
-func deleteRawTxRecord(ns mwdb.Bucket, k []byte) error {
-	if len(k) != 72 {
-		return fmt.Errorf("short k (expected %d bytes, read %d)", 72, len(k))
-	}
-	return ns.Delete(k)
-}
-
 func readTxRecordKey(k []byte) (height uint64, blkHash []byte, err error) {
 	if len(k) < 72 {
 		return 0, nil, fmt.Errorf("short k value (expected %d bytes, read %d)", 72, len(k))
@@ -157,7 +155,7 @@ func readTxRecordKey(k []byte) (height uint64, blkHash []byte, err error) {
 	return binary.BigEndian.Uint64(k[32:40]), k[40:72], nil
 }
 
-func readRawTxRecordValue(v []byte, rec *TxRecord) error {
+func readRawUnmined(v []byte, rec *TxRecord) error {
 	if len(v) < 8 {
 		return fmt.Errorf("%s: short read (expected %d bytes, read %d)",
 			bucketTxRecords, 8, len(v))

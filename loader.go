@@ -197,10 +197,6 @@ func (l *Loader) LoadWallet() error {
 		}
 	}
 
-	logging.CPrint(logging.INFO, "load wallet done", logging.LogFormat{
-		"DbType": l.cfg.Data.DbType,
-		"path":   dbPath,
-	})
 	return nil
 }
 

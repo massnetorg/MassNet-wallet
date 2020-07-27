@@ -3,34 +3,41 @@ package api
 import "math"
 
 const (
-	txStatusConfirmed  int32 = 1
-	txStatusMissing    int32 = 2
-	txStatusPacking    int32 = 3
-	txStatusConfirming int32 = 4
+	txStatusConfirmed int32 = iota + 1
+	txStatusMissing
+	txStatusPacking
+	txStatusConfirming
 
 	txStatusUndefined = math.MaxInt32
 )
 
 // staking tx status
 const (
-	stakingStatusPending     uint32 = 0
-	stakingStatusImmature    uint32 = 1
-	stakingStatusMature      uint32 = 2
-	stakingStatusExpired     uint32 = 3
-	stakingStatusWithdrawing uint32 = 4
-	stakingStatusWithdrawn   uint32 = 5
+	stakingStatusPending uint32 = iota
+	stakingStatusImmature
+	stakingStatusMature
+	stakingStatusExpired
+	stakingStatusWithdrawing
+	stakingStatusWithdrawn
 
 	stakingStatusUndefined uint32 = math.MaxUint32
 )
 
 // binding tx status
 const (
-	bindingStatusPending     uint32 = 0
-	bindingStatusConfirmed   uint32 = 1
-	bindingStatusWithdrawing uint32 = 2
-	bindingStatusWithdrawn   uint32 = 3
+	bindingStatusPending uint32 = iota
+	bindingStatusConfirmed
+	bindingStatusWithdrawing
+	bindingStatusWithdrawn
 
 	bindingStatusUndefined uint32 = math.MaxUint32
+)
+
+// wallet status
+const (
+	walletStatusReady uint32 = iota
+	walletStatusImporting
+	walletStatusRemoving
 )
 
 var (
@@ -39,5 +46,13 @@ var (
 		txStatusMissing:    "missing",
 		txStatusPacking:    "packing",
 		txStatusConfirming: "confirming",
+	}
+)
+
+var (
+	walletStatusMsg = map[uint32]string{
+		walletStatusReady:    "ready",
+		walletStatusRemoving: "removing",
+		// walletStatusImporting: "{synced_height}",
 	}
 )

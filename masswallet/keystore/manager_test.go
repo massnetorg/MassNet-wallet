@@ -41,6 +41,10 @@ var (
 	privPassphrase2 = []byte("@#$#08%68^f&5#4@%$&Y")
 	invalidPass     = []byte("1234567890qwertyuiop!@#$%^&*()asdfghjklzx")
 
+	mnemonic1 = "vault valid stove draw silly juice veteran marine actor idle impose anchor"
+	mnemonic2 = "gather bomb smoke curve gap grief change arrow damage renew release close"
+	mnemonic3 = "never hill violin honey uniform want suit circle actress salon verb gate"
+
 	// fastScrypt are parameters used throughout the tests to speed up the
 	// scrypt operations.
 	fastScrypt = &ScryptOptions{
@@ -149,12 +153,169 @@ func TestKeystoreManager_NewKeystore(t *testing.T) {
 			t.Logf("new keystore time: %v", time.Since(start))
 		}
 		return nil
-
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = mwdb.View(ldb, func(tx mwdb.ReadTransaction) error {
+		for accountID := range km.managedKeystores {
+			mnemonic, _, err := km.GetMnemonic(tx, accountID, privPassphrase)
+			if err != nil {
+				return err
+			}
+			t.Log(mnemonic)
+		}
+		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
+
+// func TestKeystoreManager_ChangePrivPassphrase(t *testing.T) {
+// 	ldb, tearDown, err := GetDb("Tst_Manager")
+// 	if err != nil {
+// 		t.Fatalf("init db failed: %v", err)
+
+// 	}
+// 	defer tearDown()
+// 	t.Log("/*keystoreManager*/")
+
+// 	km := &KeystoreManager{}
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		bucket, err := mwdb.GetOrCreateTopLevelBucket(tx, keystoreBucket)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to get bucket, %v", err)
+// 		}
+// 		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to new keystore manager, %v", err)
+// 		}
+// 		return nil
+// 	})
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	var accountID1 string
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		params := &WalletParams{
+// 			Version:           KeystoreVersion0,
+// 			Mnemonic:          mnemonic1,
+// 			Remarks:           "test",
+// 			PrivatePassphrase: privPassphrase,
+// 			AddressGapLimit:   addressGapLimit,
+// 			ExternalIndex:     2,
+// 			InternalIndex:     0,
+// 		}
+// 		addrManager, err := km.ImportKeystoreWithMnemonic(tx, alwaysFalseCheck, params)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		accountID1 = addrManager.Name()
+// 		return nil
+// 	})
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	var accountID2 string
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		accountID, _, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "new", &config.ChainParams, nil, addressGapLimit)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		accountID2 = accountID
+// 		return nil
+// 	})
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	// ErrCurrentKeystoreNotFound
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		return km.ChangePrivPassphrase(tx, privPassphrase, privPassphrase2, nil)
+// 	})
+// 	if err != ErrCurrentKeystoreNotFound {
+// 		t.Log("failed to catch error")
+// 		t.Fatal(err)
+// 	}
+
+// 	err = km.UseKeystoreForWallet(accountID1)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	//ErrChangePassNotAllowed
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		return km.ChangePrivPassphrase(tx, privPassphrase, privPassphrase2, nil)
+// 	})
+// 	if err != ErrChangePassNotAllowed {
+// 		t.Log("failed to catch error")
+// 		t.Fatal(err)
+// 	}
+
+// 	err = km.UseKeystoreForWallet(accountID2)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	// ErrSamePrivpass
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		return km.ChangePrivPassphrase(tx, privPassphrase, privPassphrase, nil)
+// 	})
+// 	if err != ErrSamePrivpass {
+// 		t.Fatal(err)
+// 	}
+
+// 	// ErrIllegalPassphrase
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		return km.ChangePrivPassphrase(tx, privPassphrase, invalidPass, nil)
+// 	})
+// 	if err != ErrIllegalPassphrase {
+// 		t.Fatal(err)
+// 	}
+
+// 	// ErrIllegalNewPrivPass
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		return km.ChangePrivPassphrase(tx, privPassphrase, km.pubPassphrase, nil)
+// 	})
+// 	if err != ErrIllegalNewPrivPass {
+// 		t.Fatal(err)
+// 	}
+
+// 	// ErrBadTimingForChangingPass
+// 	err = km.managedKeystores[accountID2].checkPassword(privPassphrase)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	err = km.managedKeystores[accountID2].updatePrivKeys(privPassphrase)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		return km.ChangePrivPassphrase(tx, privPassphrase, privPassphrase2, nil)
+// 	})
+// 	if err != ErrBadTimingForChangingPass {
+// 		t.Fatal(err)
+// 	}
+// 	km.ClearPrivKey()
+
+// 	// ErrInvalidPassphrase
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		return km.ChangePrivPassphrase(tx, privPassphrase2, privPassphrase, nil)
+// 	})
+// 	if err != ErrInvalidPassphrase {
+// 		t.Fatal(err)
+// 	}
+
+// 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
+// 		return km.ChangePrivPassphrase(tx, privPassphrase, privPassphrase2, nil)
+// 	})
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// }
 
 func TestKeystoreManager_NewKeystore_NextAddress(t *testing.T) {
 	ldb, tearDown, err := GetDb("Tst_Manager")
@@ -445,7 +606,7 @@ func TestKeystoreManager_ExportKeystore_ImportKeystore(t *testing.T) {
 
 	err = mwdb.View(ldb1, func(tx mwdb.ReadTransaction) error {
 		accountIDs := km1.ListKeystoreNames()
-		mnemonic, err := km1.GetMnemonic(tx, accountIDs[0], privPassphrase)
+		mnemonic, _, err := km1.GetMnemonic(tx, accountIDs[0], privPassphrase)
 		if err != nil {
 			return fmt.Errorf("failed to get mnemonic, %v", err)
 		}
@@ -550,7 +711,16 @@ func TestKeystoreManager_ImportKeystoreWithMnemonic(t *testing.T) {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		// import keystore
-		addrManager, err := km1.ImportKeystoreWithMnemonic(tx, checkFunc, mnemonic, remark, privPassphrase, externalIndex, internalIndex, addressGapLimit)
+		params := &WalletParams{
+			Version:           KeystoreVersion0,
+			Mnemonic:          mnemonic,
+			Remarks:           remark,
+			PrivatePassphrase: privPassphrase,
+			AddressGapLimit:   addressGapLimit,
+			ExternalIndex:     externalIndex,
+			InternalIndex:     internalIndex,
+		}
+		addrManager, err := km1.ImportKeystoreWithMnemonic(tx, checkFunc, params)
 		if err != nil {
 			return fmt.Errorf("failed to import keystore, %v", err)
 		}
@@ -793,11 +963,12 @@ func TestKeystoreManager_DeleteKeystore(t *testing.T) {
 
 	// wrong accountID
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-		_, err := km.DeleteKeystore(tx, "wrong accountID", privPassphrase2)
+		err := km.CheckPrivPassphrase("wrong accountID", privPassphrase2)
 		if err != nil {
 			return err
 		}
-		return nil
+		_, err = km.DeleteKeystore(tx, "wrong accountID")
+		return err
 	})
 	if err != ErrAccountNotFound {
 		t.Fatalf("failed to catch error, %v", err)
@@ -805,11 +976,12 @@ func TestKeystoreManager_DeleteKeystore(t *testing.T) {
 
 	// wrong privpass
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-		_, err := km.DeleteKeystore(tx, accountID, privPassphrase2)
+		err := km.CheckPrivPassphrase(accountID, privPassphrase2)
 		if err != nil {
 			return err
 		}
-		return nil
+		_, err = km.DeleteKeystore(tx, accountID)
+		return err
 	})
 	if err != ErrInvalidPassphrase {
 		t.Fatalf("failed to catch error, %v", err)
@@ -817,11 +989,12 @@ func TestKeystoreManager_DeleteKeystore(t *testing.T) {
 
 	// delete keystore
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-		_, err := km.DeleteKeystore(tx, accountID, privPassphrase)
+		err := km.CheckPrivPassphrase(accountID, privPassphrase)
 		if err != nil {
 			return err
 		}
-		return nil
+		_, err = km.DeleteKeystore(tx, accountID)
+		return err
 	})
 	if err != nil {
 		t.Fatalf("failed to delete keystore, %v", err)
@@ -1336,7 +1509,7 @@ func TestKeystoreManager_GetMnemonic(t *testing.T) {
 	t.Log("/*keystoreManager*/")
 	// new keystore manager
 	km := &KeystoreManager{}
-
+	var accountID string
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		bucket, err := mwdb.GetOrCreateTopLevelBucket(tx, keystoreBucket)
 		if err != nil {
@@ -1347,51 +1520,67 @@ func TestKeystoreManager_GetMnemonic(t *testing.T) {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		var mnemonic string
+		accountID, mnemonic, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
-		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
+		t.Logf("accountID: %v, mnemonic: %v", accountID, mnemonic)
 		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 
-		err = km.UseKeystoreForWallet(accountID1)
-		if err != nil {
-			return fmt.Errorf("failed to use keystore, %v", err)
-		}
-		externalAddresses, err := km.NextAddresses(tx, alwaysTrueCheck, false, 3, addressGapLimit, massutil.AddressClassWitnessV0)
-		if err != nil {
-			return fmt.Errorf("failed to new external address, %v", err)
-		}
-		for _, addr := range externalAddresses {
-			managedAddressDetails(t, addr)
-		}
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	err = km.UseKeystoreForWallet(accountID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	err = mwdb.View(ldb, func(tx mwdb.ReadTransaction) error {
-		accountIDs := km.ListKeystoreNames()
-		accountID := accountIDs[0]
-		mnemonic, err := km.GetMnemonic(tx, accountID, privPassphrase)
+		mnemonic, version, err := km.GetMnemonic(tx, accountID, privPassphrase)
 		if err != nil {
 			return err
 		}
-		t.Logf("get mnemonic, accountID: %v, mnemonic: %v", accountID, mnemonic)
+		t.Logf("get mnemonic, accountID: %v, mnemonic: %v, version: %v", accountID, mnemonic, version)
 		return nil
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Log(km.managedKeystores[accountID].masterKeyPriv.Key)
 
-	// non-existent accountID
+	// check unlocked
+	err = km.managedKeystores[accountID].checkPassword(privPassphrase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = km.managedKeystores[accountID].updatePrivKeys(privPassphrase)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = mwdb.View(ldb, func(tx mwdb.ReadTransaction) error {
+		mnemonic, version, err := km.GetMnemonic(tx, accountID, privPassphrase)
+		if err != nil {
+			return err
+		}
+		t.Logf("get mnemonic, accountID: %v, mnemonic: %v, version: %v", accountID, mnemonic, version)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(km.managedKeystores[accountID].masterKeyPriv.Key)
+
+	// ErrAccountNotFound
 	err = mwdb.View(ldb, func(tx mwdb.ReadTransaction) error {
 		accountID := "wrong accountID"
-		_, err := km.GetMnemonic(tx, accountID, privPassphrase)
+		_, _, err := km.GetMnemonic(tx, accountID, privPassphrase)
 		if err != nil {
 			return err
 		}
@@ -1401,11 +1590,11 @@ func TestKeystoreManager_GetMnemonic(t *testing.T) {
 		t.Fatalf("failed to catch error, %v", err)
 	}
 
-	//
+	// ErrInvalidPassphrase
 	err = mwdb.View(ldb, func(tx mwdb.ReadTransaction) error {
 		accountIDs := km.ListKeystoreNames()
 		accountID := accountIDs[0]
-		_, err := km.GetMnemonic(tx, accountID, privPassphrase2)
+		_, _, err := km.GetMnemonic(tx, accountID, privPassphrase2)
 		if err != nil {
 			return err
 		}
@@ -2158,4 +2347,20 @@ func managedAddressDetails(t *testing.T, addr *ManagedAddress) {
 	}
 	t.Logf("redeem script: %v", redeemScript)
 	t.Log()
+}
+
+func TestArray(t *testing.T) {
+	a := 0
+	b := 1
+	p := []byte{0, 1, 2, 3}
+	var test []byte
+	for i := 0; i < 2; i++ {
+		if i == a {
+			test = p
+		} else if i == b {
+			test = []byte{}
+		}
+		t.Log(test)
+	}
+
 }

@@ -126,9 +126,10 @@ Return:
     {
       "wallet_id": "ac102yfx0q2v6v3aug35hw42jn8k6sljeypffn85w3",       
       "type": 1,                //fixed value
+      "version": 0,
       "remarks": "for test",   
-      "ready": true|false,      // false-importing, true-import completed
-      "synced_height": "0"      // Indicates processed blocks height when ready=false
+      "status": 0|1|2,      // 0-ready, 2-removing, 1-syncing
+      "status_msg": "ready"|"removing"|<synced_height>
     }
   ]
 }
@@ -152,7 +153,8 @@ Return:
 {
   "chain_id": "...",
   "wallet_id": "ac102yfx0q2v6v3aug35hw42jn8k6sljeypffn85w3",
-  "type": 1,                                                    
+  "type": 1,
+  "version": 0,                                                    
   "total_balance": "1234.00001428",                            
   "external_key_count": 10,                                       //external pk(address) total
   "internal_key_count": 0,                                        //internal pk total ,not currently in use
@@ -178,7 +180,8 @@ Return:
 ```json
 {
   "wallet_id": "ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds",     
-  "mnemonic": "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse"            //mnemonics
+  "mnemonic": "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse",            //mnemonics
+  "version": 1
 }
 ```
 
@@ -199,7 +202,8 @@ Example:
 Return:  
 ```json
 {
-  "mnemonic": "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse"
+  "mnemonic": "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse",
+  "version": 0
 }
 ```
 
@@ -268,24 +272,25 @@ Return:
   "ok": true,
   "wallet_id": "ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds",
   "type": 1,
+  "version": 0,
   "remarks": "for test"
 }
 ```
 
-## importwalletbymnemonic
-    importwalletbymnemonic <mnemonic> <passphrase> [externalindex=?] [remarks=?]
-Imports a wallet by mnemonic.
+## importmnemonic
+    importmnemonic <mnemonic> <passphrase> [initial=?] [remarks=?]
+Imports a wallet backup mnemonic.
 
 Parameter:  
 
     mnemonic        
-    passphrase      
-    externalindex   optional, init pk num
-    remarks         optional
+    passphrase
+    initial   optional, number of initial addresses
+    remarks   optional
 
 Example:  
 ```bash
-> masswallet-cli importwalletbymnemonic "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse" 123456
+> masswallet-cli importmnemonic "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse" 123456
 ```
 
 Return:  
@@ -294,6 +299,7 @@ Return:
   "ok": true,
   "wallet_id": "ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds",
   "type": 1,
+  "version": 0,
   "remarks": ""
 }
 ```
@@ -830,21 +836,23 @@ Return:
 }
 ```
 
-## listlateststakingreward
-    listlateststakingreward
-Returns staking rewards in the latest block.
+## getblockstakingreward
+    getblockstakingreward [height]
+Returns staking reward list at target height.
 
 Parameter:  
-    null
+
+    height      optional, returns the list at best block by default.
 
 Example:  
 ```bash
-> masswallet-cli listlateststakingreward
+> masswallet-cli getblockstakingreward
 ```
 
 Return:  
 ```json
 {
+  "height": 12999,
   "details": [
     {
       "rank": 0,
@@ -882,16 +890,17 @@ Return:
 ```
 
 ## liststakingtransactions
-    liststakingtransactions
-Returns all staking transactions of current wallet.
+
+    liststakingtransactions [all]
+Returns staking transactions of current wallet.
 
 Parameter: 
 
-    null
+    [all]  - returns all stakings, including withdrawn.
 
 Example:  
 ```bash
-> masswallet-cli liststakingtransactions
+> masswallet-cli liststakingtransactions all
 ```
 
 Return:  
@@ -964,16 +973,17 @@ Return:
 ```
 
 ## listbindingtransactions
-    listbindingtransactions
-Returns all binding transactions of current wallet.
+Returns binding transactions of current wallet.
+
+    listbindingtransactions [all]
 
 Parameter:  
 
-    null
+    [all] - returns all bindings, including withdrawn.
 
 Example:  
 ```bash
-> masswallet-cli listbindingtransactions
+> masswallet-cli listbindingtransactions all
 ```
 
 Return:  

@@ -412,7 +412,7 @@ func fetchMinedBalance(ns mwdb.Bucket, account string) ([]*mwdb.Entry, error) {
 		if v == nil {
 			return nil, nil
 		}
-		return []*mwdb.Entry{&mwdb.Entry{
+		return []*mwdb.Entry{{
 			Key:   []byte(account),
 			Value: v,
 		}}, nil
@@ -620,105 +620,118 @@ func fetchAddressesByWalletId(ns mwdb.Bucket, walletId string) ([]*AddressDetail
 	return ret, nil
 }
 
-func keyMinedLGHistory(out *lgTxHistory) []byte {
-	k := make([]byte, 84)
-	copy(k, []byte(out.walletId))
-	if out.isBinding {
+func keyGameHistory(history *gameHistory) []byte {
+	k := make([]byte, 88)
+	copy(k, []byte(history.walletId))
+	if history.isBinding {
 		k[42] = 1
 	}
-	if out.isWithdraw {
+	if history.withdrawn {
 		k[43] = 1
 	}
-	copy(k[44:76], out.txhash[:])
-	// binary.BigEndian.PutUint32(k[76:80], out.index)
-	binary.BigEndian.PutUint64(k[76:84], out.blockHeight)
+	copy(k[44:76], history.txhash[:])
+	binary.BigEndian.PutUint64(k[76:84], history.blockHeight)
+	binary.BigEndian.PutUint32(k[84:88], history.vout)
 	return k
 }
 
-func keyUnminedLGHistory(out *lgTxHistory) []byte {
-	k := make([]byte, 76)
-	copy(k, []byte(out.walletId))
-	if out.isBinding {
+func keyUnminedGameHistory(history *gameHistory) []byte {
+	k := make([]byte, 80)
+	copy(k, []byte(history.walletId))
+	if history.isBinding {
 		k[42] = 1
 	}
-	if out.isWithdraw {
-		k[43] = 1
-	}
-	copy(k[44:76], out.txhash[:])
+	k[43] = 0
+	copy(k[44:76], history.txhash[:])
+	binary.BigEndian.PutUint32(k[76:80], history.vout)
 	return k
 }
 
-func valueLGHistory(out *lgTxHistory) []byte {
-	num := len(out.indexes)
-	v := make([]byte, (num+1)*4)
-	binary.BigEndian.PutUint32(v, uint32(num))
-	for i := 0; i < num; i++ {
-		binary.BigEndian.PutUint32(v[4*(i+1):], out.indexes[i])
-	}
-	return v
+func valueGameHistory(history *gameHistory) []byte {
+	return []byte{0x00}
 }
 
-func existsRawLGOutput(ns mwdb.Bucket, k []byte) ([]byte, error) {
-	return ns.Get(k)
-}
-
-func deleteRawLGOutput(ns mwdb.Bucket, k []byte) error {
-	return ns.Delete(k)
-}
-
-func putUnminedLGHistory(ns mwdb.Bucket, out *lgTxHistory) error {
-	k := keyUnminedLGHistory(out)
-	v := valueLGHistory(out)
+func putUnminedGameHistory(ns mwdb.Bucket, history *gameHistory) error {
+	k := keyUnminedGameHistory(history)
+	v := valueGameHistory(history)
 	return ns.Put(k, v)
 }
 
-func putRawUnminedLGHistory(ns mwdb.Bucket, k, v []byte) error {
+func putGameHistory(ns mwdb.Bucket, history *gameHistory) error {
+	k := keyGameHistory(history)
+	v := valueGameHistory(history)
 	return ns.Put(k, v)
 }
 
-func putLGHistory(ns mwdb.Bucket, out *lgTxHistory) error {
-	k := keyMinedLGHistory(out)
-	v := valueLGHistory(out)
-	return ns.Put(k, v)
-}
-
-func deleteUnminedLGHistory(ns mwdb.Bucket, out *lgTxHistory) error {
-	k := keyUnminedLGHistory(out)
+func deleteUnminedGameHistory(ns mwdb.Bucket, history *gameHistory) error {
+	k := keyUnminedGameHistory(history)
 	return ns.Delete(k)
 }
 
 // used for unmined/mined history
-func fetchRawLGHistoryByWalletId(ns mwdb.Bucket, walletId string, tp outputType) ([]*mwdb.Entry, error) {
+func getRawGameHistoryByWalletId(ns mwdb.Bucket, walletId string,
+	gt gameType, excludeWithdrawn bool) ([]*mwdb.Entry, error) {
 	if len(walletId) != 42 {
 		return nil, fmt.Errorf("invalid walletId value (expect 42 bytes, actual %d bytes)", len(walletId))
 	}
-	prefix := make([]byte, 43)
+	var prefix []byte
+	if excludeWithdrawn {
+		// prefix[43]=0
+		prefix = make([]byte, 44)
+	} else {
+		prefix = make([]byte, 43)
+	}
 	copy(prefix, []byte(walletId))
-	prefix[42] = byte(tp)
+	prefix[42] = byte(gt)
 	return ns.GetByPrefix(prefix)
 }
 
 // used for unmined/mined history
-func readLGHistory(isUnmined bool, k, v []byte, lout *lgTxHistory) error {
-	if (isUnmined && len(k) < 76) || (!isUnmined && len(k) < 84) {
-		return fmt.Errorf("invalid lg history k value (unmined %v, actual %d bytes)", isUnmined, len(k))
+func readGameHistory(isUnmined bool, k, v []byte, history *gameHistory) error {
+	if (isUnmined && len(k) < 80) || (!isUnmined && len(k) < 88) {
+		return fmt.Errorf("invalid game history k value (unmined %v, actual %d bytes)", isUnmined, len(k))
 	}
-	if len(v) < 4 {
-		return fmt.Errorf("invalid lg history v value (expect 4 bytes, actual %d bytes)", len(v))
-	}
-	lout.walletId = string(k[0:42])
-	lout.isBinding = k[42]&(1<<0) != 0
-	lout.isWithdraw = k[43]&(1<<0) != 0
-	copy(lout.txhash[:], k[44:76])
+	history.walletId = string(k[0:42])
+	history.isBinding = k[42]&(1<<0) != 0
+	history.withdrawn = k[43]&(1<<0) != 0
+	copy(history.txhash[:], k[44:76])
 	if !isUnmined {
-		lout.blockHeight = binary.BigEndian.Uint64(k[76:84])
-	}
-
-	num := binary.BigEndian.Uint32(v[0:4])
-	for i := uint32(1); i <= num; i++ {
-		lout.indexes = append(lout.indexes, binary.BigEndian.Uint32(v[4*i:4*(i+1)]))
+		history.blockHeight = binary.BigEndian.Uint64(k[76:84])
+		history.vout = binary.BigEndian.Uint32(k[84:88])
+	} else {
+		history.vout = binary.BigEndian.Uint32(k[76:80])
 	}
 	return nil
+}
+
+func withdrawGame(ns mwdb.Bucket, history gameHistory) error {
+	history.withdrawn = false
+	key := keyGameHistory(&history)
+	v, err := ns.Get(key)
+	if len(v) == 0 {
+		return fmt.Errorf("withdraw game not found, tx %s, vout %d, err %v", history.txhash.String(), history.vout, err)
+	}
+	err = ns.Delete(key)
+	if err != nil {
+		return err
+	}
+	history.withdrawn = true
+	return ns.Put(keyGameHistory(&history), valueGameHistory(&history))
+}
+
+func unwithdrawGame(ns mwdb.Bucket, history gameHistory) error {
+	history.withdrawn = true
+	key := keyGameHistory(&history)
+	v, err := ns.Get(key)
+	if len(v) == 0 {
+		return fmt.Errorf("unwithdraw game not found, tx %s, vout %d, err %v", history.txhash.String(), history.vout, err)
+	}
+	err = ns.Delete(key)
+	if err != nil {
+		return err
+	}
+	history.withdrawn = false
+	return ns.Put(keyGameHistory(&history), valueGameHistory(&history))
 }
 
 func deleteByPrefix(ns mwdb.Bucket, prefix []byte) error {

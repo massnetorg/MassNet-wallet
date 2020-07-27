@@ -11,16 +11,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	externalIndex = 0
-	entropy       = 128
-	remarks       = ""
-	keystore      []byte
-	confs         = 0
-	version       = 0
-	bool1         = false
-)
-
 var createAddressCmd = &cobra.Command{
 	Use:   "createaddress <version>",
 	Short: "Creates a new address within current wallet.",
@@ -28,15 +18,12 @@ var createAddressCmd = &cobra.Command{
 		"\nArguments:\n" +
 		"  <version>    0 - create a standard transaction address\n" +
 		"               1 - create a staking transaction address\n",
-	Args: func(cmd *cobra.Command, args []string) (err error) {
-		if err = cobra.ExactArgs(1)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		version, err := strconv.Atoi(args[0])
+		if err != nil {
 			return err
 		}
-		version, err = strconv.Atoi(args[0])
-		return err
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "createaddress called", logging.LogFormat{"version": version})
 
 		resp := &pb.CreateAddressResponse{}
@@ -51,15 +38,12 @@ var listAddressesCmd = &cobra.Command{
 		"\nArguments:\n" +
 		"  <version>    0 - list all standard transaction addresses\n" +
 		"               1 - list all staking transaction addresses\n",
-	Args: func(cmd *cobra.Command, args []string) (err error) {
-		if err = cobra.ExactArgs(1)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		version, err := strconv.Atoi(args[0])
+		if err != nil {
 			return err
 		}
-		version, err = strconv.Atoi(args[0])
-		return err
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "listaddresses called", logging.LogFormat{"version": version})
 
 		resp := &pb.GetAddressesResponse{}
@@ -74,38 +58,36 @@ var getWalletBalanceCmd = &cobra.Command{
 		"\nArguments:\n" +
 		"  [minconf]   optional. minimum number of blockchain confirmations of UTXOs, default 1\n" +
 		"  [detail]   optional boolean. if query balance detail, default false\n",
-	Args: func(cmd *cobra.Command, args []string) (err error) {
-		if err = cobra.RangeArgs(0, 2)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-		confs = 1
-		bool1 = false
+	Args: cobra.MinimumNArgs(0),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var (
+			minconf = 1
+			detail  = false
+		)
 		for i := 0; i < len(args); i++ {
-			var key, value string
-			key, value, err = parseCommandVar(args[i])
-			if err == nil {
-				switch key {
-				case "minconf":
-					confs, err = strconv.Atoi(value)
-				case "detail":
-					bool1, err = strconv.ParseBool(value)
-				default:
-					err = errorUnknownCommandParam(key)
+			key, value, err := parseCommandVar(args[i])
+			if err != nil {
+				continue
+			}
+			switch key {
+			case "minconf":
+				c, err := strconv.Atoi(value)
+				if err == nil {
+					minconf = c
 				}
+			case "detail":
+				detail, _ = strconv.ParseBool(value)
+			default:
 			}
 		}
-		return err
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "getwalletbalance called", logging.LogFormat{
-			"min_confirmations": confs,
-			"detail":            bool1,
+			"min_confirmations": minconf,
+			"detail":            detail,
 		})
 
 		req := &pb.GetWalletBalanceRequest{
-			RequiredConfirmations: int32(confs),
-			Detail:                bool1,
+			RequiredConfirmations: int32(minconf),
+			Detail:                detail,
 		}
 		resp := &pb.GetWalletBalanceResponse{}
 		return ClientCall("/v1/wallets/current/balance", POST, req, resp)
@@ -119,15 +101,12 @@ var getAddressBalanceCmd = &cobra.Command{
 		"\nArguments:\n" +
 		"  <min_conf>         minimum number of blockchain confirmations of UTXOs\n" +
 		"  [<address>...]     standard mass address, if not provided, it'll return balance of all addresses of current wallet\n",
-	Args: func(cmd *cobra.Command, args []string) (err error) {
-		if err = cobra.MinimumNArgs(1)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
+	Args: cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		confs, err := strconv.Atoi(args[0])
+		if err != nil {
 			return err
 		}
-		confs, err = strconv.Atoi(args[0])
-		return err
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "getaddressbalance called", logging.LogFormat{
 			"min_confirmations": confs,
 			"address_list":      strings.Join(args[1:], ","),
@@ -146,13 +125,7 @@ var getAddressBalanceCmd = &cobra.Command{
 var validateAddressCmd = &cobra.Command{
 	Use:   "validateaddress <address>",
 	Short: "Checks if the address is in correct format and belong to current wallet.",
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-		return nil
-	},
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "validateaddress called", logging.LogFormat{"address": args[0]})
 
@@ -167,13 +140,7 @@ var listUtxoCmd = &cobra.Command{
 	Long: "Lists UTXO of specified addresses of current wallet.\n" +
 		"\nArguments:\n" +
 		"  <address>  if not provided, it'll return all UTXOs of current wallet",
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.MinimumNArgs(0)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-		return nil
-	},
+	Args: cobra.MinimumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "listutxo called", logging.LogFormat{"addresses": args})
 
@@ -196,19 +163,19 @@ var listWalletsCmd = &cobra.Command{
 
 var createWalletCmd = &cobra.Command{
 	Use:   "createwallet <passphrase> [entropy=?] [remarks=?]",
-	Short: "Creates a new wallet and returns walletId and mnemonic.",
-	Long: "Creates a new wallet and returns walletId and mnemonic.\n" +
+	Short: "Creates a new wallet of latest version(1).",
+	Long: "Creates a new wallet of latest version(1), both walletId and mnemonic are included in response.\n" +
 		"\nArguments:\n" +
 		"  <passphrase>  used to protect mnemonic\n" +
 		"  [entropy]     optional, initial entropy length, it must be a multiple of 32 bits, the allowed size is 128-256.\n" +
 		"  [remarks]     optional.\n",
 	Example: `  createwallet 123456 entropy=160 remarks='create a wallet for test'`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		var err error
-		if err = cobra.RangeArgs(1, 3)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
+	Args:    cobra.MinimumNArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		var (
+			entropy = 128
+			remarks = ""
+		)
 		for i := 1; i < len(args); i++ {
 			key, value, err := parseCommandVar(args[i])
 			if err != nil {
@@ -229,9 +196,6 @@ var createWalletCmd = &cobra.Command{
 				return errorUnknownCommandParam(key)
 			}
 		}
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "createwallet called", logging.LogFormat{
 			"bitsize": entropy,
 			"remards": remarks,
@@ -250,13 +214,7 @@ var createWalletCmd = &cobra.Command{
 var useWalletCmd = &cobra.Command{
 	Use:   "usewallet <wallet_id>",
 	Short: "Switches transaction context to <wallet_id>.",
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-		return nil
-	},
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "usewallet called", logging.LogFormat{"walletid": args[0]})
 
@@ -271,13 +229,7 @@ var useWalletCmd = &cobra.Command{
 var removeWalletCmd = &cobra.Command{
 	Use:   "removewallet <wallet_id> <passphrase>",
 	Short: "Removes specified wallet from server.",
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(2)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-		return nil
-	},
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "removewallet called", logging.LogFormat{"walletid": args[0]})
 
@@ -293,13 +245,7 @@ var removeWalletCmd = &cobra.Command{
 var exportWalletCmd = &cobra.Command{
 	Use:   "exportwallet <wallet_id> <passphrase>",
 	Short: "Exports wallet keystore.",
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(2)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-		return nil
-	},
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "exportwallet called", logging.LogFormat{"walletid": args[0]})
 
@@ -314,23 +260,15 @@ var exportWalletCmd = &cobra.Command{
 
 var importWalletCmd = &cobra.Command{
 	Use:   "importwallet <keystore> <passphrase>",
-	Short: "Imports wallet into server by keystore.",
-	Long: "Imports wallet into server by keystore.\n" +
+	Short: "Imports a wallet keystore.",
+	Long: "Imports a wallet keystore, both version 0 and 1 are compatible\n" +
 		"\nArguments:\n" +
 		"  <keystore>     raw json of keystore.\n" +
-		"  <passphrase>   used to decrypt keystore data.\n",
-	Example: `  importwallet '{"crypto":"", "hdPath":"","remarks":"",...}' 123456` +
-		"\n  // win\n" +
-		`  importwallet "{\"crypto\":\"...\", \"hdPath\":\"...\",\"remarks\":\"...\",...}" 123456`,
-	Args: func(cmd *cobra.Command, args []string) (err error) {
-		if err = cobra.ExactArgs(2)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-		return nil
-	},
+		"  <passphrase>   wallet passphrase.\n",
+	Example: `  importwallet '{"crypto":"", "hdPath":"","remarks":"",...}' 123456`,
+	Args:    cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logging.VPrint(logging.INFO, "importwallet called", logging.LogFormat{"keystore": string(keystore)})
+		logging.VPrint(logging.INFO, "importwallet called", EmptyLogFormat)
 
 		req := &pb.ImportWalletRequest{
 			Keystore:   args[0],
@@ -341,33 +279,30 @@ var importWalletCmd = &cobra.Command{
 	},
 }
 
-var importWalletByMnemonicCmd = &cobra.Command{
-	Use:   "importwalletbymnemonic <mnemonic> <passphrase> [externalindex=?] [remarks=?]",
-	Short: "Imports wallet into server by mnemonic.",
-	Long: "Imports wallet into server by mnemonic.\n" +
+var importMnemonicCmd = &cobra.Command{
+	Use:   "importmnemonic <mnemonic> <passphrase> [initial=?] [remarks=?]",
+	Short: "Imports a wallet backup mnemonic.",
+	Long: "Imports a wallet backup mnemonic.\n" +
 		"\nArguments:\n" +
-		"  <mnemonic>      standard mnemonic phrase\n" +
-		"  <passphrase>    used to protect mnemonic\n" +
-		"  [externalindex] the initial pub address count, default 0\n",
-	Example: `  importwalletbymnemonic 'one two three four ...' 123456 externalindex=10 remarks='import wallet by mnemonic'`,
-	Args: func(cmd *cobra.Command, args []string) (err error) {
-		if err = cobra.RangeArgs(2, 4)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
+		"  <mnemonic>	mnemonic phrase\n" +
+		"  <passphrase>	wallet passphrase\n" +
+		"  [initial]	number of initial addresses, default 0\n",
+	Example: `  importmnemonic 'tomorrow entry oval ...' 123456 initial=10 remarks='backup mnemonic'`,
+	Args:    cobra.MinimumNArgs(2),
+	RunE: func(cmd *cobra.Command, args []string) error {
+
+		initial := 0
+		remarks := ""
 		for i := 2; i < len(args); i++ {
 			key, value, err := parseCommandVar(args[i])
 			if err != nil {
 				return err
 			}
 			switch key {
-			case "externalindex":
-				externalIndex, err = strconv.Atoi(value)
+			case "initial":
+				initial, err = strconv.Atoi(value)
 				if err != nil {
 					return err
-				}
-				if externalIndex < 0 {
-					return fmt.Errorf("invalid externalindex: %d", externalIndex)
 				}
 			case "remarks":
 				remarks = value
@@ -375,18 +310,16 @@ var importWalletByMnemonicCmd = &cobra.Command{
 				return errorUnknownCommandParam(key)
 			}
 		}
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		logging.VPrint(logging.INFO, "importwalletbymnemonic called", logging.LogFormat{
-			"externalindex": externalIndex,
-			"remarks":       remarks,
+
+		logging.VPrint(logging.INFO, "importmnemonic called", logging.LogFormat{
+			"initial": initial,
+			"remarks": remarks,
 		})
 
-		req := &pb.ImportWalletWithMnemonicRequest{
+		req := &pb.ImportMnemonicRequest{
 			Mnemonic:      args[0],
 			Passphrase:    args[1],
-			ExternalIndex: uint32(externalIndex),
+			ExternalIndex: uint32(initial),
 			Remarks:       remarks,
 		}
 		resp := &pb.ImportWalletResponse{}
@@ -397,13 +330,7 @@ var importWalletByMnemonicCmd = &cobra.Command{
 var getWalletMnemonicCmd = &cobra.Command{
 	Use:   "getwalletmnemonic <wallet_id> <passphrase>",
 	Short: "Returns mnemonic of the specified wallet.",
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(2)(cmd, args); err != nil {
-			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
-			return err
-		}
-		return nil
-	},
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "getwalletmnemonic called", logging.LogFormat{
 			"walletid": args[0],

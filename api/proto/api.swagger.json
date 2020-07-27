@@ -278,6 +278,43 @@
         ]
       }
     },
+    "/v1/blocks/{height}/stakingreward": {
+      "get": {
+        "operationId": "GetBlockStakingReward",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetBlockStakingRewardResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "height",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
     "/v1/client/quit": {
       "post": {
         "operationId": "QuitClient",
@@ -384,6 +421,42 @@
     },
     "/v1/transactions/binding/history": {
       "get": {
+        "operationId": "GetBindingHistory2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetBindingHistoryResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/binding/history/{type}": {
+      "get": {
         "operationId": "GetBindingHistory",
         "responses": {
           "200": {
@@ -405,6 +478,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
         "tags": [
           "ApiService"
         ]
@@ -716,6 +797,42 @@
     },
     "/v1/transactions/staking/history": {
       "get": {
+        "operationId": "GetStakingHistory2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetStakingHistoryResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/staking/history/{type}": {
+      "get": {
         "operationId": "GetStakingHistory",
         "responses": {
           "200": {
@@ -737,35 +854,14 @@
             }
           }
         },
-        "tags": [
-          "ApiService"
-        ]
-      }
-    },
-    "/v1/transactions/staking/latestreward": {
-      "get": {
-        "summary": "returns staking rewards in latest block",
-        "operationId": "GetLatestRewardList",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/rpcprotobufGetLatestRewardListResponse"
-            }
-          },
-          "403": {
-            "description": "No permission.",
-            "schema": {
-              "format": "string"
-            }
-          },
-          "404": {
-            "description": "Not found.",
-            "schema": {
-              "format": "string"
-            }
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "required": true,
+            "type": "string"
           }
-        },
+        ],
         "tags": [
           "ApiService"
         ]
@@ -1028,7 +1124,7 @@
     },
     "/v1/wallets/import/mnemonic": {
       "post": {
-        "operationId": "ImportWalletWithMnemonic",
+        "operationId": "ImportMnemonic",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -1055,7 +1151,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/rpcprotobufImportWalletWithMnemonicRequest"
+              "$ref": "#/definitions/rpcprotobufImportMnemonicRequest"
             }
           }
         ],
@@ -1245,6 +1341,28 @@
         }
       }
     },
+    "GetBlockStakingRewardResponseRewardDetail": {
+      "type": "object",
+      "properties": {
+        "rank": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "amount": {
+          "type": "string"
+        },
+        "weight": {
+          "type": "number",
+          "format": "double"
+        },
+        "address": {
+          "type": "string"
+        },
+        "profit": {
+          "type": "string"
+        }
+      }
+    },
     "GetClientStatusResponsepeerCountInfo": {
       "type": "object",
       "properties": {
@@ -1296,28 +1414,6 @@
           "items": {
             "$ref": "#/definitions/GetClientStatusResponsepeerInfo"
           }
-        }
-      }
-    },
-    "GetLatestRewardListResponseRewardDetail": {
-      "type": "object",
-      "properties": {
-        "rank": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "amount": {
-          "type": "string"
-        },
-        "weight": {
-          "type": "number",
-          "format": "double"
-        },
-        "address": {
-          "type": "string"
-        },
-        "profit": {
-          "type": "string"
         }
       }
     },
@@ -1447,16 +1543,19 @@
           "type": "integer",
           "format": "int64"
         },
+        "version": {
+          "type": "integer",
+          "format": "int64"
+        },
         "remarks": {
           "type": "string"
         },
-        "ready": {
-          "type": "boolean",
-          "format": "boolean"
+        "status": {
+          "type": "integer",
+          "format": "int64"
         },
-        "synced_height": {
-          "type": "string",
-          "format": "uint64"
+        "status_msg": {
+          "type": "string"
         }
       }
     },
@@ -1664,6 +1763,10 @@
         },
         "mnemonic": {
           "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
@@ -1861,6 +1964,21 @@
         }
       }
     },
+    "rpcprotobufGetBlockStakingRewardResponse": {
+      "type": "object",
+      "properties": {
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GetBlockStakingRewardResponseRewardDetail"
+          }
+        },
+        "height": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "rpcprotobufGetClientStatusResponse": {
       "type": "object",
       "properties": {
@@ -1892,17 +2010,6 @@
         },
         "peers": {
           "$ref": "#/definitions/GetClientStatusResponsepeerList"
-        }
-      }
-    },
-    "rpcprotobufGetLatestRewardListResponse": {
-      "type": "object",
-      "properties": {
-        "details": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/GetLatestRewardListResponseRewardDetail"
-          }
         }
       }
     },
@@ -2090,6 +2197,32 @@
       "properties": {
         "mnemonic": {
           "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "rpcprotobufImportMnemonicRequest": {
+      "type": "object",
+      "properties": {
+        "mnemonic": {
+          "type": "string"
+        },
+        "passphrase": {
+          "type": "string"
+        },
+        "remarks": {
+          "type": "string"
+        },
+        "external_index": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "internal_index": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
@@ -2118,30 +2251,12 @@
           "type": "integer",
           "format": "int64"
         },
-        "remarks": {
-          "type": "string"
-        }
-      }
-    },
-    "rpcprotobufImportWalletWithMnemonicRequest": {
-      "type": "object",
-      "properties": {
-        "mnemonic": {
-          "type": "string"
-        },
-        "passphrase": {
-          "type": "string"
-        },
-        "remarks": {
-          "type": "string"
-        },
-        "external_index": {
+        "version": {
           "type": "integer",
           "format": "int64"
         },
-        "internal_index": {
-          "type": "integer",
-          "format": "int64"
+        "remarks": {
+          "type": "string"
         }
       }
     },
@@ -2344,6 +2459,10 @@
           "type": "string"
         },
         "type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "version": {
           "type": "integer",
           "format": "int64"
         },

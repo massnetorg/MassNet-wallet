@@ -10,7 +10,7 @@
 * [CreateWallet](#createwallet)
 * [UseWallet](#usewallet)
 * [ImportWallet](#importwallet)
-* [ImportWalletWithMnemonic](#importwalletwithmnemonic)
+* [ImportMnemonic](#importmnemonic)
 * [ExportWallet](#exportwallet)
 * [RemoveWallet](#removewallet)
 * [GetWalletMnemonic](#getwalletmnemonic)
@@ -30,7 +30,7 @@
 * [GetTxStatus](#gettxstatus)
 * [CreateStakingTransaction](#createstakingtransaction)
 * [GetStakingHistory](#getstakinghistory)
-* [GetLatestRewardList](#getlatestrewardlist)
+* [GetBlockStakingReward](#getblockstakingreward)
 * [TxHistory](#txhistory)
 * [GetAddressBinding](#getaddressbinding)
 * [GetBindingHistory](#getbindinghistory)
@@ -117,10 +117,14 @@ null
  - `Array of WalletSummary`, wallets
     - WalletSummary
         - `String` - wallet_id
-        - `Integer` - type             // default 1
+        - `Integer` - type      // default 1
+        - `Integer` - version   // 0 or 1
         - `String` - remarks
-        - `Boolean` - ready              // false-importing, true-importing completed
-        - `Integer` - synced_height   // indicates processed blocks height when *ready* is false
+        - `Integer` - status    // 0-ready, 1-syncing, 2-removing
+        - `String` - status_msg 
+          - "ready" - when status=0
+          - "removing" - when status=2
+          - {synced_height} - when status=1
 ### Example
 ```json
 {
@@ -129,15 +133,15 @@ null
             "wallet_id": "ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz",
             "type": 1,
             "remarks": "init",
-            "ready": true,
-            "synced_height": "0"
+            "status": 0,
+            "status_msg": "ready"
         },
         {
             "wallet_id": "ac10nge8pha03mdp32ndhtxr7lmscc4s0lkg9eee2j",
             "type": 1,
             "remarks": "init-2",
-            "ready": true,
-            "synced_height": "0"
+            "status": 1,
+            "status_msg": "109830"
         }
     ]
 }
@@ -155,6 +159,7 @@ null
 ### Returns
 - `String` - wallet_id 
 - `String` - mnemonic 
+- `Integer` - version 
 ### Example
 ```json
 // Reqeust
@@ -167,7 +172,8 @@ null
 // Response
 {
     "wallet_id": "ac10nge8pha03mdp32ndhtxr7lmscc4s0lkg9eee2j",
-    "mnemonic": "tribe belt hand odor beauty pelican switch pluck toe pigeon zero future acoustic enemy panda twice endless motion"
+    "mnemonic": "tribe belt hand odor beauty pelican switch pluck toe pigeon zero future acoustic enemy panda twice endless motion",
+    "version": 1
 }
 ```
 
@@ -181,6 +187,7 @@ null
 - `String` - chain_id 
 - `String` - wallet_id 
 - `Integer` - type 
+- `Integer` - version  // version of this wallet, 0 or 1
 - `String` - total_balance      // include the amount can't be spent yet
 - `Integer` - external_key_count 
 - `Integer` - internal_key_count 
@@ -215,6 +222,7 @@ null
 - `Boolean` - ok 
 - `String` - wallet_id 
 - `Integer` - type 
+- `Integer` - version
 - `String` - remarks 
 ### Example
 ```json
@@ -229,25 +237,27 @@ null
     "ok": true,
     "wallet_id": "ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz",
     "type": 1,
+    "version": 0,
     "remarks": "init"
 }
 ```
 
-## ImportWalletWithMnemonic
+## ImportMnemonic
     POST /v1/wallets/import/mnemonic
 ### Parameter
 | param | type | meaning | notes |
 | ------ | ------ | ------ | ------ |
-| mnemonic | string |  |  |
-| passphrase | string |  |  |
+| mnemonic | string |  | required |
+| passphrase | string |  | required |
 | remarks | string |  |  |
-| external_index | int | init external address num |  |
-| internal_index | int | init internal address num |  |
+| external_index | int | initial external address num |  |
+| internal_index | int | initial internal address num |  |
 
 ### Returns
 - `Boolean` - ok 
 - `String` - wallet_id 
 - `Integer` - type 
+- `Integer` - version
 - `String` - remarks 
 ### Example
 ```json
@@ -255,7 +265,7 @@ null
 {
 	"mnemonic":"tribe belt hand odor beauty pelican switch pluck toe pigeon zero future acoustic enemy panda twice endless motion",
 	"passphrase":"123456",
-	"remarks":"init-2"
+    "remarks":"e.g."
 }
 
 // Response
@@ -263,7 +273,8 @@ null
     "ok": true,
     "wallet_id": "ac10nge8pha03mdp32ndhtxr7lmscc4s0lkg9eee2j",
     "type": 1,
-    "remarks": "init-2"
+    "version": 0,
+    "remarks": "e.g."
 }
 ```
 
@@ -923,7 +934,11 @@ null
 ```
 
 ## GetStakingHistory
+    ## excluding withdrawn
     GET /v1/transactions/staking/history
+
+    ## including withdrawn
+    GET /v1/transactions/staking/history/all
 ### Parameters
 null
 ### Returns
@@ -960,11 +975,14 @@ null
 }
 ```
 
-## GetLatestRewardList
-    GET /v1/transactions/staking/latestreward
+## GetBlockStakingReward
+    GET /v1/blocks/{height}/stakingreward
 ### Parameters
-null
+| param | type | meaning | notes |
+| ------ | ------ | ------ | ------ |
+| height | int |  | optional. default 0 for the latest block. |
 ### Returns
+- `Integer` - height
 - `Array of RewardDetail`, details
     - RewardDetail
         - `Integer` - rank 
@@ -1071,7 +1089,11 @@ null
 ```
 
 ## GetBindingHistory
+    ## excluding withdrawn
     GET /v1/transactions/binding/history
+
+    ## including withdrawn
+    GET /v1/transactions/binding/history/all
 ### Parameters
 null
 ### Returns

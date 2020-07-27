@@ -78,6 +78,7 @@ type Bucket interface {
 	DeleteBucket(name string) error
 	Put(key, value []byte) error
 	Delete(key []byte) error
+	// Get returns nil if not found
 	Get(key []byte) ([]byte, error)
 	Clear() error
 	GetByPrefix([]byte) ([]*Entry, error)

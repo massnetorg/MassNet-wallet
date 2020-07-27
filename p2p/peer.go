@@ -6,14 +6,14 @@ import (
 	"strconv"
 	"time"
 
+	gocrypto "github.com/massnetorg/tendermint/go-crypto"
+	gowire "github.com/massnetorg/tendermint/go-wire"
+	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 	"github.com/pkg/errors"
 	"massnet.org/mass-wallet/config"
 	"massnet.org/mass-wallet/consensus"
 	"massnet.org/mass-wallet/logging"
 	"massnet.org/mass-wallet/p2p/connection"
-	gocrypto "github.com/massnetorg/tendermint/go-crypto"
-	gowire "github.com/massnetorg/tendermint/go-wire"
-	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 )
 
 // peerConn contains the raw connection and its config.

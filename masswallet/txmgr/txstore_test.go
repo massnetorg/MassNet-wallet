@@ -166,9 +166,13 @@ func TestRemoveRelevantTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer chainDbTearDown()
+	err = initBlocks(chainDb, 10)
+	if err != nil {
+		t.Fatal("initBlocks failed:", err)
+	}
 
 	s, walletDb, teardown, err := testTxStore("TstRemoveRelevantTx", chainDb)
-	if !assert.Nil(t, err) {
+	if err != nil {
 		t.Fatal(err)
 	}
 	defer teardown()
@@ -195,11 +199,19 @@ func TestRemoveRelevantTx(t *testing.T) {
 				continue
 			}
 			blockMeta := &BlockMeta{
-				block.MsgBlock().Header.Height,
-				*block.Hash(),
-				block.MsgBlock().Header.Timestamp,
+				Height:    block.MsgBlock().Header.Height,
+				Hash:      *block.Hash(),
+				Timestamp: block.MsgBlock().Header.Timestamp,
 			}
-			for _, tx := range block.Transactions() {
+			blockMeta.Loc, err = chainDb.FetchBlockLocByHeight(blockMeta.Height)
+			if err != nil {
+				return err
+			}
+			txlocs, err := block.TxLoc()
+			if err != nil {
+				return err
+			}
+			for i, tx := range block.Transactions() {
 				numOutput += len(tx.MsgTx().TxOut)
 				numTx++
 				allTxHashes[*tx.Hash()] = struct{}{}
@@ -219,6 +231,7 @@ func TestRemoveRelevantTx(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				rec.TxLoc = &txlocs[i]
 				err = s.AddRelevantTx(ns, allMinedBalances, rec, blockMeta)
 				if err != nil {
 					return err
@@ -245,7 +258,7 @@ func TestRemoveRelevantTx(t *testing.T) {
 	// remove
 	err = mwdb.Update(walletDb, func(ns mwdb.DBTransaction) error {
 		mam := keystore.NewMockAddrManager(wIds[0], allAddresses)
-		rms, err := s.RemoveRelevantTx(ns, mam)
+		rms, _, err := s.RemoveRelevantTx(ns, mam)
 		for _, rm := range rms {
 			if _, ok := allTxHashes[*rm]; !ok {
 				return errors.New("unknown tx returned")
@@ -277,6 +290,10 @@ func TestExistUtxo(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer chainDbTearDown()
+	err = initBlocks(chainDb, 10)
+	if err != nil {
+		t.Fatal("initBlocks failed:", err)
+	}
 
 	s, walletDb, teardown, err := testTxStore("TstExistUtxo", chainDb)
 	if !assert.Nil(t, err) {
@@ -296,11 +313,19 @@ func TestExistUtxo(t *testing.T) {
 		}
 		for _, block := range blks200[0:10] {
 			blockMeta := &BlockMeta{
-				block.MsgBlock().Header.Height,
-				*block.Hash(),
-				block.MsgBlock().Header.Timestamp,
+				Height:    block.MsgBlock().Header.Height,
+				Hash:      *block.Hash(),
+				Timestamp: block.MsgBlock().Header.Timestamp,
 			}
-			for _, tx := range block.Transactions() {
+			blockMeta.Loc, err = chainDb.FetchBlockLocByHeight(blockMeta.Height)
+			if err != nil {
+				return err
+			}
+			txlocs, err := block.TxLoc()
+			if err != nil {
+				return err
+			}
+			for i, tx := range block.Transactions() {
 				rec, err := NewTxRecordFromMsgTx(tx.MsgTx(), time.Now())
 				if err != nil {
 					return err
@@ -309,6 +334,7 @@ func TestExistUtxo(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				rec.TxLoc = &txlocs[i]
 				err = s.AddRelevantTx(ns, allMinedBalances, rec, blockMeta)
 				if err != nil {
 					return err
@@ -323,7 +349,7 @@ func TestExistUtxo(t *testing.T) {
 		for j, block := range blks200[0:15] {
 			for _, tx := range block.Transactions() {
 				txhash := tx.Hash()
-				for i, _ := range tx.MsgTx().TxOut {
+				for i := range tx.MsgTx().TxOut {
 					outPoint := wire.OutPoint{Hash: *txhash, Index: uint32(i)}
 					f, err := s.ExistsUtxo(ns, &outPoint)
 					if j >= 10 {

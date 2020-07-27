@@ -5,9 +5,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
 	gowire "github.com/massnetorg/tendermint/go-wire"
 	cmn "github.com/massnetorg/tendermint/tmlibs/common"
+	"massnet.org/mass-wallet/logging"
 )
 
 // ChannelDescriptor is the setting of channel

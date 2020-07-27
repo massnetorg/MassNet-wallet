@@ -525,8 +525,8 @@ func createManagerKeyScope(km db.Bucket, root *hdkeychain.ExtendedKey,
 	return accountBucket.GetBucketMeta(), nil
 }
 
-func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, remark string, net *config.Params, addressGapLimit uint32,
-	scryptConfig *ScryptOptions, hdPath *hdPath, pubPassphrase, privPassphrase, entropy, seed []byte, checkfunc func([]byte) (bool, error)) (db.BucketMeta, error) {
+func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, net *config.Params, walletParams *WalletParams,
+	scryptConfig *ScryptOptions, hdPath *hdPath, pubPassphrase, entropy, seed []byte, checkfunc func([]byte) (bool, error)) (db.BucketMeta, error) {
 	// get the km bucket created before
 	kmBucket := dbTransaction.FetchBucket(kmBucketMeta)
 
@@ -544,7 +544,7 @@ func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate master public key: %v", err)
 	}
-	masterKeyPriv, err := secretKeyGen(&privPassphrase, scryptConfig)
+	masterKeyPriv, err := secretKeyGen(&walletParams.PrivatePassphrase, scryptConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate master private key: %v", err)
 	}
@@ -609,7 +609,7 @@ func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, 
 	zero.Bytes(entropy)
 
 	acctBucketMeta, err := createManagerKeyScope(kmBucket, rootKey,
-		cryptoKeyPub, cryptoKeyPriv, hdPath, checkfunc, net, addressGapLimit)
+		cryptoKeyPub, cryptoKeyPriv, hdPath, checkfunc, net, walletParams.AddressGapLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -619,8 +619,13 @@ func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, 
 		return nil, ErrUnexpecteDBError
 	}
 
-	if len(remark) > 0 {
-		err = putRemark(acctBucket, []byte(remark))
+	err = putVersion(acctBucket, walletParams.Version.Value())
+	if err != nil {
+		return nil, err
+	}
+
+	if len(walletParams.Remarks) > 0 {
+		err = putRemark(acctBucket, []byte(walletParams.Remarks))
 		if err != nil {
 			return nil, err
 		}
@@ -663,16 +668,16 @@ func initAcctBucket(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, 
 //
 // A ManagerError with an error code of ErrAlreadyExists will be returned the
 // address manager already exists in the specified namespace.
-func create(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, bitSize int, pubPassphrase, privPassphrase []byte,
-	usage AddrUse, remark string, net *config.Params, scryptConfig *ScryptOptions, addressGapLimit uint32) (db.BucketMeta, string, error) {
-	if !ValidatePassphrase(privPassphrase) {
+func create(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, bitSize int, pubPassphrase []byte,
+	usage AddrUse, net *config.Params, scryptConfig *ScryptOptions, walletParams *WalletParams) (db.BucketMeta, string, error) {
+	if !ValidatePassphrase(walletParams.PrivatePassphrase) {
 		return nil, "", ErrIllegalPassphrase
 	}
 
 	if !ValidatePassphrase(pubPassphrase) {
 		return nil, "", ErrIllegalPassphrase
 	}
-	if bytes.Compare(privPassphrase, pubPassphrase) == 0 {
+	if bytes.Compare(walletParams.PrivatePassphrase, pubPassphrase) == 0 {
 		return nil, "", ErrIllegalNewPrivPass
 	}
 
@@ -681,7 +686,14 @@ func create(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, bitSize 
 		bitSize = defaultBitSize
 	}
 
-	entropy, mnemonic, seed, err := generateSeed(bitSize, privPassphrase)
+	var genPass []byte
+	switch walletParams.Version {
+	case KeystoreVersion0:
+		genPass = walletParams.PrivatePassphrase
+	default:
+		return nil, "", ErrKeystoreVersion
+	}
+	entropy, mnemonic, seed, err := generateSeed(bitSize, genPass)
 	if err != nil {
 		return nil, "", err
 	}
@@ -692,8 +704,8 @@ func create(dbTransaction db.DBTransaction, kmBucketMeta db.BucketMeta, bitSize 
 		ExternalChildNum: 0,
 	}
 
-	acctBucketMeta, err := initAcctBucket(dbTransaction, kmBucketMeta, remark, net, addressGapLimit, scryptConfig, hdpath, pubPassphrase,
-		privPassphrase, entropy, seed, nil)
+	acctBucketMeta, err := initAcctBucket(dbTransaction, kmBucketMeta, net, walletParams,
+		scryptConfig, hdpath, pubPassphrase, entropy, seed, nil)
 	if err != nil {
 		return nil, "", err
 	}
@@ -715,6 +727,11 @@ func loadAddrManager(amBucket db.Bucket, pubPassphrase []byte, net *config.Param
 	if coin != net.HDCoinType {
 		str := "the coin type doesn't match the connected network"
 		return nil, errors.New(str)
+	}
+
+	version, err := fetchVersion(amBucket)
+	if err != nil {
+		return nil, err
 	}
 
 	remarkBytes, err := fetchRemark(amBucket)
@@ -881,12 +898,17 @@ func loadAddrManager(amBucket db.Bucket, pubPassphrase []byte, net *config.Param
 	}
 
 	return &AddrManager{
-		use:                       AddrUse(account),
-		unlocked:                  false,
-		index:                     index,
-		addrs:                     managedAddresses,
 		keystoreName:              amBucketMeta.Name(),
 		remark:                    string(remarkBytes),
+		version:                   KeystoreVersion(version),
+		index:                     index,
+		addrs:                     managedAddresses,
+		use:                       AddrUse(account),
+		acctInfo:                  acctInfo,
+		branchInfo:                branchInfo,
+		hdScope:                   keyScope,
+		storage:                   amBucketMeta,
+		unlocked:                  false,
 		masterKeyPub:              &masterKeyPub,
 		masterKeyPriv:             &masterKeyPriv,
 		cryptoKeyPub:              cryptoKeyPub,
@@ -894,21 +916,24 @@ func loadAddrManager(amBucket db.Bucket, pubPassphrase []byte, net *config.Param
 		cryptoKeyPriv:             &cryptoKey{},
 		cryptoKeyEntropyEncrypted: cryptoKeyEntropyEnc,
 		privPassphraseSalt:        privPassphraseSalt,
-		hdScope:                   keyScope,
-		acctInfo:                  acctInfo,
-		branchInfo:                branchInfo,
-		storage:                   amBucketMeta,
 	}, nil
 
 }
 
-func (km *KeystoreManager) NewKeystore(dbTransaction db.DBTransaction, bitSize int, privPassphrase []byte, remark string,
+func (km *KeystoreManager) NewKeystore(dbTransaction db.DBTransaction, bitSize int, privPassphrase []byte, remarks string,
 	net *config.Params, scryptConfig *ScryptOptions, addressGapLimit uint32) (string, string, error) {
 	km.mu.Lock()
 	defer km.mu.Unlock()
 
+	params := &WalletParams{
+		Version:           KeystoreVersionLatest,
+		PrivatePassphrase: privPassphrase,
+		Remarks:           remarks,
+		AddressGapLimit:   addressGapLimit,
+	}
+
 	// create hd key chain and init the bucket
-	acctBucketMeta, mnemonic, err := create(dbTransaction, km.ksMgrMeta, bitSize, km.pubPassphrase, privPassphrase, WalletUsage, remark, net, scryptConfig, addressGapLimit)
+	acctBucketMeta, mnemonic, err := create(dbTransaction, km.ksMgrMeta, bitSize, km.pubPassphrase, WalletUsage, net, scryptConfig, params)
 	if err != nil {
 		return "", "", err
 	}
@@ -969,13 +994,22 @@ func (km *KeystoreManager) allocAddrMgrNamespace(dbTransaction db.DBTransaction,
 	}
 	defer zero.Bytes(entropy)
 
+	version := KeystoreVersion(kStore.Crypto.Version)
+
 	mnemonic, err := NewMnemonic(entropy)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "failed to new mnemonic", logging.LogFormat{"error": err})
 		return nil, err
 	}
 
-	seed := NewSeed(mnemonic, string(privPassphrase))
+	var genPass string
+	switch version {
+	case KeystoreVersion0:
+		genPass = string(privPassphrase)
+	default:
+		return nil, ErrKeystoreVersion
+	}
+	seed := NewSeed(mnemonic, genPass)
 
 	rootKey, err := hdkeychain.NewMaster(seed, net)
 	if err != nil {
@@ -1042,6 +1076,11 @@ func (km *KeystoreManager) allocAddrMgrNamespace(dbTransaction db.DBTransaction,
 	acctBucket := dbTransaction.FetchBucket(acctBucketMeta)
 	if acctBucket == nil {
 		return nil, ErrUnexpecteDBError
+	}
+
+	err = putVersion(acctBucket, version.Value())
+	if err != nil {
+		return nil, err
 	}
 
 	if len(kStore.Remarks) > 0 {
@@ -1112,32 +1151,41 @@ func (km *KeystoreManager) ImportKeystore(dbTransaction db.DBTransaction, checkf
 	return addrManager, nil
 }
 
-func (km *KeystoreManager) ImportKeystoreWithMnemonic(dbTransaction db.DBTransaction, checkfunc func([]byte) (bool, error),
-	mnemonic, remark string, privPass []byte, externalIndex, internalIndex, addressGapLimit uint32) (*AddrManager, error) {
+func (km *KeystoreManager) ImportKeystoreWithMnemonic(dbTransaction db.DBTransaction,
+	checkfunc func([]byte) (bool, error), walletParams *WalletParams) (*AddrManager, error) {
+
 	km.mu.Lock()
 	defer km.mu.Unlock()
 
-	entropy, err := EntropyFromMnemonic(mnemonic)
+	entropy, err := EntropyFromMnemonic(walletParams.Mnemonic)
 	if err != nil {
 		return nil, err
 	}
 
-	seed, err := NewSeedWithErrorChecking(mnemonic, string(privPass))
+	var genPass string
+	switch walletParams.Version {
+	case KeystoreVersion0:
+		genPass = string(walletParams.PrivatePassphrase)
+	default:
+		return nil, ErrKeystoreVersion
+	}
+
+	seed, err := NewSeedWithErrorChecking(walletParams.Mnemonic, genPass)
 	if err != nil {
 		return nil, err
 	}
 
 	hdpath := &hdPath{
 		Account:          uint32(WalletUsage),
-		InternalChildNum: internalIndex,
-		ExternalChildNum: externalIndex,
+		InternalChildNum: walletParams.InternalIndex,
+		ExternalChildNum: walletParams.ExternalIndex,
 	}
 	if hdpath.ExternalChildNum == 0 {
 		hdpath.ExternalChildNum = 1
 	}
 
-	acctBucketMeta, err := initAcctBucket(dbTransaction, km.ksMgrMeta, remark, km.params, addressGapLimit, &DefaultScryptOptions, hdpath,
-		km.pubPassphrase, privPass, entropy, seed, checkfunc)
+	acctBucketMeta, err := initAcctBucket(dbTransaction, km.ksMgrMeta, km.params, walletParams, &DefaultScryptOptions, hdpath,
+		km.pubPassphrase, entropy, seed, checkfunc)
 	if err != nil {
 		return nil, err
 	}
@@ -1178,23 +1226,14 @@ func (km *KeystoreManager) ExportKeystore(dbTransaction db.ReadTransaction, acco
 	}
 }
 
-func (km *KeystoreManager) DeleteKeystore(dbTransaction db.DBTransaction, accountID string, privPassphrase []byte) (bool, error) {
+func (km *KeystoreManager) DeleteKeystore(dbTransaction db.DBTransaction, accountID string /* , privPassphrase []byte */) (bool, error) {
 	km.mu.Lock()
 	defer km.mu.Unlock()
 
 	addrManager, found := km.managedKeystores[accountID]
 	if found {
-		// check private pass
-		err := addrManager.safelyCheckPassword(privPassphrase)
+		err := addrManager.destroy(dbTransaction)
 		if err != nil {
-			logging.CPrint(logging.ERROR, "wrong passphrase",
-				logging.LogFormat{
-					"err": err,
-				})
-			return false, err
-		}
-
-		if addrManager.destroy(dbTransaction) != nil {
 			logging.CPrint(logging.ERROR, "delete account failed",
 				logging.LogFormat{
 					"err": err,
@@ -1368,6 +1407,45 @@ func (km *KeystoreManager) SignHash(pubKey *btcec.PublicKey, hash []byte, passwo
 	return sig, nil
 }
 
+func (km *KeystoreManager) ChangePrivPassphrase(dbTransaction db.DBTransaction, oldPrivPass, newPrivPass []byte, scryptConfig *ScryptOptions) error {
+	km.mu.Lock()
+	defer km.mu.Unlock()
+
+	if !ValidatePassphrase(newPrivPass) {
+		return ErrIllegalPassphrase
+	}
+
+	if bytes.Equal(newPrivPass, oldPrivPass) {
+		return ErrSamePrivpass
+	}
+
+	if bytes.Equal(newPrivPass, km.pubPassphrase) {
+		return ErrIllegalNewPrivPass
+	}
+
+	if scryptConfig == nil {
+		scryptConfig = &DefaultScryptOptions
+	}
+
+	if km.currentKeystore == nil {
+		return ErrCurrentKeystoreNotFound
+	}
+
+	addrManager, found := km.managedKeystores[km.currentKeystore.accountName]
+	if !found {
+		return ErrCurrentKeystoreNotFound
+	}
+
+	err := addrManager.changePrivPassphrase(dbTransaction, oldPrivPass, newPrivPass, scryptConfig)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "failed to change private passphrase", logging.LogFormat{
+			"err": err,
+		})
+		return err
+	}
+	return nil
+}
+
 func (km *KeystoreManager) ChangePubPassphrase(dbTransaction db.DBTransaction, oldPubPass, newPubPass []byte, scryptConfig *ScryptOptions) error {
 	km.mu.Lock()
 	defer km.mu.Unlock()
@@ -1509,26 +1587,26 @@ func (km *KeystoreManager) CurrentKeystore() *AddrManager {
 	return km.managedKeystores[km.currentKeystore.accountName]
 }
 
-func (km *KeystoreManager) GetMnemonic(dbTransaction db.ReadTransaction, accountID string, privpass []byte) (string, error) {
+func (km *KeystoreManager) GetMnemonic(dbTransaction db.ReadTransaction, accountID string, privpass []byte) (string, uint8, error) {
 	km.mu.Lock()
 	defer km.mu.Unlock()
 
 	addrManager, ok := km.managedKeystores[accountID]
 	if !ok {
-		return "", ErrAccountNotFound
+		return "", 0, ErrAccountNotFound
 	}
-	err := addrManager.checkPassword(privpass)
-	if err != nil {
-		return "", err
-	}
-	defer addrManager.masterKeyPriv.Zero()
+	//err := addrManager.checkPassword(privpass)
+	//if err != nil {
+	//	return "", err
+	//}
+	//defer addrManager.masterKeyPriv.Zero()
 
-	mnemonic, err := addrManager.getMnemonic(dbTransaction, privpass)
+	mnemonic, version, err := addrManager.getMnemonic(dbTransaction, privpass)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 
-	return mnemonic, nil
+	return mnemonic, version, nil
 }
 
 func (km *KeystoreManager) getAddrManager(addr string) (*AddrManager, error) {

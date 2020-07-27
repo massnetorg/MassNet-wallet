@@ -19,7 +19,6 @@ import (
 	"massnet.org/mass-wallet/txscript"
 	"massnet.org/mass-wallet/wire"
 
-	"errors"
 	"sort"
 
 	"massnet.org/mass-wallet/masswallet/ifc"
@@ -27,7 +26,7 @@ import (
 )
 
 const (
-	TxHistoryMax = 500
+	TxHistoryMax = 200
 	BlockBatch   = 500
 )
 
@@ -180,6 +179,9 @@ func constructStakingTxOut(outputs []*StakingTxOut, mtx *wire.MsgTx) error {
 				"err: ":   err,
 				"address": output.Address,
 			})
+			if err == txscript.ErrFrozenPeriod {
+				return err
+			}
 			return ErrCreatePkScript
 		}
 
@@ -648,6 +650,7 @@ func (w *WalletManager) signWitnessTx(password []byte, tx *wire.MsgTx, hashType 
 	})
 
 	cache := make(map[wire.Hash]*wire.MsgTx)
+	defer w.ksmgr.ClearPrivKey()
 	for i, txIn := range tx.TxIn {
 		prevTx, ok := cache[txIn.PreviousOutPoint.Hash]
 		if !ok {
@@ -722,7 +725,6 @@ func (w *WalletManager) signWitnessTx(password []byte, tx *wire.MsgTx, hashType 
 			return err
 		}
 	}
-	w.ksmgr.ClearPrivKey()
 
 	return nil
 }
@@ -883,10 +885,7 @@ func (w *WalletManager) GetTxHistory(wanted int, addr string) ([]*pb.TxHistoryDe
 
 			mtx, err := w.chainFetcher.FetchTxByLoc(height, txLoc)
 			if err != nil {
-				return nil, err
-			}
-			if mtx == nil {
-				return nil, errors.New("transaction not found")
+				continue
 			}
 
 			// inputs

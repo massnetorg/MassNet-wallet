@@ -19,8 +19,7 @@ const (
 	maxKnownTxs         = 32768 // Maximum transactions hashes to keep in the known list (prevent DOS)
 	maxKnownBlocks      = 1024  // Maximum block hashes to keep in the known list (prevent DOS)
 	defaultBanThreshold = uint64(100)
-
-	maxBanScoreCache = 1000
+	maxBanScoreCache    = 1000
 )
 
 //BasePeer is the interface for connection level peer

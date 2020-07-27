@@ -4,10 +4,10 @@ import (
 	"math/rand"
 	"net"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/p2p/connection"
 	crypto "github.com/massnetorg/tendermint/go-crypto"
 	cmn "github.com/massnetorg/tendermint/tmlibs/common"
+	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/p2p/connection"
 )
 
 //PanicOnAddPeerErr add peer error

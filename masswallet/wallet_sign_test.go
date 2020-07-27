@@ -81,7 +81,7 @@ func iniWallet(walletName string) (*wallet, error) {
 		db.Close()
 		return nil, err
 	}
-	w.walletName, w.mnemonic, err = w.mgr.CreateWallet(walletpass, walletName, 128)
+	w.walletName, w.mnemonic, _, err = w.mgr.CreateWallet(walletpass, walletName, 128)
 	if err != nil {
 		db.Close()
 		return nil, err

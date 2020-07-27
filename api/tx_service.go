@@ -561,6 +561,10 @@ func (s *APIServer) CreateStakingTransaction(ctx context.Context, in *pb.CreateS
 		return nil, err
 	}
 
+	if !wire.IsValidStakingValue(val.IntValue()) {
+		return nil, status.New(ErrAPIInvalidAmount, ErrCode[ErrAPIInvalidAmount]).Err()
+	}
+
 	valFee, err := checkParseAmount(in.Fee)
 	if err != nil {
 		return nil, status.New(ErrAPIUserTxFee, ErrCode[ErrAPIUserTxFee]).Err()

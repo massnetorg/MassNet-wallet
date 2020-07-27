@@ -5,6 +5,8 @@ import (
 	"massnet.org/mass-wallet/database"
 	"massnet.org/mass-wallet/errors"
 	"massnet.org/mass-wallet/massutil"
+	"massnet.org/mass-wallet/masswallet/txmgr"
+	"massnet.org/mass-wallet/netsync"
 )
 
 var (
@@ -30,17 +32,18 @@ type AddressBalance struct {
 }
 
 type WalletSummary struct {
-	WalletID     string
-	Type         uint32
-	Remarks      string
-	Ready        bool
-	SyncedHeight uint64
+	WalletID string
+	Type     uint32
+	Version  uint8
+	Remarks  string
+	Status   *txmgr.WalletStatus
 }
 
 type WalletInfo struct {
 	ChainID          string          `json:"chain_id"`
 	WalletID         string          `json:"wallet_id"`
 	Type             uint32          `json:"type"`
+	Version          uint8           `json:"version"`
 	TotalBalance     massutil.Amount `json:"total_balance"`
 	ExternalKeyCount int32           `json:"external_key_count"`
 	InternalKeyCount int32           `json:"internal_key_count"`
@@ -62,4 +65,5 @@ type Server interface {
 	Blockchain() *blockchain.Blockchain
 	ChainDB() database.Db
 	TxMemPool() *blockchain.TxPool
+	SyncManager() *netsync.SyncManager
 }

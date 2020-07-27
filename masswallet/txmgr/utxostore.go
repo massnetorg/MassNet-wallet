@@ -13,6 +13,7 @@ import (
 	"massnet.org/mass-wallet/logging"
 	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
+	"massnet.org/mass-wallet/masswallet/ifc"
 	"massnet.org/mass-wallet/masswallet/keystore"
 	"massnet.org/mass-wallet/masswallet/utils"
 	"massnet.org/mass-wallet/wire"
@@ -22,20 +23,21 @@ type CreditIterationFilter func(*Credit) (stopIter, selectItem bool)
 
 // UtxoStore ...
 type UtxoStore struct {
-	chainParams *config.Params
-	ksmgr       *keystore.KeystoreManager
-	bucketMeta  *StoreBucketMeta
-
-	muUtxo sync.Mutex // only for ScriptAddressBalance and ScriptAddressUnspents
+	chainParams  *config.Params
+	ksmgr        *keystore.KeystoreManager
+	bucketMeta   *StoreBucketMeta
+	chainFetcher ifc.ChainFetcher
+	muUtxo       sync.Mutex // only for ScriptAddressBalance and ScriptAddressUnspents
 }
 
 // NewUtxoStore ...
-func NewUtxoStore(store mwdb.Bucket, ksmgr *keystore.KeystoreManager,
+func NewUtxoStore(chainFetcher ifc.ChainFetcher, store mwdb.Bucket, ksmgr *keystore.KeystoreManager,
 	bucketMeta *StoreBucketMeta, chainParams *config.Params) (s *UtxoStore, err error) {
 	s = &UtxoStore{
-		chainParams: chainParams,
-		ksmgr:       ksmgr,
-		bucketMeta:  bucketMeta,
+		chainFetcher: chainFetcher,
+		chainParams:  chainParams,
+		ksmgr:        ksmgr,
+		bucketMeta:   bucketMeta,
 	}
 	// unspent
 	bucket, err := mwdb.GetOrCreateBucket(store, bucketUnspent)
@@ -99,8 +101,8 @@ func (s *UtxoStore) AddCredits(tx mwdb.DBTransaction, allBalances map[string]mas
 	nsUnspent := tx.FetchBucket(s.bucketMeta.nsUnspent)
 	nsCredits := tx.FetchBucket(s.bucketMeta.nsCredits)
 	nsAddresses := tx.FetchBucket(s.bucketMeta.nsAddresses)
-	nsLGHistory := tx.FetchBucket(s.bucketMeta.nsLGHistory)
-	nsUnminedLGHistory := tx.FetchBucket(s.bucketMeta.nsUnminedLGHistory)
+	nsGameHistory := tx.FetchBucket(s.bucketMeta.nsGameHistory)
+	nsUnminedGameHistory := tx.FetchBucket(s.bucketMeta.nsUnminedGameHistory)
 
 	isCoinBase := blockchain.IsCoinBaseTx(&rec.MsgTx)
 
@@ -172,12 +174,6 @@ func (s *UtxoStore) AddCredits(tx mwdb.DBTransaction, allBalances map[string]mas
 		if err != nil {
 			return err
 		}
-		// logging.CPrint(logging.DEBUG, "Marking transaction output spendable",
-		// 	logging.LogFormat{
-		// 		"tx":     rec.Hash.String(),
-		// 		"index":  rel.Index,
-		// 		"amount": txOutAmt,
-		// 	})
 
 		cred := credit{
 			outPoint: wire.OutPoint{
@@ -223,12 +219,12 @@ func (s *UtxoStore) AddCredits(tx mwdb.DBTransaction, allBalances map[string]mas
 	}
 
 	// record staking/binding history
-	for _, lout := range constructLGHistory(rec, false, block.Height) {
-		err := deleteUnminedLGHistory(nsUnminedLGHistory, lout)
+	for _, history := range createGameHistory(rec, block.Height) {
+		err := deleteUnminedGameHistory(nsUnminedGameHistory, history)
 		if err != nil {
 			return err
 		}
-		err = putLGHistory(nsLGHistory, lout)
+		err = putGameHistory(nsGameHistory, history)
 		if err != nil {
 			return err
 		}
@@ -240,7 +236,7 @@ func (s *UtxoStore) AddCredits(tx mwdb.DBTransaction, allBalances map[string]mas
 func (s *UtxoStore) addUnminedCredits(tx mwdb.DBTransaction, rec *TxRecord) error {
 	nsUnspent := tx.FetchBucket(s.bucketMeta.nsUnspent)
 	nsUnminedCredits := tx.FetchBucket(s.bucketMeta.nsUnminedCredits)
-	nsUnminedLGHistory := tx.FetchBucket(s.bucketMeta.nsUnminedLGHistory)
+	nsUnminedGameHistory := tx.FetchBucket(s.bucketMeta.nsUnminedGameHistory)
 
 	for _, rel := range rec.RelevantTxOut {
 		maturity := rel.PkScript.Maturity()
@@ -290,8 +286,8 @@ func (s *UtxoStore) addUnminedCredits(tx mwdb.DBTransaction, rec *TxRecord) erro
 			return err
 		}
 	}
-	for _, lout := range constructLGHistory(rec, false, 0) {
-		err := putUnminedLGHistory(nsUnminedLGHistory, lout)
+	for _, history := range createGameHistory(rec, 0) {
+		err := putUnminedGameHistory(nsUnminedGameHistory, history)
 		if err != nil {
 			return err
 		}
@@ -299,118 +295,29 @@ func (s *UtxoStore) addUnminedCredits(tx mwdb.DBTransaction, rec *TxRecord) erro
 	return nil
 }
 
-// Temporarily not used. DO NOT DELETE!
-//addUnminedInputsLGHistory inserts input history of staking/binding transaction
-func (s *UtxoStore) addUnminedInputsLGHistory(tx mwdb.DBTransaction, rec *TxRecord) error {
-	nsUnminedLGHistory := tx.FetchBucket(s.bucketMeta.nsUnminedLGHistory)
-	nsUnspent := tx.FetchBucket(s.bucketMeta.nsUnspent)
-	nsUnminedCredits := tx.FetchBucket(s.bucketMeta.nsUnminedCredits)
-
-	// check if utxo exists (mined or unmined)
-	for _, rel := range rec.RelevantTxIn {
-		prevOut := &rec.MsgTx.TxIn[rel.Index].PreviousOutPoint
-		outPointKey := canonicalOutPoint(&prevOut.Hash, prevOut.Index)
-
-		uCredit, err := existsRawUnminedCredit(nsUnminedCredits, outPointKey)
-		if err != nil {
-			return err
-		}
-		_, credKey, err := existsUnspent(nsUnspent, rel.WalletId, prevOut)
-		if err != nil {
-			return err
-		}
-		if uCredit == nil && credKey == nil {
-			return fmt.Errorf("corresponding utxo of relevant input not found")
-		}
-		if uCredit != nil && credKey != nil { // debug code
-			logging.CPrint(logging.ERROR, "both mined & unmined utxo found",
-				logging.LogFormat{
-					"tx":      rec.Hash.String(),
-					"txIdx":   rel.Index,
-					"prevTx":  prevOut.Hash.String(),
-					"prevIdx": prevOut.Index,
-				})
+func createGameHistory(rec *TxRecord, height uint64) []*gameHistory {
+	histories := make([]*gameHistory, 0)
+	for _, rel := range rec.RelevantTxOut {
+		if rel.PkScript.IsStaking() || rel.PkScript.IsBinding() {
+			histories = append(histories, &gameHistory{
+				walletId:    rel.WalletId,
+				txhash:      rec.Hash,
+				vout:        uint32(rel.Index),
+				isBinding:   rel.PkScript.IsBinding(),
+				blockHeight: height,
+			})
 		}
 	}
-	for _, lout := range constructLGHistory(rec, true, 0) {
-		err := putUnminedLGHistory(nsUnminedLGHistory, lout)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func constructLGHistory(rec *TxRecord, parseInputs bool, height uint64) []*lgTxHistory {
-
-	l := make(map[string]*lgTxHistory) // staking
-	g := make(map[string]*lgTxHistory) // binding
-	result := make([]*lgTxHistory, 0)
-
-	items := rec.RelevantTxIn
-	if !parseInputs {
-		items = rec.RelevantTxOut
-	}
-
-	for _, rel := range items {
-		var (
-			lout *lgTxHistory
-			ok   bool
-		)
-		if rel.PkScript.IsStaking() {
-			if lout, ok = l[rel.WalletId]; !ok {
-				lout = &lgTxHistory{
-					walletId:    rel.WalletId,
-					txhash:      rec.Hash,
-					isWithdraw:  parseInputs,
-					isBinding:   false,
-					blockHeight: height,
-				}
-				l[rel.WalletId] = lout
-				result = append(result, lout)
-			}
-		}
-
-		if rel.PkScript.IsBinding() {
-			if lout, ok = g[rel.WalletId]; !ok {
-				lout = &lgTxHistory{
-					walletId:    rel.WalletId,
-					txhash:      rec.Hash,
-					isWithdraw:  parseInputs,
-					isBinding:   true,
-					blockHeight: height,
-				}
-				g[rel.WalletId] = lout
-				result = append(result, lout)
-			}
-		}
-		if lout == nil {
-			continue
-		}
-
-		lout.indexes = append(lout.indexes, uint32(rel.Index))
-	}
-	logging.CPrint(logging.DEBUG, "constructLGHistory",
-		logging.LogFormat{
-			"tx":      rec.Hash.String(),
-			"staking": len(l),
-			"binding": len(g),
-			"total":   len(result),
-		})
-	return result
+	return histories
 }
 
 // rollback / insertMinedTx
-func (s *UtxoStore) removeUnminedLGHistory(tx mwdb.DBTransaction, rec *TxRecord) error {
+func (s *UtxoStore) removeUnminedGameHistory(tx mwdb.DBTransaction, rec *TxRecord) error {
+	nsUnminedGameHistory := tx.FetchBucket(s.bucketMeta.nsUnminedGameHistory)
 
-	lout := &lgTxHistory{
-		txhash:     rec.Hash,
-		isWithdraw: false,
+	history := &gameHistory{
+		txhash: rec.Hash,
 	}
-
-	nsUnminedLGHistory := tx.FetchBucket(s.bucketMeta.nsUnminedLGHistory)
-	nsUnmined := tx.FetchBucket(s.bucketMeta.nsUnmined)
-	nsTxRecords := tx.FetchBucket(s.bucketMeta.nsTxRecords)
 	for i, output := range rec.MsgTx.TxOut {
 		ps, err := utils.ParsePkScript(output.PkScript, s.chainParams)
 		if err != nil {
@@ -430,69 +337,9 @@ func (s *UtxoStore) removeUnminedLGHistory(tx mwdb.DBTransaction, rec *TxRecord)
 			if err != nil {
 				continue
 			}
-			lout.walletId = ma.Account()
-			lout.isBinding = ps.IsBinding()
-			err = deleteUnminedLGHistory(nsUnminedLGHistory, lout)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	lout.isWithdraw = true
-	cache := make(map[wire.Hash]*wire.MsgTx)
-	for i, input := range rec.MsgTx.TxIn {
-		prevOut := &input.PreviousOutPoint
-
-		prevTx := cache[prevOut.Hash]
-		if prevTx == nil {
-
-			um, err := existsRawUnmined(nsUnmined, prevOut.Hash[:])
-			if err != nil {
-				return err
-			}
-			if um == nil {
-				item, err := fetchLatestRawTxRecordOfHash(nsTxRecords, &prevOut.Hash)
-				if err != nil {
-					return err
-				}
-				if item != nil {
-					um = item.Value
-				}
-			}
-			if len(um) == 0 {
-				continue
-			}
-			var rec TxRecord
-			err = readRawTxRecordValue(um, &rec)
-			if err != nil {
-				return err
-			}
-			prevTx = &rec.MsgTx
-			cache[prevOut.Hash] = prevTx
-		}
-
-		txout := prevTx.TxOut[prevOut.Index]
-		ps, err := utils.ParsePkScript(txout.PkScript, s.chainParams)
-		if err != nil {
-			if err == utils.ErrUnsupportedScript {
-				continue
-			}
-			logging.CPrint(logging.DEBUG, "failed to parse pkscript",
-				logging.LogFormat{
-					"tx":        rec.Hash.String(),
-					"txInIndex": i,
-				})
-			return err
-		}
-		if ps.IsStaking() || ps.IsBinding() {
-			ma, err := s.ksmgr.GetManagedAddressByStdAddress(ps.StdEncodeAddress())
-			if err != nil {
-				continue
-			}
-			lout.walletId = ma.Account()
-			lout.isBinding = ps.IsBinding()
-			err = deleteUnminedLGHistory(nsUnminedLGHistory, lout)
+			history.walletId = ma.Account()
+			history.isBinding = ps.IsBinding()
+			err = deleteUnminedGameHistory(nsUnminedGameHistory, history)
 			if err != nil {
 				return err
 			}
@@ -502,9 +349,9 @@ func (s *UtxoStore) removeUnminedLGHistory(tx mwdb.DBTransaction, rec *TxRecord)
 }
 
 func (s *UtxoStore) removeRelevantCredit(tx mwdb.DBTransaction,
-	scriptHashSet map[string]struct{}) (map[wire.Hash]uint64, error) {
+	scriptHashSet map[string]struct{}) (map[wire.Hash]uint64, bool, error) {
 	if len(scriptHashSet) == 0 {
-		return nil, nil
+		return nil, true, nil
 	}
 	nsDebits := tx.FetchBucket(s.bucketMeta.nsDebits)
 	nsCredits := tx.FetchBucket(s.bucketMeta.nsCredits)
@@ -516,22 +363,32 @@ func (s *UtxoStore) removeRelevantCredit(tx mwdb.DBTransaction,
 	cred := credit{
 		block: &BlockMeta{},
 	}
-	txs := make(map[wire.Hash]uint64)
+	heightOfTx := make(map[wire.Hash]uint64)
 
+	count := 0
+	finish := true
 	for iter.Next() {
 		itKey, itValue := iter.Key(), iter.Value()
 		err := readRawCreditKey(itKey, &cred)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		err = readCreditValue(itValue, &cred)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if _, ok := scriptHashSet[string(cred.scriptHash)]; ok {
+
+			hgt, exist := heightOfTx[cred.outPoint.Hash]
+			if count >= 20000 || (exist && hgt != cred.block.Height) {
+				finish = false
+				break
+			}
+			count++
+
 			err = deleteRawCredit(nsCredits, itKey)
 			if err != nil {
-				return nil, err
+				return nil, false, err
 			}
 			logging.CPrint(logging.DEBUG, "delete relevant credit",
 				logging.LogFormat{
@@ -547,7 +404,7 @@ func (s *UtxoStore) removeRelevantCredit(tx mwdb.DBTransaction,
 				if debitKey != nil {
 					err = deleteRawDebit(nsDebits, debitKey)
 					if err != nil {
-						return nil, err
+						return nil, false, err
 					}
 				} else {
 					// double check
@@ -556,17 +413,17 @@ func (s *UtxoStore) removeRelevantCredit(tx mwdb.DBTransaction,
 							"tx":    cred.outPoint.Hash.String(),
 							"index": cred.outPoint.Index,
 						})
-					return nil, fmt.Errorf("unexpected error")
+					return nil, false, fmt.Errorf("unexpected error")
 				}
 			}
-
-			txs[cred.outPoint.Hash] = cred.block.Height
+			heightOfTx[cred.outPoint.Hash] = cred.block.Height
 		}
 	}
 	if err := iter.Error(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return txs, nil
+	logging.CPrint(logging.INFO, "deleting credits", logging.LogFormat{"count": count})
+	return heightOfTx, finish, nil
 }
 
 func (s *UtxoStore) removeRelevantUnminedCredit(tx mwdb.DBTransaction,
@@ -630,17 +487,17 @@ func (s *UtxoStore) RemoveUnspentByWalletId(tx mwdb.DBTransaction, walletId stri
 	return deleteByPrefix(nsUnspent, []byte(walletId))
 }
 
-func (s *UtxoStore) RemoveLGHistoryByWalletId(tx mwdb.DBTransaction, walletId string) error {
+func (s *UtxoStore) RemoveGameHistoryByWalletId(tx mwdb.DBTransaction, walletId string) error {
 	if len(walletId) == 0 {
 		return nil
 	}
-	nsLGHistory := tx.FetchBucket(s.bucketMeta.nsLGHistory)
-	nsUnminedLGHistory := tx.FetchBucket(s.bucketMeta.nsUnminedLGHistory)
-	err := deleteByPrefix(nsLGHistory, []byte(walletId))
+	nsGameHistory := tx.FetchBucket(s.bucketMeta.nsGameHistory)
+	nsUnminedGameHistory := tx.FetchBucket(s.bucketMeta.nsUnminedGameHistory)
+	err := deleteByPrefix(nsGameHistory, []byte(walletId))
 	if err != nil {
 		return err
 	}
-	return deleteByPrefix(nsUnminedLGHistory, []byte(walletId))
+	return deleteByPrefix(nsUnminedGameHistory, []byte(walletId))
 }
 
 func (s *UtxoStore) PutNewAddress(tx mwdb.DBTransaction, walletId, addr string, addrClass uint16) error {
@@ -674,7 +531,6 @@ func (s *UtxoStore) insertUnminedInputs(tx mwdb.DBTransaction, rec *TxRecord) er
 			return err
 		}
 	}
-	// return s.addUnminedInputsLGHistory(tx, rec) // NOTE: Not record withdrawal at present
 	return nil
 }
 
@@ -694,8 +550,10 @@ func (s *UtxoStore) deleteUnminedInputs(tx mwdb.DBTransaction, rec *TxRecord) er
 	for _, input := range rec.MsgTx.TxIn {
 		prevOut := &input.PreviousOutPoint
 		k := canonicalOutPoint(&prevOut.Hash, prevOut.Index)
-		if err := deleteRawUnminedInput(nsUnminedInputs, k); err != nil {
-			return err
+		if len(existsRawUnminedInput(nsUnminedInputs, k)) > 0 {
+			if err := deleteRawUnminedInput(nsUnminedInputs, k); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -1001,148 +859,140 @@ func (s *UtxoStore) ScriptAddressUnspents(tx mwdb.ReadTransaction, scriptAddrs m
 }
 
 func (s *UtxoStore) GetUnminedStakingHistoryDetail(tx mwdb.ReadTransaction, addrMgr *keystore.AddrManager) ([]*StakingHistoryDetail, error) {
-	nsUnminedLGHistory := tx.FetchBucket(s.bucketMeta.nsUnminedLGHistory)
+	nsUnminedGameHistory := tx.FetchBucket(s.bucketMeta.nsUnminedGameHistory)
 	nsUnminedCredits := tx.FetchBucket(s.bucketMeta.nsUnminedCredits)
-	entries, err := fetchRawLGHistoryByWalletId(nsUnminedLGHistory, addrMgr.Name(), outputStaking)
+	entries, err := getRawGameHistoryByWalletId(nsUnminedGameHistory, addrMgr.Name(), gameStaking, false)
 	if err != nil {
 		return nil, err
 	}
 
 	ret := make([]*StakingHistoryDetail, 0)
 	for _, entry := range entries {
-		lout := &lgTxHistory{}
-		err := readLGHistory(true, entry.Key, entry.Value, lout)
+		history := &gameHistory{}
+		err := readGameHistory(true, entry.Key, entry.Value, history)
 		if err != nil {
 			return nil, err
 		}
-		if lout.isWithdraw {
+
+		index := history.vout
+		k := canonicalOutPoint(&history.txhash, index)
+		credV, err := existsRawUnminedCredit(nsUnminedCredits, k)
+		if err != nil {
+			return nil, err
+		}
+		if credV == nil {
+			// maybe credit has been mined during this query
+			logging.CPrint(logging.WARN, "history: unmined credit not found",
+				logging.LogFormat{
+					"tx":     history.txhash.String(),
+					"vout":   index,
+					"wallet": history.walletId,
+				})
 			continue
 		}
-
-		for _, index := range lout.indexes {
-			k := canonicalOutPoint(&lout.txhash, index)
-			credV, err := existsRawUnminedCredit(nsUnminedCredits, k)
-			if err != nil {
-				return nil, err
-			}
-			if credV == nil { // debug code
-				// maybe credit has been mined during this query
-				logging.CPrint(logging.WARN, "history: unmined credit not found",
-					logging.LogFormat{
-						"tx":     lout.txhash.String(),
-						"vout":   index,
-						"wallet": lout.walletId,
-					})
-				continue
-			}
-			maturity, scripthash, err := fetchRawCreditMaturityScriptHash(credV)
-			if err != nil {
-				return nil, err
-			}
-			addr, err := massutil.NewAddressStakingScriptHash(scripthash, s.chainParams)
-			if err != nil {
-				return nil, err
-			}
-			amt, _, err := fetchRawCreditAmountSpent(credV)
-			if err != nil {
-				return nil, err
-			}
-			det := &StakingHistoryDetail{
-				TxHash: lout.txhash,
-				Index:  index,
-				Utxo: StakingUtxo{
-					Hash:         lout.txhash,
-					Index:        index,
-					Address:      addr.EncodeAddress(),
-					FrozenPeriod: maturity - 1,
-					Amount:       amt,
-				},
-			}
-			ret = append(ret, det)
+		maturity, scripthash, err := fetchRawCreditMaturityScriptHash(credV)
+		if err != nil {
+			return nil, err
 		}
+		addr, err := massutil.NewAddressStakingScriptHash(scripthash, s.chainParams)
+		if err != nil {
+			return nil, err
+		}
+		amt, _, err := fetchRawCreditAmountSpent(credV)
+		if err != nil {
+			return nil, err
+		}
+		det := &StakingHistoryDetail{
+			TxHash: history.txhash,
+			Index:  index,
+			Utxo: StakingUtxo{
+				Hash:         history.txhash,
+				Index:        index,
+				Address:      addr.EncodeAddress(),
+				FrozenPeriod: maturity - 1,
+				Amount:       amt,
+			},
+		}
+		ret = append(ret, det)
 
 	}
 	return ret, nil
 }
 
-func (s *UtxoStore) GetStakingHistoryDetail(tx mwdb.ReadTransaction, addrMgr *keystore.AddrManager) ([]*StakingHistoryDetail, error) {
-	nsLGHistory := tx.FetchBucket(s.bucketMeta.nsLGHistory)
+func (s *UtxoStore) GetStakingHistoryDetail(tx mwdb.ReadTransaction, addrMgr *keystore.AddrManager,
+	excludeWithdrawn bool) ([]*StakingHistoryDetail, error) {
+	nsGameHistory := tx.FetchBucket(s.bucketMeta.nsGameHistory)
 	nsCredits := tx.FetchBucket(s.bucketMeta.nsCredits)
 	nsUnminedInputs := tx.FetchBucket(s.bucketMeta.nsUnminedInputs)
-	entries, err := fetchRawLGHistoryByWalletId(nsLGHistory, addrMgr.Name(), outputStaking)
+	entries, err := getRawGameHistoryByWalletId(nsGameHistory, addrMgr.Name(), gameStaking, excludeWithdrawn)
 	if err != nil {
 		return nil, err
 	}
 
 	ret := make([]*StakingHistoryDetail, 0)
 	for _, entry := range entries {
-		lout := &lgTxHistory{}
-		err := readLGHistory(false, entry.Key, entry.Value, lout)
+		history := &gameHistory{}
+		err := readGameHistory(false, entry.Key, entry.Value, history)
 		if err != nil {
 			return nil, err
 		}
-		if lout.isWithdraw {
-			continue
-		}
-		if lout.blockHeight == 0 { // debug code
+		if history.blockHeight == 0 { // debug code
 			logging.CPrint(logging.ERROR, "block height is 0",
 				logging.LogFormat{
-					"tx":      lout.txhash.String(),
-					"wallet":  lout.walletId,
-					"binding": lout.isBinding,
+					"tx":     history.txhash.String(),
+					"wallet": history.walletId,
 				})
 			continue
 		}
 
-		indexToCredit, err := getCreditsByTxHashHeight(nsCredits, &lout.txhash, lout.blockHeight)
+		indexToCredit, err := getCreditsByTxHashHeight(nsCredits, &history.txhash, history.blockHeight)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, index := range lout.indexes {
-			credit, ok := indexToCredit[index]
-			if !ok {
-				logging.CPrint(logging.WARN, "credit not found",
-					logging.LogFormat{
-						"tx":      lout.txhash.String(),
-						"index":   index,
-						"height":  lout.blockHeight,
-						"wallet":  lout.walletId,
-						"binding": lout.isBinding,
-					})
-				continue
-			}
-			maturity, scripthash, err := fetchRawCreditMaturityScriptHash(credit.Value)
-			if err != nil {
-				return nil, err
-			}
-			addr, err := massutil.NewAddressStakingScriptHash(scripthash, s.chainParams)
-			if err != nil {
-				return nil, err
-			}
-			amt, spent, err := fetchRawCreditAmountSpent(credit.Value)
-			if err != nil {
-				return nil, err
-			}
-			det := &StakingHistoryDetail{
-				TxHash:      lout.txhash,
-				Index:       index,
-				BlockHeight: lout.blockHeight,
-				Utxo: StakingUtxo{
-					Hash:         lout.txhash,
-					Index:        index,
-					Spent:        spent,
-					Address:      addr.EncodeAddress(),
-					FrozenPeriod: maturity - 1,
-					Amount:       amt,
-				},
-			}
-			if !det.Utxo.Spent {
-				k := canonicalOutPoint(&det.TxHash, det.Index)
-				det.Utxo.SpentByUnmined = existsRawUnminedInput(nsUnminedInputs, k) != nil
-			}
-			ret = append(ret, det)
+		index := history.vout
+		credit, ok := indexToCredit[index]
+		if !ok {
+			logging.CPrint(logging.WARN, "credit not found",
+				logging.LogFormat{
+					"tx":      history.txhash.String(),
+					"index":   index,
+					"height":  history.blockHeight,
+					"wallet":  history.walletId,
+					"binding": history.isBinding,
+				})
+			continue
 		}
+		maturity, scripthash, err := fetchRawCreditMaturityScriptHash(credit.Value)
+		if err != nil {
+			return nil, err
+		}
+		addr, err := massutil.NewAddressStakingScriptHash(scripthash, s.chainParams)
+		if err != nil {
+			return nil, err
+		}
+		amt, spent, err := fetchRawCreditAmountSpent(credit.Value)
+		if err != nil {
+			return nil, err
+		}
+		det := &StakingHistoryDetail{
+			TxHash:      history.txhash,
+			Index:       index,
+			BlockHeight: history.blockHeight,
+			Utxo: StakingUtxo{
+				Hash:         history.txhash,
+				Index:        index,
+				Spent:        spent,
+				Address:      addr.EncodeAddress(),
+				FrozenPeriod: maturity - 1,
+				Amount:       amt,
+			},
+		}
+		if !det.Utxo.Spent {
+			k := canonicalOutPoint(&det.TxHash, det.Index)
+			det.Utxo.SpentByUnmined = existsRawUnminedInput(nsUnminedInputs, k) != nil
+		}
+		ret = append(ret, det)
 	}
 
 	sort.Slice(ret, func(i, j int) bool {
@@ -1153,25 +1003,25 @@ func (s *UtxoStore) GetStakingHistoryDetail(tx mwdb.ReadTransaction, addrMgr *ke
 }
 
 func (s *UtxoStore) GetUnminedBindingHistoryDetail(tx mwdb.ReadTransaction, addrMgr *keystore.AddrManager) ([]*BindingHistoryDetail, error) {
-	nsUnminedLGHistory := tx.FetchBucket(s.bucketMeta.nsUnminedLGHistory)
+	nsUnminedGameHistory := tx.FetchBucket(s.bucketMeta.nsUnminedGameHistory)
 	nsUnminedCredits := tx.FetchBucket(s.bucketMeta.nsUnminedCredits)
 	nsUnmined := tx.FetchBucket(s.bucketMeta.nsUnmined)
 
-	entries, err := fetchRawLGHistoryByWalletId(nsUnminedLGHistory, addrMgr.Name(), outputBinding)
+	entries, err := getRawGameHistoryByWalletId(nsUnminedGameHistory, addrMgr.Name(), gameBinding, false)
 	if err != nil {
 		return nil, err
 	}
 
 	ret := make([]*BindingHistoryDetail, 0)
 	for _, entry := range entries {
-		lout := &lgTxHistory{}
-		err := readLGHistory(true, entry.Key, entry.Value, lout)
+		history := &gameHistory{}
+		err := readGameHistory(true, entry.Key, entry.Value, history)
 		if err != nil {
 			return nil, err
 		}
 
 		// query unmined MsgTx
-		unmined, err := existsRawUnmined(nsUnmined, lout.txhash[:])
+		unmined, err := existsRawUnmined(nsUnmined, history.txhash[:])
 		if err != nil {
 			return nil, err
 		}
@@ -1179,164 +1029,172 @@ func (s *UtxoStore) GetUnminedBindingHistoryDetail(tx mwdb.ReadTransaction, addr
 			// maybe tx has been mined, otherwise data error
 			logging.CPrint(logging.WARN, "binding history: unmined tx not found",
 				logging.LogFormat{
-					"tx":     lout.txhash.String(),
-					"wallet": lout.walletId,
+					"tx":     history.txhash.String(),
+					"wallet": history.walletId,
 				})
 			continue
 		}
 		rec := &TxRecord{}
-		err = readRawTxRecordValue(unmined, rec)
+		err = readRawUnmined(unmined, rec)
 		if err != nil {
 			return nil, err
 		}
 
-		// deposit tx
-		// if !lout.isWithdraw {
-		for _, index := range lout.indexes {
-			k := canonicalOutPoint(&lout.txhash, index)
-			credV, err := existsRawUnminedCredit(nsUnminedCredits, k)
-			if err != nil {
-				return nil, err
-			}
-			if credV == nil { // double check
-				// maybe credit has been mined during this query
-				logging.CPrint(logging.WARN, "binding history: unmined credit not found",
-					logging.LogFormat{
-						"tx":     lout.txhash.String(),
-						"vout":   index,
-						"wallet": lout.walletId,
-					})
-				continue
-			}
-			// amount
-			amt, err := massutil.NewAmountFromInt(rec.MsgTx.TxOut[index].Value)
-			if err != nil {
-				return nil, err
-			}
-			// parse script
-			script, err := utils.ParsePkScript(rec.MsgTx.TxOut[index].PkScript, s.chainParams)
-			if err != nil {
-				return nil, err
-			}
-
-			det := &BindingHistoryDetail{
-				TxHash: lout.txhash,
-				Index:  index,
-				Utxo: BindingUtxo{
-					Hash:           lout.txhash,
-					Index:          index,
-					Amount:         amt,
-					HolderAddress:  script.StdEncodeAddress(),
-					BindingAddress: script.SecondEncodeAddress(),
-				},
-				MsgTx: &rec.MsgTx,
-			}
-			ret = append(ret, det)
+		index := history.vout
+		k := canonicalOutPoint(&history.txhash, index)
+		credV, err := existsRawUnminedCredit(nsUnminedCredits, k)
+		if err != nil {
+			return nil, err
 		}
+		if credV == nil { // double check
+			// maybe credit has been mined during this query
+			logging.CPrint(logging.WARN, "binding history: unmined credit not found",
+				logging.LogFormat{
+					"tx":     history.txhash.String(),
+					"vout":   index,
+					"wallet": history.walletId,
+				})
+			continue
+		}
+		// amount
+		amt, err := massutil.NewAmountFromInt(rec.MsgTx.TxOut[index].Value)
+		if err != nil {
+			return nil, err
+		}
+		// parse script
+		script, err := utils.ParsePkScript(rec.MsgTx.TxOut[index].PkScript, s.chainParams)
+		if err != nil {
+			return nil, err
+		}
+
+		det := &BindingHistoryDetail{
+			TxHash: history.txhash,
+			Index:  index,
+			Utxo: BindingUtxo{
+				Hash:           history.txhash,
+				Index:          index,
+				Amount:         amt,
+				HolderAddress:  script.StdEncodeAddress(),
+				BindingAddress: script.SecondEncodeAddress(),
+			},
+			MsgTx: &rec.MsgTx,
+		}
+		ret = append(ret, det)
 	}
 	return ret, nil
 }
 
-func (s *UtxoStore) GetBindingHistoryDetail(tx mwdb.ReadTransaction, addrMgr *keystore.AddrManager) ([]*BindingHistoryDetail, error) {
-	nsLGHistory := tx.FetchBucket(s.bucketMeta.nsLGHistory)
+func (s *UtxoStore) GetBindingHistoryDetail(tx mwdb.ReadTransaction, addrMgr *keystore.AddrManager,
+	excludeWithdrawn bool) ([]*BindingHistoryDetail, error) {
+	nsGameHistory := tx.FetchBucket(s.bucketMeta.nsGameHistory)
 	nsCredits := tx.FetchBucket(s.bucketMeta.nsCredits)
 	nsTxRecords := tx.FetchBucket(s.bucketMeta.nsTxRecords)
 	nsUnminedInputs := tx.FetchBucket(s.bucketMeta.nsUnminedInputs)
 
-	entries, err := fetchRawLGHistoryByWalletId(nsLGHistory, addrMgr.Name(), outputBinding)
+	entries, err := getRawGameHistoryByWalletId(nsGameHistory, addrMgr.Name(), gameBinding, excludeWithdrawn)
 	if err != nil {
 		return nil, err
 	}
 
 	ret := make([]*BindingHistoryDetail, 0)
 	for _, entry := range entries {
-		lout := &lgTxHistory{}
-		err := readLGHistory(false, entry.Key, entry.Value, lout)
+		history := &gameHistory{}
+		err := readGameHistory(false, entry.Key, entry.Value, history)
 		if err != nil {
 			return nil, err
 		}
-		if lout.blockHeight == 0 { // debug code
+		if history.blockHeight == 0 { // debug code
 			logging.CPrint(logging.ERROR, "block height is 0",
 				logging.LogFormat{
-					"tx":       lout.txhash.String(),
-					"wallet":   lout.walletId,
-					"withdraw": lout.isWithdraw,
+					"tx":     history.txhash.String(),
+					"wallet": history.walletId,
 				})
 			continue
 		}
 
-		rec := &TxRecord{}
-		rawRec, err := fetchRawTxRecordByTxHashHeight(nsTxRecords, &lout.txhash, lout.blockHeight)
+		recVal, err := fetchRawTxRecordByTxHashHeight(nsTxRecords, &history.txhash, history.blockHeight)
 		if err != nil {
 			return nil, err
 		}
-		if len(rawRec) == 0 { // debug code
-			logging.CPrint(logging.ERROR, "tx record not found",
+		_, txLoc, err := readTxRecordLoc(recVal)
+		if err != nil {
+			logging.CPrint(logging.WARN, "txrecord not found",
 				logging.LogFormat{
-					"tx":       lout.txhash.String(),
-					"wallet":   lout.walletId,
-					"height":   lout.blockHeight,
-					"withdraw": lout.isWithdraw,
+					"err":    err,
+					"tx":     history.txhash.String(),
+					"wallet": history.walletId,
+					"height": history.blockHeight,
 				})
 			continue
 		}
-		err = readRawTxRecordValue(rawRec, rec)
+		msgtx, err := s.chainFetcher.FetchTxByLoc(history.blockHeight, txLoc)
+		if err != nil {
+			logging.CPrint(logging.WARN, "FetchTxByLoc error",
+				logging.LogFormat{
+					"err":    err,
+					"tx":     history.txhash.String(),
+					"wallet": history.walletId,
+					"height": history.blockHeight,
+				})
+			continue
+		}
+
+		indexToCredit, err := getCreditsByTxHashHeight(nsCredits, &history.txhash, history.blockHeight)
 		if err != nil {
 			return nil, err
 		}
 
-		// deposit
-		// if !lout.isWithdraw {
-		indexToCredit, err := getCreditsByTxHashHeight(nsCredits, &lout.txhash, lout.blockHeight)
+		index := history.vout
+		credit, ok := indexToCredit[index]
+		if !ok {
+			logging.CPrint(logging.WARN, "credit not found",
+				logging.LogFormat{
+					"tx":     history.txhash.String(),
+					"index":  index,
+					"height": history.blockHeight,
+					"wallet": history.walletId,
+				})
+			continue
+		}
+		amt, spent, err := fetchRawCreditAmountSpent(credit.Value)
 		if err != nil {
 			return nil, err
 		}
-
-		for _, index := range lout.indexes {
-			credit, ok := indexToCredit[index]
-			if !ok {
-				logging.CPrint(logging.WARN, "credit not found",
-					logging.LogFormat{
-						"tx":     lout.txhash.String(),
-						"index":  index,
-						"height": lout.blockHeight,
-						"wallet": lout.walletId,
-					})
-				continue
-			}
-			amt, spent, err := fetchRawCreditAmountSpent(credit.Value)
-			if err != nil {
-				return nil, err
-			}
-			// parse script
-			script, err := utils.ParsePkScript(rec.MsgTx.TxOut[index].PkScript, s.chainParams)
-			if err != nil {
-				return nil, err
-			}
-			det := &BindingHistoryDetail{
-				TxHash:      lout.txhash,
-				Index:       index,
-				BlockHeight: lout.blockHeight,
-				Utxo: BindingUtxo{
-					Hash:           lout.txhash,
-					Index:          index,
-					Amount:         amt,
-					Spent:          spent,
-					HolderAddress:  script.StdEncodeAddress(),
-					BindingAddress: script.SecondEncodeAddress(),
-				},
-				MsgTx: &rec.MsgTx,
-			}
-			if !det.Utxo.Spent {
-				k := canonicalOutPoint(&det.TxHash, det.Index)
-				det.Utxo.SpentByUnmined = existsRawUnminedInput(nsUnminedInputs, k) != nil
-			}
-			ret = append(ret, det)
+		// parse script
+		script, err := utils.ParsePkScript(msgtx.TxOut[index].PkScript, s.chainParams)
+		if err != nil {
+			return nil, err
 		}
+		det := &BindingHistoryDetail{
+			TxHash:      history.txhash,
+			Index:       index,
+			BlockHeight: history.blockHeight,
+			Utxo: BindingUtxo{
+				Hash:           history.txhash,
+				Index:          index,
+				Amount:         amt,
+				Spent:          spent,
+				HolderAddress:  script.StdEncodeAddress(),
+				BindingAddress: script.SecondEncodeAddress(),
+			},
+			MsgTx: msgtx,
+		}
+		if !det.Utxo.Spent {
+			k := canonicalOutPoint(&det.TxHash, det.Index)
+			det.Utxo.SpentByUnmined = existsRawUnminedInput(nsUnminedInputs, k) != nil
+		}
+		ret = append(ret, det)
 	}
 
 	sort.Slice(ret, func(i, j int) bool {
 		return ret[i].BlockHeight > ret[j].BlockHeight
 	})
 	return ret, nil
+}
+
+func (s *UtxoStore) ExistCreditFromTx(rtx mwdb.ReadTransaction, hash *wire.Hash) bool {
+	nsCredits := rtx.FetchBucket(s.bucketMeta.nsCredits)
+	iter := nsCredits.NewIterator(mwdb.BytesPrefix(hash[:]))
+	defer iter.Release()
+	return iter.Next()
 }

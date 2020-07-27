@@ -117,23 +117,17 @@ func putSyncedTo(bucket mwdb.Bucket, bs *BlockMeta) error {
 	return nil
 }
 
-func putWalletStatus(bucket mwdb.Bucket, ws *WalletStatus) error {
-	if len(ws.WalletID) != 42 {
-		return fmt.Errorf("putWalletStatus expect 42 bytes key(acutal %d)", len(ws.WalletID))
-	}
-	v := make([]byte, 8)
-	binary.BigEndian.PutUint64(v, ws.SyncedHeight)
-	return bucket.Put([]byte(ws.WalletID), v)
-}
-
 func readWalletStatus(k, v []byte, ws *WalletStatus) error {
 	if len(k) != 42 {
 		return fmt.Errorf("readWalletStatus expect 42 bytes key(acutal %d)", len(k))
 	}
-	if len(v) != 8 {
+	if len(v) < 8 {
 		return fmt.Errorf("readWalletStatus expect 8 bytes value(acutal %d)", len(v))
 	}
 	ws.WalletID = string(k)
 	ws.SyncedHeight = binary.BigEndian.Uint64(v[0:8])
+	if len(v) > 8 {
+		ws.Flags = v[8]
+	}
 	return nil
 }

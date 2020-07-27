@@ -9,6 +9,7 @@ import (
 	// "time"
 
 	"github.com/stretchr/testify/assert"
+	"massnet.org/mass-wallet/database"
 	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/wire"
@@ -67,13 +68,6 @@ func init() {
 
 }
 
-// func TestSpend(t *testing.T){
-// 	for _,blk := range blks{
-// 		for _,tx := range blk.Transactions(){
-
-// 		}
-// 	}
-// }
 func TestGetTxByHashHeight(t *testing.T) {
 	chainDb, chainDbTearDown, err := GetDb("ChainTestDb")
 	if !assert.Nil(t, err) {
@@ -91,7 +85,8 @@ func TestGetTxByHashHeight(t *testing.T) {
 		if err != nil {
 			t.Errorf("new txrecord error : %v", err)
 		}
-		err = putTxRecord(bucket, rec, &BlockMeta{Height: blk1.Height(), Hash: blk1.MsgBlock().BlockHash(), Timestamp: blk1.MsgBlock().Header.Timestamp})
+		rec.TxLoc = &wire.TxLoc{}
+		err = putTxRecord(bucket, rec, &BlockMeta{Height: blk1.Height(), Hash: blk1.MsgBlock().BlockHash(), Loc: &database.BlockLoc{}})
 		assert.Nil(t, err)
 		value, err := fetchRawTxRecordByTxHashHeight(bucket, tx1.Hash(), blk1.MsgBlock().Header.Height)
 		if err != nil {
@@ -100,8 +95,9 @@ func TestGetTxByHashHeight(t *testing.T) {
 		assert.NotNil(t, value)
 		v, err := fetchLatestRawTxRecordOfHash(bucket, tx1.Hash())
 		assert.Nil(t, err)
-		t.Log(v)
-		err = deleteTxRecord(bucket, tx1.Hash(), &BlockMeta{Height: blk1.Height(), Hash: blk1.MsgBlock().BlockHash(), Timestamp: blk1.MsgBlock().Header.Timestamp})
+		assert.True(t, len(v.Value) == 28)
+		key := keyTxRecord(tx1.Hash(), &BlockMeta{Height: blk1.Height(), Hash: blk1.MsgBlock().BlockHash()})
+		err = bucket.Delete(key)
 		assert.Nil(t, err)
 
 		return nil

@@ -9,10 +9,10 @@ import (
 	"net"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/p2p/netutil"
 	crypto "github.com/massnetorg/tendermint/go-crypto"
 	gowire "github.com/massnetorg/tendermint/go-wire"
+	"massnet.org/mass-wallet/logging"
+	"massnet.org/mass-wallet/p2p/netutil"
 )
 
 const Version = 4 //TODO: reset it before releasing

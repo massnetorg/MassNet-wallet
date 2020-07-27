@@ -32,6 +32,7 @@ require (
 	github.com/tecbot/gorocksdb v0.0.0-20190705090504-162552197222
 	golang.org/x/crypto v0.0.0-20191122220453-ac88ee75c92c
 	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
+	golang.org/x/sys v0.0.0-20190412213103-97732733099d
 	google.golang.org/genproto v0.0.0-20190817000702-55e96fffbd48
 	google.golang.org/grpc v1.23.0
 	gopkg.in/fatih/set.v0 v0.2.1

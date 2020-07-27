@@ -94,7 +94,7 @@ func NewWalletManager(server Server, db mwdb.DB, config *config.Config,
 			})
 			return err
 		}
-		w.utxoStore, err = txmgr.NewUtxoStore(bucket, w.ksmgr, w.bucketMeta, chainParams)
+		w.utxoStore, err = txmgr.NewUtxoStore(w.chainFetcher, bucket, w.ksmgr, w.bucketMeta, chainParams)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to new UtxoStore", logging.LogFormat{
 				"err": err,
@@ -180,7 +180,7 @@ func (w *WalletManager) CheckReady(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return ws.Ready(), nil
+	return ws.Ready() && !ws.IsRemoved(), nil
 }
 
 func (w *WalletManager) UseWallet(name string) (*WalletInfo, error) {
@@ -230,6 +230,7 @@ func (w *WalletManager) UseWallet(name string) (*WalletInfo, error) {
 		ChainID:          w.ksmgr.ChainParams().ChainID.String(),
 		WalletID:         am.Name(),
 		Type:             uint32(am.AddrUse()),
+		Version:          am.Version().Value(),
 		TotalBalance:     balance,
 		ExternalKeyCount: int32(external),
 		InternalKeyCount: int32(internal),
@@ -256,11 +257,9 @@ func (w *WalletManager) Wallets() ([]*WalletSummary, error) {
 			summary := &WalletSummary{
 				WalletID: mgr.Name(),
 				Type:     uint32(mgr.AddrUse()),
+				Version:  mgr.Version().Value(),
 				Remarks:  mgr.Remarks(),
-				Ready:    status.Ready(),
-			}
-			if !summary.Ready {
-				summary.SyncedHeight = status.SyncedHeight
+				Status:   status,
 			}
 			ret = append(ret, summary)
 		}
@@ -269,14 +268,15 @@ func (w *WalletManager) Wallets() ([]*WalletSummary, error) {
 	return ret, err
 }
 
-func (w *WalletManager) CreateWallet(passphrase, remark string, bitSize int) (string, string, error) {
+func (w *WalletManager) CreateWallet(passphrase, remarks string, bitSize int) (string, string, uint8, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	var walletId, mnemonic string
+	var version uint8
 	err := mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
 		var err error
-		walletId, mnemonic, err = w.ksmgr.NewKeystore(tx, bitSize, []byte(passphrase), remark, w.chainParams, &keystore.DefaultScryptOptions, w.config.Advanced.AddressGapLimit)
+		walletId, mnemonic, err = w.ksmgr.NewKeystore(tx, bitSize, []byte(passphrase), remarks, w.chainParams, &keystore.DefaultScryptOptions, w.config.Advanced.AddressGapLimit)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to new keystore", logging.LogFormat{
 				"err": err,
@@ -284,6 +284,7 @@ func (w *WalletManager) CreateWallet(passphrase, remark string, bitSize int) (st
 			return err
 		}
 		am, _ := w.ksmgr.GetAddrManagerByAccountID(walletId)
+		version = am.Version().Value()
 		if err = w.utxoStore.InitNewWallet(tx, am); err != nil {
 			return err
 		}
@@ -295,17 +296,17 @@ func (w *WalletManager) CreateWallet(passphrase, remark string, bitSize int) (st
 	})
 	if err != nil {
 		w.ksmgr.RemoveCachedKeystore(walletId)
-		return "", "", err
+		return "", "", 0, err
 	}
-	return walletId, mnemonic, nil
+	return walletId, mnemonic, version, nil
 }
 
 func (w *WalletManager) ImportWallet(keystoreJSON, pass string) (*WalletSummary, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.ntfnsHandler.exceedImportingLimit() {
-		return nil, ErrExceedMaxImportingTask
+	if w.ntfnsHandler.IsWorkerBusy() {
+		return nil, ErrTooManyTask
 	}
 	var am *keystore.AddrManager
 	var ws *txmgr.WalletStatus
@@ -355,27 +356,28 @@ func (w *WalletManager) ImportWallet(keystoreJSON, pass string) (*WalletSummary,
 	}
 
 	if !ws.Ready() {
-		w.ntfnsHandler.pushImportingTask(am)
+		w.ntfnsHandler.OnImportWallet(am.Name())
 	}
 	return &WalletSummary{
 		WalletID: am.Name(),
 		Type:     uint32(am.AddrUse()),
+		Version:  am.Version().Value(),
 		Remarks:  am.Remarks(),
 	}, nil
 }
 
-func (w *WalletManager) ImportWalletWithMnemonic(mnemonic, pass, remark string, externalIndex, internalIndex uint32) (*WalletSummary, error) {
+func (w *WalletManager) ImportWalletWithMnemonic(walletParams *keystore.WalletParams) (*WalletSummary, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.ntfnsHandler.exceedImportingLimit() {
-		return nil, ErrExceedMaxImportingTask
+	if w.ntfnsHandler.IsWorkerBusy() {
+		return nil, ErrTooManyTask
 	}
 	var am *keystore.AddrManager
 	var ws *txmgr.WalletStatus
 	err := mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
 		var err error
-		am, err = w.ksmgr.ImportKeystoreWithMnemonic(tx, w.chainFetcher.CheckScriptHashUsed, mnemonic, remark, []byte(pass), externalIndex, internalIndex, w.config.Advanced.AddressGapLimit)
+		am, err = w.ksmgr.ImportKeystoreWithMnemonic(tx, w.chainFetcher.CheckScriptHashUsed, walletParams)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to import keystore", logging.LogFormat{
 				"err": err,
@@ -419,11 +421,12 @@ func (w *WalletManager) ImportWalletWithMnemonic(mnemonic, pass, remark string, 
 	}
 
 	if !ws.Ready() {
-		w.ntfnsHandler.pushImportingTask(am)
+		w.ntfnsHandler.OnImportWallet(am.Name())
 	}
 	return &WalletSummary{
 		WalletID: am.Name(),
 		Type:     uint32(am.AddrUse()),
+		Version:  am.Version().Value(),
 		Remarks:  am.Remarks(),
 	}, nil
 }
@@ -451,7 +454,45 @@ func (w *WalletManager) ExportWallet(name, pass string) (string, error) {
 	return ret, err
 }
 
-func (w *WalletManager) RemoveWallet(name, pass string) error {
+func (w *WalletManager) RemoveWallet(walletId, pass string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.ntfnsHandler.IsWorkerBusy() {
+		return ErrTooManyTask
+	}
+
+	err := w.ksmgr.CheckPrivPassphrase(walletId, []byte(pass))
+	if err != nil {
+		return err
+	}
+	return w.ntfnsHandler.OnRemoveWallet(walletId)
+}
+
+func (w *WalletManager) ChangePrivPassphrase(oldPass, newPass string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	am := w.ksmgr.CurrentKeystore()
+	if am == nil {
+		logging.CPrint(logging.ERROR, "no wallet in use", logging.LogFormat{
+			"err": ErrNoWalletInUse,
+		})
+		return ErrNoWalletInUse
+	}
+	return mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
+		err := w.ksmgr.ChangePrivPassphrase(tx, []byte(oldPass), []byte(newPass), &keystore.DefaultScryptOptions)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "failed to change private passphrase", logging.LogFormat{
+				"err": err,
+			})
+			return err
+		}
+		return nil
+	})
+}
+
+/* func (w *WalletManager) RemoveWallet(name, pass string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -514,25 +555,26 @@ func (w *WalletManager) RemoveWallet(name, pass string) error {
 	}
 	w.ntfnsHandler.RemoveMempoolTx(deletedHash)
 	return nil
-}
+} */
 
-func (w *WalletManager) GetMnemonic(name, pass string) (string, error) {
+func (w *WalletManager) GetMnemonic(name, pass string) (string, uint8, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
 	var mnemonic string
+	var version uint8
 	err := mwdb.View(w.db, func(tx mwdb.ReadTransaction) error {
 		var err error
-		mnemonic, err = w.ksmgr.GetMnemonic(tx, name, []byte(pass))
+		mnemonic, version, err = w.ksmgr.GetMnemonic(tx, name, []byte(pass))
 		if err != nil {
 			return err
 		}
 		return nil
 	})
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	return mnemonic, nil
+	return mnemonic, version, nil
 }
 
 //WalletBalance returns total balance of current wallet
@@ -1132,21 +1174,21 @@ func (w *WalletManager) SignRawTx(password []byte, flag string, tx *wire.MsgTx) 
 	return bs, nil
 }
 
-func (w *WalletManager) GetStakingHistory() ([]*txmgr.StakingHistoryDetail, error) {
-	acct := w.ksmgr.CurrentKeystore()
-	if acct == nil {
+func (w *WalletManager) GetStakingHistory(excludeWithdrawn bool) ([]*txmgr.StakingHistoryDetail, error) {
+	am := w.ksmgr.CurrentKeystore()
+	if am == nil {
 		logging.CPrint(logging.ERROR, "no wallet in use", logging.LogFormat{})
 		return nil, ErrNoWalletInUse
 	}
 
 	ret := make([]*txmgr.StakingHistoryDetail, 0)
 	err := mwdb.View(w.db, func(tx mwdb.ReadTransaction) error {
-		unmined, err := w.utxoStore.GetUnminedStakingHistoryDetail(tx, acct)
+		unmined, err := w.utxoStore.GetUnminedStakingHistoryDetail(tx, am)
 		if err != nil {
 			return err
 		}
 		ret = append(ret, unmined...)
-		mined, err := w.utxoStore.GetStakingHistoryDetail(tx, acct)
+		mined, err := w.utxoStore.GetStakingHistoryDetail(tx, am, excludeWithdrawn)
 		if err != nil {
 			return err
 		}
@@ -1159,20 +1201,20 @@ func (w *WalletManager) GetStakingHistory() ([]*txmgr.StakingHistoryDetail, erro
 	return ret, nil
 }
 
-func (w *WalletManager) GetBindingHistory() ([]*txmgr.BindingHistoryDetail, error) {
-	ks := w.ksmgr.CurrentKeystore()
-	if ks == nil {
+func (w *WalletManager) GetBindingHistory(excludeWithdrawn bool) ([]*txmgr.BindingHistoryDetail, error) {
+	am := w.ksmgr.CurrentKeystore()
+	if am == nil {
 		return nil, ErrNoWalletInUse
 	}
 	ret := make([]*txmgr.BindingHistoryDetail, 0)
 	err := mwdb.View(w.db, func(tx mwdb.ReadTransaction) error {
-		unmined, err := w.utxoStore.GetUnminedBindingHistoryDetail(tx, ks)
+		unmined, err := w.utxoStore.GetUnminedBindingHistoryDetail(tx, am)
 		if err != nil {
 			return err
 		}
 		ret = append(ret, unmined...)
 
-		mined, err := w.utxoStore.GetBindingHistoryDetail(tx, ks)
+		mined, err := w.utxoStore.GetBindingHistoryDetail(tx, am, excludeWithdrawn)
 		if err != nil {
 			return err
 		}
@@ -1214,6 +1256,7 @@ func (w *WalletManager) CloseDB() {
 		})
 	}
 	w.wg.Done()
+	logging.CPrint(logging.INFO, "Wallet db closed", logging.LogFormat{})
 }
 
 func (w *WalletManager) ChainIndexerSyncedHeight() uint64 {

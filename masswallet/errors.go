@@ -33,7 +33,8 @@ var (
 	ErrNoAddressInWallet = errors.New("no address in wallet")
 	ErrUTXONotExists     = errors.New("utxo not exists")
 
-	ErrImportingContinuable   = errors.New("importing continuable")
-	ErrExceedMaxImportingTask = errors.New("exceed max limit of importing task")
-	ErrWalletUnready          = errors.New("wallet is unready")
+	ErrImportingContinuable = errors.New("importing continuable")
+	ErrWalletUnready        = errors.New("wallet is unready")
+	ErrTooManyTask          = errors.New("too many task")
+	ErrTaskAbort            = errors.New("task abort")
 )

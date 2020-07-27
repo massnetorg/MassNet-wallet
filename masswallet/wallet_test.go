@@ -2,14 +2,13 @@ package masswallet
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
-	cache "github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/assert"
 
 	"encoding/hex"
@@ -17,12 +16,15 @@ import (
 	"massnet.org/mass-wallet/blockchain"
 	"massnet.org/mass-wallet/config"
 	"massnet.org/mass-wallet/database"
+	"massnet.org/mass-wallet/database/ldb"
 	"massnet.org/mass-wallet/database/memdb"
 	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	_ "massnet.org/mass-wallet/masswallet/db/ldb"
+	"massnet.org/mass-wallet/masswallet/keystore"
 	"massnet.org/mass-wallet/masswallet/txmgr"
 	"massnet.org/mass-wallet/masswallet/utils"
+	"massnet.org/mass-wallet/netsync"
 	"massnet.org/mass-wallet/txscript"
 	"massnet.org/mass-wallet/wire"
 	"massnet.org/mass-wallet/wire/mock"
@@ -41,11 +43,14 @@ var (
 	pubPassphrase2  = []byte("fuGpbNZI")
 	privPassphrase2 = "lwxo0Psl"
 
-	// chain, _    *mock.Chain
-	block15     *wire.MsgBlock
-	block15T2   *wire.MsgTx
-	block15T3   *wire.MsgTx
-	block15Meta *txmgr.BlockMeta
+	block15         *wire.MsgBlock
+	block15T2       *wire.MsgTx
+	block15T3       *wire.MsgTx
+	block15Meta     *txmgr.BlockMeta
+	b15T2O0PkScript []byte
+	b15T3O0PkScript []byte
+	b15T2Hash       wire.Hash
+	b15T3Hash       wire.Hash
 
 	allTxs map[wire.Hash]*wire.MsgTx
 
@@ -82,6 +87,10 @@ func init() {
 		Hash:      block15.BlockHash(),
 		Timestamp: block15.Header.Timestamp,
 	}
+	b15T2O0PkScript = block15T2.TxOut[0].PkScript
+	b15T3O0PkScript = block15T3.TxOut[0].PkScript
+	b15T2Hash = block15T2.TxHash()
+	b15T3Hash = block15T3.TxHash()
 	allTxs = make(map[wire.Hash]*wire.MsgTx)
 	for i := 1; i < 25; i++ {
 		blk := blks200[i]
@@ -111,6 +120,10 @@ func (s *mockServer) ChainDB() database.Db {
 }
 func (s *mockServer) TxMemPool() *blockchain.TxPool {
 	return blockchain.NewTxPool(nil, nil, nil)
+}
+
+func (s *mockServer) SyncManager() *netsync.SyncManager {
+	return nil
 }
 
 // filesExists returns whether or not the named file or directory exists.
@@ -155,35 +168,40 @@ func testBlocks(maturity uint64, height int64, tx int) (*mock.Chain, error) {
 	return chain, nil
 }
 
-func testDatabaseDB() (database.Db, error) {
+// initializes chain db with first(excluding genesis) n blocks
+func newTestChainDB(n int) (database.Db, func(), error) {
 	db, err := memdb.NewMemDb()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	err = db.InitByGenesisBlock(massutil.NewBlock(config.ChainParams.GenesisBlock))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	// chain, err := testBlocks(1, 20, 5)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// block := chain.Blocks()[0]
-
-	// // Insert the main network genesis block.
-	// _, err = db.InsertBlock(massutil.NewBlock(block))
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	return db, err
+	for i := 1; i < n; i++ {
+		err = db.SubmitBlock(blks200[i])
+		if err != nil {
+			return nil, nil, err
+		}
+		db.(*ldb.ChainDb).Batch(1).Set(blks200[i].MsgBlock().BlockHash())
+		db.(*ldb.ChainDb).Batch(1).Done()
+		err = db.Commit(blks200[i].MsgBlock().BlockHash())
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return db, func() {
+		db.Close()
+		os.RemoveAll("./blocks")
+	}, err
 }
 
 func TestNewWallet(t *testing.T) {
-	databaseDb, err := testDatabaseDB()
+	databaseDb, close, err := newTestChainDB(0)
 	if err != nil {
 		t.Fatal("new databaseDb error")
 	}
+	defer close()
 	walletDb, teardown, err := testDB("testNewWallet")
 	if err != nil {
 		t.Fatal("new walletDb error")
@@ -197,10 +215,11 @@ func TestNewWallet(t *testing.T) {
 
 //TODO: removeWallet
 func TestWalletManager_CreateWallet_UseWallet_Wallets_WalletBalance(t *testing.T) {
-	databaseDb, err := testDatabaseDB()
+	databaseDb, close, err := newTestChainDB(0)
 	if err != nil {
 		t.Fatal("new databaseDb error")
 	}
+	defer close()
 	walletDb, teardown, err := testDB("testNewWallet")
 	if err != nil {
 		t.Fatal("new walletDb error")
@@ -211,15 +230,17 @@ func TestWalletManager_CreateWallet_UseWallet_Wallets_WalletBalance(t *testing.T
 		t.Fatal("new wallet error", err.Error())
 	}
 
-	walletId1, _, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
+	walletId1, _, version, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
 	if err != nil {
 		t.Fatal("create wallet error", err.Error())
 	}
+	assert.True(t, version == keystore.KeystoreVersionLatest.Value())
 	t.Log("wallet_1_Id: ", walletId1)
-	walletId2, _, err := w.CreateWallet(privPassphrase2, "", defaultBitSize)
+	walletId2, _, version, err := w.CreateWallet(privPassphrase2, "", defaultBitSize)
 	if err != nil {
 		t.Fatal("create wallet error", err.Error())
 	}
+	assert.True(t, version == keystore.KeystoreVersionLatest.Value())
 	t.Log("wallet_2_Id: ", walletId2)
 
 	wallets, err := w.Wallets()
@@ -268,10 +289,11 @@ func TestWalletManager_CreateWallet_UseWallet_Wallets_WalletBalance(t *testing.T
 }
 
 func TestWalletManager_NewAddress_GetAddresses(t *testing.T) {
-	databaseDb, err := testDatabaseDB()
+	databaseDb, close, err := newTestChainDB(0)
 	if err != nil {
 		t.Fatal("new databaseDb error")
 	}
+	defer close()
 	walletDb, teardown, err := testDB("testNewWallet")
 	if err != nil {
 		t.Fatal("new walletDb error")
@@ -282,15 +304,17 @@ func TestWalletManager_NewAddress_GetAddresses(t *testing.T) {
 		t.Fatal("new wallet error", err.Error())
 	}
 
-	walletId1, _, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
+	walletId1, _, version, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
 	if err != nil {
 		t.Fatal("create wallet error", err.Error())
 	}
+	assert.True(t, version == keystore.KeystoreVersionLatest.Value())
 	t.Log("wallet_1_Id: ", walletId1)
-	walletId2, _, err := w.CreateWallet(privPassphrase2, "", defaultBitSize)
+	walletId2, _, version, err := w.CreateWallet(privPassphrase2, "", defaultBitSize)
 	if err != nil {
 		t.Fatal("create wallet error", err.Error())
 	}
+	assert.True(t, version == keystore.KeystoreVersionLatest.Value())
 	t.Log("wallet_2_Id: ", walletId2)
 
 	// error_test_1 ErrCurrentKeystoreNotFound
@@ -360,23 +384,25 @@ func TestWalletManager_NewAddress_GetAddresses(t *testing.T) {
 
 //TODO: importWallet
 func TestWalletManager_ExportWallet_ImportWallet(t *testing.T) {
-	databaseDb, err := testDatabaseDB()
+	databaseDb, close, err := newTestChainDB(0)
 	if err != nil {
 		t.Fatal("new databaseDb error")
 	}
-	walletDb1, teardown1, err := testDB("testNewWallet1")
+	defer close()
+	walletDb1, teardown, err := testDB("testNewWallet1")
 	if err != nil {
 		t.Fatal("new walletDb error")
 	}
-	defer teardown1()
+	defer teardown()
 	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
-	walletId1, _, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
+	walletId1, _, version, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
 	if err != nil {
 		t.Fatal("create wallet error", err.Error())
 	}
+	assert.True(t, version == keystore.KeystoreVersionLatest.Value())
 	t.Log("wallet_1_Id: ", walletId1)
 	_, err = w.UseWallet(walletId1)
 	if err != nil {
@@ -409,10 +435,11 @@ func TestWalletManager_ExportWallet_ImportWallet(t *testing.T) {
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
-	walletId2, _, err := w.CreateWallet(privPassphrase2, "", defaultBitSize)
+	walletId2, _, version, err := w.CreateWallet(privPassphrase2, "", defaultBitSize)
 	if err != nil {
 		t.Fatal("create wallet error", err.Error())
 	}
+	assert.True(t, version == keystore.KeystoreVersionLatest.Value())
 	t.Log("wallet_2_Id: ", walletId2)
 	_, err = w.UseWallet(walletId2)
 	if err != nil {
@@ -483,23 +510,25 @@ func simpleFilterTx(rec *txmgr.TxRecord, tx *wire.MsgTx, walletId string) (*txmg
 }
 
 func TestWalletManager_EstimateTxFee(t *testing.T) {
-	databaseDb, err := testDatabaseDB()
+	chainDb, close, err := newTestChainDB(0)
 	if err != nil {
-		t.Fatal("new databaseDb error")
+		t.Fatal("newTestChainDB error:", err)
 	}
-	walletDb1, teardown1, err := testDB("testNewWallet1")
+	defer close()
+	walletDb1, teardown, err := testDB("testNewWallet1")
 	if err != nil {
 		t.Fatal("new walletDb error")
 	}
-	defer teardown1()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
+	defer teardown()
+	w, err := NewWalletManager(&mockServer{chainDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
-	walletId1, _, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
+	walletId1, _, version, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
 	if err != nil {
 		t.Fatal("create wallet error", err.Error())
 	}
+	assert.True(t, version == keystore.KeystoreVersionLatest.Value())
 	t.Log("wallet_1_Id: ", walletId1)
 	_, err = w.UseWallet(walletId1)
 	if err != nil {
@@ -525,9 +554,55 @@ func TestWalletManager_EstimateTxFee(t *testing.T) {
 		t.Fatal("get pkscript error", err.Error())
 	}
 
+	// replace some transactions
 	block15T2.TxOut[0].PkScript = pkScript
 	block15T3.TxOut[0].PkScript = pkScript
-	fmt.Println(block15T2.TxOut[0].Value, block15T3.TxOut[0].Value)
+	newBlock15T2Hash := block15T2.TxHash()
+	newBlock15T3Hash := block15T3.TxHash()
+	for i := 1; i <= int(block15Meta.Height); i++ {
+		blk := blks200[i]
+		blk.ResetGenerated()
+		for _, tx := range blk.MsgBlock().Transactions {
+			for _, txin := range tx.TxIn {
+				if bytes.Equal(txin.PreviousOutPoint.Hash[:], b15T2Hash[:]) {
+					txin.PreviousOutPoint.Hash = newBlock15T2Hash
+					continue
+				}
+				if bytes.Equal(txin.PreviousOutPoint.Hash[:], b15T3Hash[:]) {
+					txin.PreviousOutPoint.Hash = newBlock15T3Hash
+				}
+			}
+		}
+		err = chainDb.SubmitBlock(blk)
+		if err != nil {
+			t.Fatal("init db error:", err)
+		}
+		chainDb.(*ldb.ChainDb).Batch(1).Set(blk.MsgBlock().BlockHash())
+		chainDb.(*ldb.ChainDb).Batch(1).Done()
+		err = chainDb.Commit(blk.MsgBlock().BlockHash())
+		if err != nil {
+			t.Fatal("init db error:", err)
+		}
+	}
+	defer func() {
+		block15T2.TxOut[0].PkScript = b15T2O0PkScript
+		block15T3.TxOut[0].PkScript = b15T3O0PkScript
+		for i := 1; i <= int(block15Meta.Height); i++ {
+			blk := blks200[i]
+			for _, tx := range blk.MsgBlock().Transactions {
+				for _, txin := range tx.TxIn {
+					if bytes.Equal(txin.PreviousOutPoint.Hash[:], newBlock15T2Hash[:]) {
+						txin.PreviousOutPoint.Hash = b15T2Hash
+						continue
+					}
+					if bytes.Equal(txin.PreviousOutPoint.Hash[:], newBlock15T3Hash[:]) {
+						txin.PreviousOutPoint.Hash = b15T3Hash
+					}
+				}
+			}
+		}
+	}()
+
 	rec, err := txmgr.NewTxRecordFromMsgTx(block15T2, block15.Header.Timestamp)
 	if err != nil {
 		t.Fatal("get txRecord error", err.Error())
@@ -541,6 +616,19 @@ func TestWalletManager_EstimateTxFee(t *testing.T) {
 	allBalances := map[string]massutil.Amount{
 		walletId1: massutil.ZeroAmount(),
 	}
+	blkLoc, err := w.chainFetcher.FetchBlockLocByHeight(block15Meta.Height)
+	if err != nil {
+		t.Fatal("FetchBlockLocByHeight error:", err)
+	} else {
+		t.Log("block15 location:", blkLoc)
+	}
+	block15Meta.Loc = blkLoc
+	txLocs, err := blks200[block15Meta.Height].TxLoc()
+	if err != nil {
+		t.Fatal("TxLoc error", err)
+	}
+	rec.TxLoc = &txLocs[2]
+	rec0.TxLoc = &txLocs[3]
 	err = mwdb.Update(walletDb1, func(tx mwdb.DBTransaction) error {
 		err = w.txStore.AddRelevantTx(tx, allBalances, rec, block15Meta)
 		if err != nil {
@@ -609,23 +697,25 @@ func TestWalletManager_EstimateTxFee(t *testing.T) {
 }
 
 func TestWalletManager_AutoConstructTx(t *testing.T) {
-	databaseDb, err := testDatabaseDB()
+	chainDb, close, err := newTestChainDB(0)
 	if err != nil {
-		t.Fatal("new databaseDb error")
+		t.Fatal("new chainDb error")
 	}
-	walletDb1, teardown1, err := testDB("testNewWallet1")
+	defer close()
+	walletDb1, teardown, err := testDB("testNewWallet1")
 	if err != nil {
 		t.Fatal("new walletDb error")
 	}
-	defer teardown1()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
+	defer teardown()
+	w, err := NewWalletManager(&mockServer{chainDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
-	walletId1, _, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
+	walletId1, _, version, err := w.CreateWallet(privPassphrase, "", defaultBitSize)
 	if err != nil {
 		t.Fatal("create wallet error", err.Error())
 	}
+	assert.True(t, version == keystore.KeystoreVersionLatest.Value())
 	t.Log("wallet_1_Id: ", walletId1)
 	_, err = w.UseWallet(walletId1)
 	if err != nil {
@@ -651,8 +741,55 @@ func TestWalletManager_AutoConstructTx(t *testing.T) {
 		t.Fatal("get pkscript error", err.Error())
 	}
 
+	// replace some transactions
 	block15T2.TxOut[0].PkScript = pkScript
 	block15T3.TxOut[0].PkScript = pkScript
+	newBlock15T2Hash := block15T2.TxHash()
+	newBlock15T3Hash := block15T3.TxHash()
+	for i := 1; i <= int(block15Meta.Height); i++ {
+		blk := blks200[i]
+		blk.ResetGenerated()
+		for _, tx := range blk.MsgBlock().Transactions {
+			for _, txin := range tx.TxIn {
+				if bytes.Equal(txin.PreviousOutPoint.Hash[:], b15T2Hash[:]) {
+					txin.PreviousOutPoint.Hash = newBlock15T2Hash
+					continue
+				}
+				if bytes.Equal(txin.PreviousOutPoint.Hash[:], b15T3Hash[:]) {
+					txin.PreviousOutPoint.Hash = newBlock15T3Hash
+				}
+			}
+		}
+		err = chainDb.SubmitBlock(blk)
+		if err != nil {
+			t.Fatal("init db error:", err)
+		}
+		chainDb.(*ldb.ChainDb).Batch(1).Set(blk.MsgBlock().BlockHash())
+		chainDb.(*ldb.ChainDb).Batch(1).Done()
+		err = chainDb.Commit(blk.MsgBlock().BlockHash())
+		if err != nil {
+			t.Fatal("init db error:", err)
+		}
+	}
+	defer func() {
+		block15T2.TxOut[0].PkScript = b15T2O0PkScript
+		block15T3.TxOut[0].PkScript = b15T3O0PkScript
+		for i := 1; i <= int(block15Meta.Height); i++ {
+			blk := blks200[i]
+			for _, tx := range blk.MsgBlock().Transactions {
+				for _, txin := range tx.TxIn {
+					if bytes.Equal(txin.PreviousOutPoint.Hash[:], newBlock15T2Hash[:]) {
+						txin.PreviousOutPoint.Hash = b15T2Hash
+						continue
+					}
+					if bytes.Equal(txin.PreviousOutPoint.Hash[:], newBlock15T3Hash[:]) {
+						txin.PreviousOutPoint.Hash = b15T3Hash
+					}
+				}
+			}
+		}
+	}()
+
 	rec, err := txmgr.NewTxRecordFromMsgTx(block15T2, block15.Header.Timestamp)
 	if err != nil {
 		t.Fatal("get txRecord error", err.Error())
@@ -666,6 +803,19 @@ func TestWalletManager_AutoConstructTx(t *testing.T) {
 	allBalances := map[string]massutil.Amount{
 		walletId1: massutil.ZeroAmount(),
 	}
+	blkLoc, err := w.chainFetcher.FetchBlockLocByHeight(block15Meta.Height)
+	if err != nil {
+		t.Fatal("FetchBlockLocByHeight error:", err)
+	} else {
+		t.Log("block15 location:", blkLoc)
+	}
+	block15Meta.Loc = blkLoc
+	txLocs, err := blks200[block15Meta.Height].TxLoc()
+	if err != nil {
+		t.Fatal("TxLoc error", err)
+	}
+	rec.TxLoc = &txLocs[2]
+	rec0.TxLoc = &txLocs[3]
 	err = mwdb.Update(walletDb1, func(tx mwdb.DBTransaction) error {
 		err = w.txStore.AddRelevantTx(tx, allBalances, rec, block15Meta)
 		if err != nil {
@@ -730,13 +880,4 @@ func TestWalletManager_AutoConstructTx(t *testing.T) {
 	}
 	t.Log("signedTx:", signedTx)
 
-}
-
-func TestCache(t *testing.T) {
-	c := cache.New(5*time.Second, 10*time.Second)
-	c.Set("Key1", nil, cache.DefaultExpiration)
-	_, exist := c.Get("Key1")
-	assert.True(t, exist)
-	_, exist = c.Get("Key2")
-	assert.False(t, exist)
 }

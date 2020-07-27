@@ -1,12 +1,15 @@
 package masswallet
 
 import (
+	"bytes"
 	"container/list"
 	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
 	"massnet.org/mass-wallet/blockchain"
+	mdebug "massnet.org/mass-wallet/debug"
 	"massnet.org/mass-wallet/logging"
 	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
@@ -20,8 +23,6 @@ import (
 const (
 	// MaxUnconfirmedBlocks = 128
 	MaxMemPoolExpire = uint64(1024)
-
-	MaxImportingTask = 3
 )
 
 // NtfnsHandler ...
@@ -33,11 +34,13 @@ type NtfnsHandler struct {
 	bestBlock      txmgr.BlockMeta
 	expiredMempool map[uint64]map[wire.Hash]struct{}
 
-	queueMsgTx     chan *wire.MsgTx
-	queueBlock     chan *wire.MsgBlock
-	queueImporting chan *keystore.AddrManager
+	queueMsgTx chan *wire.MsgTx
+	queueBlock chan *wire.MsgBlock
 
-	quit chan struct{}
+	taskChan *WalletTaskChan
+
+	quit   chan struct{}
+	quitWg sync.WaitGroup
 
 	sigSuspend chan struct{}
 	sigResume  chan struct{}
@@ -52,8 +55,6 @@ func NewNtfnsHandler(w *WalletManager) (*NtfnsHandler, error) {
 
 		queueMsgTx: make(chan *wire.MsgTx, 1024),
 		queueBlock: make(chan *wire.MsgBlock, 1024),
-
-		queueImporting: make(chan *keystore.AddrManager, MaxImportingTask*2),
 
 		sigSuspend: make(chan struct{}),
 		sigResume:  make(chan struct{}),
@@ -84,38 +85,85 @@ func (h *NtfnsHandler) Start() error {
 			"syncHeight":    syncHeight,
 			"indexedHeight": indexHeight,
 		})
-	for i := syncHeight + 1; i <= indexHeight; i++ {
-		blk, err := h.walletMgr.chainFetcher.FetchBlockByHeight(i)
+
+	hasReadyWallet := false
+	err = mwdb.View(h.walletMgr.db, func(rtx mwdb.ReadTransaction) (err error) {
+		readyWallets, err := h.getReadyWallets(rtx)
+		hasReadyWallet = len(readyWallets) > 0
+		return err
+	})
+	if err != nil {
+		logging.CPrint(logging.ERROR, "getReadyWallets error", logging.LogFormat{"err": err})
+		return err
+	}
+
+	curHeight := syncHeight + 1
+	if !hasReadyWallet && indexHeight > 2000 {
+		for ; curHeight < indexHeight-2000; curHeight++ {
+			sha, err := h.walletMgr.chainFetcher.FetchBlockShaByHeight(curHeight)
+			if err != nil {
+				logging.CPrint(logging.ERROR, "FetchBlockShaByHeight error",
+					logging.LogFormat{"err": err, "height": curHeight})
+				return err
+			}
+			h.bestBlock.Hash = *sha
+			h.bestBlock.Height = curHeight
+			// h.bestBlock.Timestamp = ? // not used
+			blockMeta := &txmgr.BlockMeta{
+				Hash:      *sha,
+				Height:    curHeight,
+				Timestamp: time.Now(), // not used
+			}
+			err = mwdb.Update(h.walletMgr.db, func(wtx mwdb.DBTransaction) error {
+				return h.walletMgr.syncStore.SetSyncedTo(wtx, blockMeta)
+			})
+			if err != nil {
+				logging.CPrint(logging.ERROR, "SetSyncedTo error",
+					logging.LogFormat{"err": err, "height": curHeight, "block": sha})
+				return err
+			}
+		}
+	}
+
+	for ; curHeight <= indexHeight; curHeight++ {
+		blk, err := h.walletMgr.chainFetcher.FetchBlockByHeight(curHeight)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "NtfnsHandler.Start(): FetchBlockByHeight error",
 				logging.LogFormat{
-					"i":   i,
-					"err": err,
+					"height": curHeight,
+					"err":    err,
 				})
 			return err
 		}
 
 		err = h.processConnectedBlock(blk)
 		if err != nil {
-			logging.CPrint(logging.ERROR, "NtfnsHandler.Start(): syncing error",
+			logging.CPrint(logging.ERROR, "NtfnsHandler.Start(): processConnectedBlock error",
 				logging.LogFormat{
-					"blkHeight": i,
+					"height": curHeight,
+					"err":    err,
 				})
 			return err
 		}
 	}
 
+	h.quitWg.Add(2)
 	go handle(h)
-	go handleImportingTask(h)
+	go worker(h)
 	return nil
 }
 
 func (h *NtfnsHandler) Stop() {
 	close(h.quit)
+	h.quitWg.Wait()
+	h.walletMgr.CloseDB()
 }
 
 func handle(h *NtfnsHandler) {
-	logging.CPrint(logging.INFO, "start handling", logging.LogFormat{})
+	defer Recover()
+	defer h.quitWg.Done()
+
+	logging.CPrint(logging.INFO, "NtfnsHandler started", logging.LogFormat{})
 
 	for {
 		select {
@@ -162,27 +210,39 @@ func (h *NtfnsHandler) onRelevantTx(rec *txmgr.TxRecord) error {
 	return err
 }
 
-func (h *NtfnsHandler) onRelevantBlockConnected(tx mwdb.DBTransaction, blockMeta *txmgr.BlockMeta,
-	relevantTxs []*txmgr.TxRecord) error {
+func (h *NtfnsHandler) onRelevantBlockConnected(tx mwdb.DBTransaction, readyWallets map[string]struct{},
+	blockMeta *txmgr.BlockMeta, relevantTxs []*txmgr.TxRecord) error {
 
-	walletBalances, err := h.walletMgr.utxoStore.FetchAllMinedBalance(tx)
+	if len(relevantTxs) == 0 {
+		return nil
+	}
+
+	all, err := h.walletMgr.utxoStore.FetchAllMinedBalance(tx)
 	if err != nil {
-		logging.VPrint(logging.ERROR, "FetchAllMinedBalance error",
-			logging.LogFormat{
-				"block":  blockMeta.Hash.String(),
-				"height": blockMeta.Height,
-				"err":    err,
-			})
+		logging.VPrint(logging.ERROR, "FetchAllMinedBalance error", logging.LogFormat{"err": err})
 		return err
+	}
+	walletBalances := make(map[string]massutil.Amount)
+	for walletId, bal := range all {
+		if _, ok := readyWallets[walletId]; ok {
+			walletBalances[walletId] = bal
+		}
+	}
+	if mdebug.DevMode() {
+		if len(walletBalances) == 0 {
+			logging.CPrint(logging.FATAL, "unexpected empty walletBalances", logging.LogFormat{
+				"readyWalletes": readyWallets,
+				"all":           all,
+			})
+		}
 	}
 
 	for _, rec := range relevantTxs {
 		if err := h.walletMgr.txStore.AddRelevantTx(tx, walletBalances, rec, blockMeta); err != nil {
 			logging.VPrint(logging.ERROR, "Cannot add relevant block",
 				logging.LogFormat{
-					"block":       blockMeta.Hash.String(),
-					"transaction": rec.Hash.String(),
-					"err":         err,
+					"tx":  rec.Hash.String(),
+					"err": err,
 				})
 			return err
 		}
@@ -190,16 +250,9 @@ func (h *NtfnsHandler) onRelevantBlockConnected(tx mwdb.DBTransaction, blockMeta
 
 	err = h.walletMgr.utxoStore.UpdateMinedBalances(tx, walletBalances)
 	if err != nil {
-		logging.VPrint(logging.ERROR, "UpdateMinedBalances error",
-			logging.LogFormat{
-				"block":  blockMeta.Hash.String(),
-				"height": blockMeta.Height,
-				"err":    err,
-			})
-		return err
+		logging.VPrint(logging.ERROR, "UpdateMinedBalances error", logging.LogFormat{"err": err})
 	}
-
-	return h.walletMgr.syncStore.SetSyncedTo(tx, blockMeta)
+	return err
 }
 
 func (h *NtfnsHandler) filterTxForImporting(tx *wire.MsgTx, blockMeta *txmgr.BlockMeta,
@@ -302,7 +355,9 @@ func (h *NtfnsHandler) filterTxForImporting(tx *wire.MsgTx, blockMeta *txmgr.Blo
 	return rec, nil
 }
 
-func (h *NtfnsHandler) filterTx(tx *wire.MsgTx, blockMeta *txmgr.BlockMeta, recInCurBlk map[wire.Hash]*txmgr.TxRecord) (bool, *txmgr.TxRecord, error) {
+func (h *NtfnsHandler) filterTx(tx *wire.MsgTx, blockMeta *txmgr.BlockMeta,
+	recInCurBlk map[wire.Hash]*txmgr.TxRecord,
+	readyWallets map[string]struct{}) (bool, *txmgr.TxRecord, error) {
 
 	rec, err := txmgr.NewTxRecordFromMsgTx(tx, time.Now())
 	if err != nil {
@@ -328,12 +383,22 @@ func (h *NtfnsHandler) filterTx(tx *wire.MsgTx, blockMeta *txmgr.BlockMeta, recI
 	if !blockchain.IsCoinBaseTx(tx) {
 		for i, txIn := range tx.TxIn {
 			prevTx := cache[txIn.PreviousOutPoint.Hash]
-
 			// tx in current block
 			if prevTx == nil && blockMeta != nil {
-				r, ok := recInCurBlk[txIn.PreviousOutPoint.Hash]
+				bro, ok := recInCurBlk[txIn.PreviousOutPoint.Hash]
 				if ok {
-					prevTx = &r.MsgTx
+					prevTx = &bro.MsgTx
+				} else {
+					// For connected block, it's unnecessary to go on checking
+					// if no output created by previous hash.
+					exist := false
+					mwdb.View(h.walletMgr.db, func(rtx mwdb.ReadTransaction) error {
+						exist = h.walletMgr.utxoStore.ExistCreditFromTx(rtx, &txIn.PreviousOutPoint.Hash)
+						return nil
+					})
+					if !exist {
+						continue
+					}
 				}
 			}
 
@@ -402,14 +467,9 @@ func (h *NtfnsHandler) filterTx(tx *wire.MsgTx, blockMeta *txmgr.BlockMeta, recI
 				return false, nil, err
 			}
 			if ma != nil {
-				ready, err := h.walletMgr.CheckReady(ma.Account())
-				if err != nil {
-					return false, nil, err
-				}
-				if !ready {
+				if _, ok := readyWallets[ma.Account()]; !ok {
 					continue
 				}
-
 				rec.HasBindingIn = ps.IsBinding()
 				rec.RelevantTxIn = append(rec.RelevantTxIn,
 					&txmgr.RelevantMeta{
@@ -443,11 +503,7 @@ func (h *NtfnsHandler) filterTx(tx *wire.MsgTx, blockMeta *txmgr.BlockMeta, recI
 			return false, nil, err
 		}
 		if ma != nil {
-			ready, err := h.walletMgr.CheckReady(ma.Account())
-			if err != nil {
-				return false, nil, err
-			}
-			if !ready {
+			if _, ok := readyWallets[ma.Account()]; !ok {
 				continue
 			}
 			rec.HasBindingOut = ps.IsBinding()
@@ -482,37 +538,69 @@ func (h *NtfnsHandler) filterTx(tx *wire.MsgTx, blockMeta *txmgr.BlockMeta, recI
 	return true, rec, nil
 }
 
-func (h *NtfnsHandler) filterBlock(dbtx mwdb.DBTransaction,
-	block *wire.MsgBlock, addedExpireMempool map[uint64]map[wire.Hash]struct{}) error {
+func (h *NtfnsHandler) filterBlock(dbtx mwdb.DBTransaction, readyWallets map[string]struct{},
+	block *wire.MsgBlock, addedExpireMempool map[uint64]map[wire.Hash]struct{}) (err error) {
 
 	blockMeta := &txmgr.BlockMeta{
 		Hash:      block.BlockHash(),
 		Height:    block.Header.Height,
 		Timestamp: block.Header.Timestamp,
 	}
+	blockMeta.Loc, err = h.walletMgr.chainFetcher.FetchBlockLocByHeight(blockMeta.Height)
+	if err != nil {
+		logging.CPrint(logging.WARN, "FetchBlockLocByHeight error",
+			logging.LogFormat{
+				"err":    err,
+				"height": blockMeta.Height,
+			})
+		return err
+	}
+	if !bytes.Equal(blockMeta.Loc.Hash[:], blockMeta.Hash[:]) {
+		logging.CPrint(logging.WARN, "block hash mismatch", logging.LogFormat{"height": blockMeta.Height})
+		return ErrMaybeChainRevoked
+	}
+	txLocs, err := massutil.NewBlock(block).TxLoc()
+	if err != nil {
+		logging.CPrint(logging.ERROR, "get tx locs error", logging.LogFormat{"height": blockMeta.Height, "err": err})
+		return err
+	}
 
 	var relevantTxs []*txmgr.TxRecord
 	confirmedTxs := make(map[wire.Hash]struct{})
-	recInCurBlk := make(map[wire.Hash]*txmgr.TxRecord)
-	for _, tx := range block.Transactions {
-		isRelevant, rec, err := h.filterTx(tx, blockMeta, recInCurBlk)
-		if err != nil {
-			logging.CPrint(logging.WARN, "Unable to filter transaction",
-				logging.LogFormat{
-					tx.TxHash().String(): err,
-				})
-			return err
-		}
+	if len(readyWallets) > 0 {
+		recInCurBlk := make(map[wire.Hash]*txmgr.TxRecord)
+		for i, tx := range block.Transactions {
+			isRelevant, rec, err := h.filterTx(tx, blockMeta, recInCurBlk, readyWallets)
+			if err != nil {
+				logging.CPrint(logging.WARN, "Unable to filter transaction",
+					logging.LogFormat{
+						tx.TxHash().String(): err,
+					})
+				return err
+			}
 
-		if isRelevant {
-			relevantTxs = append(relevantTxs, rec)
-			confirmedTxs[rec.Hash] = struct{}{}
+			if isRelevant {
+				txLoc := txLocs[i]
+				rec.TxLoc = &txLoc
+				relevantTxs = append(relevantTxs, rec)
+				confirmedTxs[rec.Hash] = struct{}{}
+			}
 		}
 	}
 
 	addedExpireMempool[block.Header.Height] = confirmedTxs
 
-	return h.onRelevantBlockConnected(dbtx, blockMeta, relevantTxs)
+	err = h.onRelevantBlockConnected(dbtx, readyWallets, blockMeta, relevantTxs)
+	if err != nil {
+		logging.VPrint(logging.ERROR, "onRelevantBlockConnected error",
+			logging.LogFormat{
+				"block":  blockMeta.Hash.String(),
+				"height": blockMeta.Height,
+				"err":    err,
+			})
+		return err
+	}
+	return h.walletMgr.syncStore.SetSyncedTo(dbtx, blockMeta)
 }
 
 func (h *NtfnsHandler) disconnectBlock(tx mwdb.DBTransaction, height uint64) error {
@@ -644,10 +732,14 @@ func (h *NtfnsHandler) reorg(dbtx mwdb.DBTransaction, currentBest txmgr.BlockMet
 		}
 	}
 	// step 3. connect
+	readyWallets, err := h.getReadyWallets(dbtx)
+	if err != nil {
+		return err
+	}
 	for blocksToConnect.Front() != nil {
 		block := blocksToConnect.Front().Value.(*wire.MsgBlock)
 
-		if err := h.filterBlock(dbtx, block, addedExpireMempool); err != nil {
+		if err := h.filterBlock(dbtx, readyWallets, block, addedExpireMempool); err != nil {
 			return err
 		}
 
@@ -657,79 +749,100 @@ func (h *NtfnsHandler) reorg(dbtx mwdb.DBTransaction, currentBest txmgr.BlockMet
 	return nil
 }
 
-func handleImportingTask(h *NtfnsHandler) {
-	err := mwdb.View(h.walletMgr.db, func(tx mwdb.ReadTransaction) error {
+func worker(h *NtfnsHandler) {
+	defer Recover()
+	defer h.quitWg.Done()
+
+	mwdb.View(h.walletMgr.db, func(tx mwdb.ReadTransaction) error {
 		wss, err := h.walletMgr.syncStore.GetAllWalletStatus(tx)
 		if err != nil {
 			return err
 		}
+		h.taskChan = NewWalletTaskChan(len(wss))
 		for _, ws := range wss {
-			logging.CPrint(logging.DEBUG, "wallet status before reload importing",
+			logging.CPrint(logging.DEBUG, "wallet status",
 				logging.LogFormat{
 					"syncedheight": ws.SyncedHeight,
 					"walletId":     ws.WalletID,
 					"ready":        ws.Ready(),
+					"removed":      ws.IsRemoved(),
 					"best":         h.bestBlock.Height,
 				})
-
-			// double check
-			am, err := h.walletMgr.ksmgr.GetAddrManagerByAccountID(ws.WalletID)
-			if err != nil {
-				logging.CPrint(logging.FATAL, "wallet not found",
-					logging.LogFormat{
-						"err":      err,
-						"walletId": ws.WalletID,
-					})
+			// remove
+			if ws.IsRemoved() {
+				h.taskChan.PushRemove(ws.WalletID)
+				logging.CPrint(logging.INFO, "restart removing", logging.LogFormat{"walletId": ws.WalletID})
+				continue
 			}
 
+			// import
 			if !ws.Ready() {
-				h.queueImporting <- am
-				logging.CPrint(logging.INFO, "reload importing task",
-					logging.LogFormat{
-						"walletId": ws.WalletID,
-					})
+				h.taskChan.PushImport(ws.WalletID)
+				logging.CPrint(logging.INFO, "restart importing", logging.LogFormat{"walletId": ws.WalletID})
 			}
 		}
 		return nil
 	})
-	if err != nil {
-		logging.CPrint(logging.FATAL, "reload importing task failed",
-			logging.LogFormat{
-				"err": err,
-			})
-	}
 
 	for {
 		select {
 		case <-h.quit:
-			h.walletMgr.CloseDB()
+			logging.CPrint(logging.INFO, "NtfnsHandler worker stopped")
 			return
-		case am := <-h.queueImporting:
-			fin, err := h.innerImport(am)
-			if err != nil {
-				logging.CPrint(logging.ERROR, "innerImport error",
-					logging.LogFormat{
+		case task := <-h.taskChan.C:
+			switch task.taskType {
+			case WalletTaskImport:
+				fin, err := h.asyncImport(task.walletId)
+				if err != nil {
+					logging.CPrint(logging.ERROR, "asyncImport error", logging.LogFormat{
+						"walletId": task.walletId,
 						"err":      err,
-						"walletId": am.Name(),
 					})
-			}
-			if !fin {
-				h.queueImporting <- am
+					if err == txmgr.ErrUnexpectedCreditNotFound {
+						// TODO: mark status failed
+						fin = true
+					}
+				}
+				if !fin {
+					h.taskChan.PushImport(task.walletId)
+					continue
+				}
+				logging.CPrint(logging.INFO, "asyncImport finish", logging.LogFormat{"walletId": task.walletId})
+
+			case WalletTaskRemove:
+				err := h.asyncRemove(task.walletId)
+				if err != nil {
+					logging.CPrint(logging.ERROR, "asyncRemove failed", logging.LogFormat{
+						"walletId": task.walletId,
+						"err":      err,
+					})
+					if err != ErrTaskAbort {
+						h.taskChan.PushRemove(task.walletId)
+					}
+					continue
+				}
+				logging.CPrint(logging.INFO, "asyncRemove finish", logging.LogFormat{"walletId": task.walletId})
 			}
 		}
 	}
 }
 
-func (h *NtfnsHandler) innerImport(addrmgr *keystore.AddrManager) (finish bool, err error) {
+func (h *NtfnsHandler) asyncImport(walletId string) (finish bool, err error) {
+	addrmgr, err := h.walletMgr.ksmgr.GetAddrManagerByAccountID(walletId)
+	if err != nil {
+		// could only be ErrAccountNotFound, but unexpected
+		return true, err
+	}
+
 	mas := addrmgr.ManagedAddresses()
 	relatedHashes := make([][]byte, 0)
 	for _, ma := range mas {
 		relatedHashes = append(relatedHashes, ma.ScriptAddress())
 	}
 
-	h.suspend("start innerImport", logging.LogFormat{"walletId": addrmgr.Name()})
+	h.suspend(false, "[asyncImport] run", logging.LogFormat{"walletId": walletId})
 	defer func() {
-		h.resume("done innerImport", logging.LogFormat{"walletId": addrmgr.Name(), "finish": finish})
+		h.resume(false, "[asyncImport] stop", logging.LogFormat{"walletId": walletId, "finish": finish})
 	}()
 
 	stop := uint64(0)
@@ -757,7 +870,7 @@ func (h *NtfnsHandler) innerImport(addrmgr *keystore.AddrManager) (finish bool, 
 		if err != nil {
 			return err
 		}
-		logging.CPrint(logging.DEBUG, "innerImport: range",
+		logging.VPrint(logging.DEBUG, "[asyncImport] range",
 			logging.LogFormat{
 				"start":    ws.SyncedHeight + 1,
 				"stop":     stop + 1,
@@ -781,10 +894,23 @@ func (h *NtfnsHandler) innerImport(addrmgr *keystore.AddrManager) (finish bool, 
 			}
 
 			// insertTx
-			blockmeta := &txmgr.BlockMeta{
+			blockMeta := &txmgr.BlockMeta{
 				Hash:      header.BlockHash(),
 				Height:    header.Height,
 				Timestamp: header.Timestamp,
+			}
+			blockMeta.Loc, err = h.walletMgr.chainFetcher.FetchBlockLocByHeight(blockMeta.Height)
+			if err != nil {
+				logging.CPrint(logging.WARN, "FetchBlockLocByHeight error",
+					logging.LogFormat{
+						"err":    err,
+						"height": blockMeta.Height,
+					})
+				return err
+			}
+			if !bytes.Equal(blockMeta.Loc.Hash[:], blockMeta.Hash[:]) {
+				logging.CPrint(logging.WARN, "block hash mismatch", logging.LogFormat{"height": blockMeta.Height})
+				return ErrMaybeChainRevoked
 			}
 
 			added := make([]wire.Hash, 0)
@@ -793,17 +919,8 @@ func (h *NtfnsHandler) innerImport(addrmgr *keystore.AddrManager) (finish bool, 
 				if err != nil {
 					return err
 				}
-				if msg == nil {
-					logging.CPrint(logging.WARN, "tx not found on chain, maybe chain forks",
-						logging.LogFormat{
-							"blockheight": header.Height,
-							"txlen":       txloc.TxLen,
-							"txstart":     txloc.TxStart,
-						})
-					return ErrImportingContinuable
-				}
 
-				rec, err := h.filterTxForImporting(msg, blockmeta, addrmgr)
+				rec, err := h.filterTxForImporting(msg, blockMeta, addrmgr)
 				if err != nil {
 					return err
 				}
@@ -811,13 +928,14 @@ func (h *NtfnsHandler) innerImport(addrmgr *keystore.AddrManager) (finish bool, 
 					logging.CPrint(logging.ERROR, "unexpected error, tx is not relevant",
 						logging.LogFormat{
 							"tx":     rec.Hash.String(),
-							"block":  blockmeta.Hash.String(),
-							"height": blockmeta.Height,
+							"block":  blockMeta.Hash.String(),
+							"height": blockMeta.Height,
 						})
 					return fmt.Errorf("unexpected error: tx is not relevant")
 				}
+				rec.TxLoc = txloc
 
-				err = h.walletMgr.txStore.AddRelevantTxForImporting(dbtx, allBalances, rec, blockmeta)
+				err = h.walletMgr.txStore.AddRelevantTxForImporting(dbtx, allBalances, rec, blockMeta)
 				if err != nil {
 					if err == txmgr.ErrChainReorg {
 						return ErrImportingContinuable
@@ -837,11 +955,6 @@ func (h *NtfnsHandler) innerImport(addrmgr *keystore.AddrManager) (finish bool, 
 		if stop == h.bestBlock.Height {
 			ws.SyncedHeight = txmgr.WalletSyncedDone
 			finish = true
-			logging.CPrint(logging.INFO, "innerImport: finish",
-				logging.LogFormat{
-					"walletId":  addrmgr.Name(),
-					"finHeight": stop,
-				})
 		}
 
 		err = h.walletMgr.utxoStore.UpdateMinedBalances(dbtx, allBalances)
@@ -871,12 +984,106 @@ func (h *NtfnsHandler) innerImport(addrmgr *keystore.AddrManager) (finish bool, 
 	return finish, nil
 }
 
-func (h *NtfnsHandler) pushImportingTask(addrmgr *keystore.AddrManager) {
-	h.queueImporting <- addrmgr
+func (h *NtfnsHandler) asyncRemove(walletId string) error {
+	am, err := h.walletMgr.ksmgr.GetAddrManagerByAccountID(walletId)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "unexpected error", logging.LogFormat{"err": err, "walletId": walletId})
+		return nil
+	}
+
+	h.suspend(true, "[asyncRemove-1] deleting balance, address, staking/binding histories", logging.LogFormat{"walletId": walletId})
+	err = mwdb.Update(h.walletMgr.db, func(wtx mwdb.DBTransaction) error {
+		err := h.walletMgr.utxoStore.RemoveUnspentByWalletId(wtx, walletId)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "RemoveUnspentByWalletId error", logging.LogFormat{"err": err})
+			return err
+		}
+		err = h.walletMgr.utxoStore.RemoveAddressByWalletId(wtx, walletId)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "RemoveAddressByWalletId error", logging.LogFormat{"err": err})
+			return err
+		}
+		err = h.walletMgr.utxoStore.RemoveGameHistoryByWalletId(wtx, walletId)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "RemoveGameHistoryByWalletId error", logging.LogFormat{"err": err})
+			return err
+		}
+
+		return h.walletMgr.utxoStore.RemoveMinedBalance(wtx, walletId)
+	})
+	h.resume(true, "[asyncRemove-1] stop", logging.LogFormat{"walletId": walletId})
+	if err != nil {
+		logging.CPrint(logging.ERROR, "[asyncRemove-1] failed", logging.LogFormat{"err": err})
+		return err
+	}
+
+	for {
+		select {
+		case <-h.quit:
+			return ErrTaskAbort
+		default:
+			h.suspend(true, "[asyncRemove-2] deleting credits, keystore", logging.LogFormat{"walletId": walletId})
+			finish := false
+			var removedTx []*wire.Hash
+			err := mwdb.Update(h.walletMgr.db, func(wtx mwdb.DBTransaction) (err error) {
+				removedTx, finish, err = h.walletMgr.txStore.RemoveRelevantTx(wtx, am)
+				if finish {
+					err = h.walletMgr.syncStore.DeleteWalletStatus(wtx, walletId)
+					if err == nil {
+						_, err = h.walletMgr.ksmgr.DeleteKeystore(wtx, walletId)
+						if err != nil {
+							logging.CPrint(logging.ERROR, "DeleteKeystore error", logging.LogFormat{"err": err})
+						}
+					} else {
+						logging.CPrint(logging.ERROR, "DeleteWalletStatus error", logging.LogFormat{"err": err})
+					}
+				}
+				return err
+			})
+			h.resume(true, "[asyncRemove-2] stop", logging.LogFormat{"walletId": walletId})
+			if err != nil {
+				logging.CPrint(logging.ERROR, "[asyncRemove-2] failed", logging.LogFormat{"err": err})
+				if finish {
+					mwdb.View(h.walletMgr.db, func(rtx mwdb.ReadTransaction) error {
+						h.walletMgr.ksmgr.UpdateManagedKeystores(rtx, walletId)
+						return nil
+					})
+				}
+				return err
+			}
+			h.RemoveMempoolTx(removedTx)
+
+			if finish {
+				return nil
+			}
+		}
+	}
 }
 
-func (h *NtfnsHandler) exceedImportingLimit() bool {
-	return len(h.queueImporting) >= MaxImportingTask
+func (h *NtfnsHandler) OnImportWallet(walletId string) {
+	h.taskChan.PushImport(walletId)
+}
+
+func (h *NtfnsHandler) OnRemoveWallet(walletId string) error {
+	err := mwdb.Update(h.walletMgr.db, func(wtx mwdb.DBTransaction) error {
+		ws, err := h.walletMgr.syncStore.GetWalletStatus(wtx, walletId)
+		if err != nil {
+			return err
+		}
+		if !ws.Ready() {
+			return ErrWalletUnready
+		}
+		return h.walletMgr.syncStore.MarkDeleteWallet(wtx, walletId)
+	})
+	if err != nil {
+		return err
+	}
+	h.taskChan.PushRemove(walletId)
+	return nil
+}
+
+func (h *NtfnsHandler) IsWorkerBusy() bool {
+	return h.taskChan.IsBusy()
 }
 
 func (h *NtfnsHandler) RemoveMempoolTx(txs []*wire.Hash) {
@@ -885,46 +1092,6 @@ func (h *NtfnsHandler) RemoveMempoolTx(txs []*wire.Hash) {
 		delete(h.mempool, *hash)
 	}
 	h.memMtx.Unlock()
-}
-
-// Must call NtfnsHandler.suspend() before openning database transaction and NtfnsHandler.resume() after removing done
-func (h *NtfnsHandler) onKeystoreRemove(tx mwdb.DBTransaction, addrmgr *keystore.AddrManager) ([]*wire.Hash, error) {
-
-	deletedHash := make([]*wire.Hash, 0)
-	err := func() error {
-		deletedTx, err := h.walletMgr.txStore.RemoveRelevantTx(tx, addrmgr /* , h.bestBlock.Height */)
-		if err != nil {
-			return err
-		}
-		err = h.walletMgr.utxoStore.RemoveUnspentByWalletId(tx, addrmgr.Name())
-		if err != nil {
-			return err
-		}
-		err = h.walletMgr.utxoStore.RemoveAddressByWalletId(tx, addrmgr.Name())
-		if err != nil {
-			return err
-		}
-		err = h.walletMgr.utxoStore.RemoveLGHistoryByWalletId(tx, addrmgr.Name())
-		if err != nil {
-			return err
-		}
-
-		err = h.walletMgr.utxoStore.RemoveMinedBalance(tx, addrmgr.Name())
-		if err != nil {
-			return err
-		}
-
-		for _, hash := range deletedTx {
-			deletedHash = append(deletedHash, hash)
-		}
-		return nil
-	}()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return deletedHash, nil
 }
 
 func (h *NtfnsHandler) processConnectedBlock(newBlock *wire.MsgBlock) error {
@@ -937,11 +1104,12 @@ func (h *NtfnsHandler) processConnectedBlock(newBlock *wire.MsgBlock) error {
 	addedExpireMempool := make(map[uint64]map[wire.Hash]struct{})
 	err := mwdb.Update(h.walletMgr.db, func(tx mwdb.DBTransaction) error {
 		if newBlock.Header.Previous == bestBlock.Hash {
-			if err := h.filterBlock(tx, newBlock, addedExpireMempool); err != nil {
-				logging.CPrint(logging.ERROR, "failed to filter block",
-					logging.LogFormat{
-						"err": err,
-					})
+			readyWallets, err := h.getReadyWallets(tx)
+			if err != nil {
+				return err
+			}
+			if err := h.filterBlock(tx, readyWallets, newBlock, addedExpireMempool); err != nil {
+				logging.CPrint(logging.ERROR, "failed to filter block", logging.LogFormat{"err": err})
 				return err
 			}
 			return nil
@@ -1003,11 +1171,28 @@ func (h *NtfnsHandler) processConnectedBlock(newBlock *wire.MsgBlock) error {
 }
 
 func (h *NtfnsHandler) proccessReceivedTx(tx *wire.MsgTx) error {
+	knownBestHeight := h.walletMgr.ChainIndexerSyncedHeight()
+	bestPeer := h.walletMgr.server.SyncManager().BestPeer()
+	if bestPeer != nil && bestPeer.Height > knownBestHeight {
+		knownBestHeight = bestPeer.Height
+	}
+	if syncHeight, _ := h.walletMgr.SyncedTo(); syncHeight < knownBestHeight-1 {
+		return nil
+	}
+
 	logging.CPrint(logging.INFO, "recv tx",
 		logging.LogFormat{
 			"tx": tx.TxHash().String(),
 		})
-	if _, _, err := h.filterTx(tx, nil, nil); err != nil {
+	var readyWallets map[string]struct{}
+	err := mwdb.View(h.walletMgr.db, func(rtx mwdb.ReadTransaction) (err error) {
+		readyWallets, err = h.getReadyWallets(rtx)
+		return
+	})
+	if err != nil {
+		return err
+	}
+	if _, _, err := h.filterTx(tx, nil, nil, readyWallets); err != nil {
 		logging.CPrint(logging.WARN, "Unable to filter transaction",
 			logging.LogFormat{
 				"tx":  tx.TxHash().String(),
@@ -1039,12 +1224,40 @@ func (h *NtfnsHandler) OnTransactionReceived(tx *wire.MsgTx) error {
 	return nil
 }
 
-func (h *NtfnsHandler) suspend(msg string, fields logging.LogFormat) {
+func (h *NtfnsHandler) suspend(log bool, msg string, fields logging.LogFormat) {
 	h.sigSuspend <- struct{}{}
-	logging.CPrint(logging.DEBUG, "suspend: "+msg, fields)
+	if log {
+		logging.VPrint(logging.INFO, msg, fields)
+	}
 }
 
-func (h *NtfnsHandler) resume(msg string, fields logging.LogFormat) {
+func (h *NtfnsHandler) resume(log bool, msg string, fields logging.LogFormat) {
 	h.sigResume <- struct{}{}
-	logging.CPrint(logging.DEBUG, "resume: "+msg, fields)
+	if log {
+		logging.VPrint(logging.INFO, msg, fields)
+	}
+}
+
+func (h *NtfnsHandler) getReadyWallets(rtx mwdb.ReadTransaction) (map[string]struct{}, error) {
+	readyWallets := make(map[string]struct{})
+	for _, name := range h.walletMgr.ksmgr.ListKeystoreNames() {
+		ws, err := h.walletMgr.syncStore.GetWalletStatus(rtx, name)
+		if err != nil {
+			return nil, err
+		}
+		if ws.Ready() && !ws.IsRemoved() {
+			readyWallets[name] = struct{}{}
+		}
+	}
+	return readyWallets, nil
+}
+
+func Recover() {
+	err := recover()
+	if err != nil {
+		logging.CPrint(logging.FATAL, "panic", logging.LogFormat{
+			"err":   err,
+			"stack": string(debug.Stack()),
+		})
+	}
 }

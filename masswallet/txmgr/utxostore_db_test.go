@@ -240,51 +240,51 @@ func TestCredit(t *testing.T) {
 	})
 }
 
-func TestLGHistory(t *testing.T) {
+func TestGameHistory(t *testing.T) {
 	tests := []struct {
-		name string
-		lgh  lgTxHistory
+		name    string
+		gameHis gameHistory
 	}{
 		{
 			name: "false withdraw true binding",
-			lgh: lgTxHistory{
+			gameHis: gameHistory{
 				walletId:    walletID,
 				txhash:      *tx1.Hash(),
-				indexes:     []uint32{0},
-				isWithdraw:  false,
+				vout:        0,
+				withdrawn:   false,
 				isBinding:   true,
 				blockHeight: blk1.Height(),
 			},
 		},
 		{
 			name: "false withdraw false binding",
-			lgh: lgTxHistory{
+			gameHis: gameHistory{
 				walletId:    walletID,
 				txhash:      *tx1.Hash(),
-				indexes:     []uint32{0},
-				isWithdraw:  false,
+				vout:        0,
+				withdrawn:   false,
 				isBinding:   false,
 				blockHeight: blk1.Height(),
 			},
 		},
 		{
 			name: "true withdraw false binding",
-			lgh: lgTxHistory{
+			gameHis: gameHistory{
 				walletId:    walletID,
 				txhash:      *tx1.Hash(),
-				indexes:     []uint32{0},
-				isWithdraw:  true,
+				vout:        0,
+				withdrawn:   true,
 				isBinding:   false,
 				blockHeight: blk1.Height(),
 			},
 		},
 		{
 			name: "true withdraw true binding",
-			lgh: lgTxHistory{
+			gameHis: gameHistory{
 				walletId:    walletID,
 				txhash:      *tx1.Hash(),
-				indexes:     []uint32{0},
-				isWithdraw:  true,
+				vout:        0,
+				withdrawn:   true,
 				isBinding:   true,
 				blockHeight: blk1.Height(),
 			},
@@ -304,34 +304,34 @@ func TestLGHistory(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			_ = mwdb.Update(walletDb, func(tx mwdb.DBTransaction) error {
-				unminedLGbucket := tx.FetchBucket(s.bucketMeta.nsUnminedLGHistory)
-				minedLGbucket := tx.FetchBucket(s.bucketMeta.nsLGHistory)
-				minedLGKey := keyMinedLGHistory(&test.lgh)
-				unminedLGKey := keyUnminedLGHistory(&test.lgh)
-				LGvalue := valueLGHistory(&test.lgh)
-				err := putUnminedLGHistory(unminedLGbucket, &test.lgh)
+				nsUnminedGameHistory := tx.FetchBucket(s.bucketMeta.nsUnminedGameHistory)
+				nsGameHistory := tx.FetchBucket(s.bucketMeta.nsGameHistory)
+				minedGameKey := keyGameHistory(&test.gameHis)
+				unminedGameKey := keyUnminedGameHistory(&test.gameHis)
+				gameValue := valueGameHistory(&test.gameHis)
+				err := putUnminedGameHistory(nsUnminedGameHistory, &test.gameHis)
 				assert.Nil(t, err)
-				value, err := existsRawLGOutput(unminedLGbucket, unminedLGKey)
-				t.Log("generate value :", LGvalue, "  saved value : ", value)
-				err = deleteUnminedLGHistory(unminedLGbucket, &test.lgh)
+				value, err := nsUnminedGameHistory.Get(unminedGameKey)
+				t.Log("generated value :", gameValue, "  saved value : ", value)
+				err = deleteUnminedGameHistory(nsUnminedGameHistory, &test.gameHis)
 				assert.Nil(t, err)
-				err = putLGHistory(minedLGbucket, &test.lgh)
+				err = putGameHistory(nsGameHistory, &test.gameHis)
 				assert.Nil(t, err)
-				value, err = existsRawLGOutput(minedLGbucket, minedLGKey)
-				t.Log("mined LG value : ", value)
-				otType := func() outputType {
-					if test.lgh.isBinding == true {
-						return outputBinding
+				value, err = nsGameHistory.Get(minedGameKey)
+				t.Log("mined game value : ", value)
+				otType := func() gameType {
+					if test.gameHis.isBinding == true {
+						return gameBinding
 					}
-					return outputStaking
+					return gameStaking
 				}()
-				entries, err := fetchRawLGHistoryByWalletId(minedLGbucket, test.lgh.walletId, otType)
+				entries, err := getRawGameHistoryByWalletId(nsGameHistory, test.gameHis.walletId, otType, false)
 				for k, entry := range entries {
 					t.Log("i : ", k, "  entry key : ", entry.Key, "  entry value : ", entry.Value)
 				}
-				var LGResult lgTxHistory
-				readLGHistory(false, minedLGKey, LGvalue, &LGResult)
-				t.Log("walletID : ", LGResult.walletId, "  txhash : ", LGResult.txhash, "")
+				var his gameHistory
+				readGameHistory(false, minedGameKey, gameValue, &his)
+				t.Log("walletID : ", his.walletId, "  txhash : ", his.txhash, "")
 				return nil
 			})
 		})

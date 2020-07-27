@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
+	"massnet.org/mass-wallet/database"
 	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/utils"
@@ -28,8 +29,11 @@ const (
 	//    [32:40] - block.height
 	//    [40:72] - block.hash
 	// Value:
-	//    [0:8]  - received unix time
-	//    [8:8+serialSize(tx)] - serialize(MsgTx)
+	//    [0:4]   - file number
+	//    [4:12]  - block offset
+	//    [12:20] - block length
+	//    [20:24] - tx offset
+	//    [24:28] - tx length
 	bucketTxRecords = "t"
 
 	// Key:
@@ -52,35 +56,34 @@ const (
 	bucketAddresses = "a"
 
 	// Key:
-	//    [0:42]		- wallet id(bech32 string)
-	//    [42:43]		- type
+	//    [0:42]		- wallet id
+	//    [42:43]		- game type
 	//           			0: staking
 	//                		1: binding
-	//    [43:44]    	- op
-	//              		0: deposit
-	//              		1: withdraw
-	//    [44:76]		- tx hash
+	//    [43:44]    	- withdrawn
+	//              		0: false
+	//              		1: true
+	//    [44:76]		- txid
 	//    [76:84]       - block height
+	//    [84:88]       - vout
 	//
 	// Value:
-	//	  [0:4]         - num of index of output(op = 0) or input(op = 1)
-	//    [4:4+4*num]   - index * num
-	bucketLGOutput = "lg"
+	//	  [0]         	- 0
+	bucketGameHistory = "lg"
 
 	// Key:
-	//    [0:42]		- wallet id(bech32 string)
-	//    [42:43]		- type
+	//    [0:42]		- wallet id
+	//    [42:43]		- game type
 	//           			0: staking
 	//                		1: binding
-	//    [43:44]    	- op
-	//              		0: deposit
-	//              		1: withdraw
-	//    [44:76]		- tx hash
+	//    [43:44]    	- withdrawn
+	//              		only value 0 (means false)
+	//    [44:76]		- txid
+	//    [76:80]		- vout
 	//
 	// Value:
-	//	  [0:4]         - num of index of output(op = 0) or input(op = 1)
-	//    [4:4+4*num]  - index * num
-	bucketUnminedLGOutput = "LG"
+	//	  [0]         	- 0
+	bucketUnminedGameHistory = "LG"
 
 	//-----------------utxo buckets-----------------
 
@@ -169,14 +172,16 @@ const (
 	//    [0:42] - wallet_id
 	// Value:
 	//    [0:8]  - synced height, it will be max uint64 when syncing done
+	//    [8:9]  - flags (1 byte)
+	//               0x01: delete
 	bucketWalletStatus = "ws"
 )
 
-type outputType byte
+type gameType byte
 
 const (
-	outputStaking outputType = iota
-	outputBinding
+	gameStaking gameType = iota
+	gameBinding
 )
 
 // var
@@ -202,6 +207,7 @@ type TxRecord struct {
 	RelevantTxOut []*RelevantMeta
 	HasBindingIn  bool
 	HasBindingOut bool
+	TxLoc         *wire.TxLoc
 }
 
 // NewTxRecordFromMsgTx ...
@@ -222,6 +228,7 @@ type BlockMeta struct {
 	Height    uint64
 	Hash      wire.Hash
 	Timestamp time.Time
+	Loc       *database.BlockLoc
 }
 
 type blockRecord struct {
@@ -308,13 +315,13 @@ type AddressDetail struct {
 }
 
 // staking & binding tx history
-type lgTxHistory struct {
+type gameHistory struct {
 	walletId    string
 	txhash      wire.Hash
-	indexes     []uint32 // index of outputs(isWithdraw = false) or inputs(isWithdraw = true)
-	isWithdraw  bool     // false-deposit, true-withdraw
-	isBinding   bool     // false-staking, true-binding
-	blockHeight uint64   // 0 means unmined
+	vout        uint32
+	withdrawn   bool   // if staking/binding has been withdrawn
+	isBinding   bool   // false-staking, true-binding
+	blockHeight uint64 // 0 means unmined
 }
 
 type StakingUtxo struct {
@@ -384,25 +391,34 @@ func (d *Debit) Hash() []byte {
 	return k
 }
 
-const WalletSyncedDone = math.MaxUint64
+const (
+	WalletSyncedDone = math.MaxUint64
+
+	WalletFlagsRemove byte = 0x01
+)
 
 type WalletStatus struct {
 	WalletID     string
 	SyncedHeight uint64
+	Flags        byte
 }
 
 func (s *WalletStatus) Ready() bool {
 	return s.SyncedHeight == WalletSyncedDone
 }
 
+func (s *WalletStatus) IsRemoved() bool {
+	return s.Flags&WalletFlagsRemove != 0
+}
+
 type StoreBucketMeta struct {
 	// TxStore
-	nsUnmined          mwdb.BucketMeta
-	nsTxRecords        mwdb.BucketMeta
-	nsBlocks           mwdb.BucketMeta
-	nsAddresses        mwdb.BucketMeta
-	nsLGHistory        mwdb.BucketMeta
-	nsUnminedLGHistory mwdb.BucketMeta
+	nsUnmined            mwdb.BucketMeta
+	nsTxRecords          mwdb.BucketMeta
+	nsBlocks             mwdb.BucketMeta
+	nsAddresses          mwdb.BucketMeta
+	nsGameHistory        mwdb.BucketMeta
+	nsUnminedGameHistory mwdb.BucketMeta
 
 	// UtxoStore
 	nsUnspent        mwdb.BucketMeta
@@ -430,11 +446,11 @@ func (s *StoreBucketMeta) CheckInit() error {
 	if s.nsAddresses == nil {
 		return errors.New("StoreBucketMeta.nsAddresses not initialized")
 	}
-	if s.nsLGHistory == nil {
-		return errors.New("StoreBucketMeta.nsLGHistory not initialized")
+	if s.nsGameHistory == nil {
+		return errors.New("StoreBucketMeta.nsGameHistory not initialized")
 	}
-	if s.nsUnminedLGHistory == nil {
-		return errors.New("StoreBucketMeta.nsUnminedLGHistory not initialized")
+	if s.nsUnminedGameHistory == nil {
+		return errors.New("StoreBucketMeta.nsUnminedGameHistory not initialized")
 	}
 	if s.nsUnspent == nil {
 		return errors.New("StoreBucketMeta.nsUnspent not initialized")

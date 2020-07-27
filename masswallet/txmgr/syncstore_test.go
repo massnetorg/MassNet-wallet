@@ -1,6 +1,7 @@
 package txmgr
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"testing"
@@ -254,6 +255,74 @@ func TestGetWalletStatus(t *testing.T) {
 			if !assert.Nil(t, err) {
 				t.Fatal(err)
 			}
+		})
+	}
+}
+
+func TestMarkDeleteWallet(t *testing.T) {
+	tests := []struct {
+		name         string
+		walletId     string
+		syncedHeight uint64
+		expectAll    map[string]uint64
+		delete       bool
+		putErr       error
+		getErr       error
+	}{
+		{
+			name:         "mark delete",
+			walletId:     "ac10tcdcmxcatq0dp0ceucgdjc5m7azujzfenzzwfp",
+			syncedHeight: uint64(10),
+		},
+	}
+
+	chainDb, chainDbTearDown, err := GetDb("ChainTestDb")
+	if !assert.Nil(t, err) {
+		t.Fatal(err)
+	}
+	defer chainDbTearDown()
+
+	s, walletDb, teardown, err := testTxStore("TstMarkDeleteWallet", chainDb)
+	if !assert.Nil(t, err) {
+		t.Fatal(err)
+	}
+	defer teardown()
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := mwdb.Update(walletDb, func(wtx mwdb.DBTransaction) error {
+				// err := s.syncStore.PutWalletStatus(wtx, &WalletStatus{
+				// 	WalletID:     test.walletId,
+				// 	SyncedHeight: test.syncedHeight,
+				// })
+				// return err
+				nsWalletStatus := wtx.FetchBucket(s.bucketMeta.nsWalletStatus)
+				v := make([]byte, 8)
+				binary.BigEndian.PutUint64(v[0:8], test.syncedHeight)
+				return putKeyValue(nsWalletStatus, []byte(test.walletId), v)
+			})
+			assert.Nil(t, err)
+
+			mwdb.View(walletDb, func(tx mwdb.ReadTransaction) error {
+				ws, err := s.syncStore.GetWalletStatus(tx, test.walletId)
+				assert.Nil(t, err)
+				assert.False(t, ws.IsRemoved())
+				assert.True(t, ws.SyncedHeight == test.syncedHeight)
+				return nil
+			})
+
+			err = mwdb.Update(walletDb, func(wtx mwdb.DBTransaction) error {
+				return s.syncStore.MarkDeleteWallet(wtx, test.walletId)
+			})
+			assert.Nil(t, err)
+
+			mwdb.View(walletDb, func(tx mwdb.ReadTransaction) error {
+				ws, err := s.syncStore.GetWalletStatus(tx, test.walletId)
+				assert.Nil(t, err)
+				assert.True(t, ws.IsRemoved())
+				assert.True(t, ws.SyncedHeight == test.syncedHeight)
+				return nil
+			})
 		})
 	}
 }

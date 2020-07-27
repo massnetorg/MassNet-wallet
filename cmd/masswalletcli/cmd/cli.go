@@ -37,7 +37,7 @@ func init() {
 	rootCmd.AddCommand(createWalletCmd)
 	rootCmd.AddCommand(useWalletCmd)
 	rootCmd.AddCommand(importWalletCmd)
-	rootCmd.AddCommand(importWalletByMnemonicCmd)
+	rootCmd.AddCommand(importMnemonicCmd)
 	rootCmd.AddCommand(exportWalletCmd)
 	rootCmd.AddCommand(removeWalletCmd)
 	rootCmd.AddCommand(getWalletMnemonicCmd)
@@ -61,7 +61,7 @@ func init() {
 
 	rootCmd.AddCommand(createStakingTransactionCmd)
 	rootCmd.AddCommand(getStakingHistoryCmd)
-	rootCmd.AddCommand(getLatestRewardListCmd)
+	rootCmd.AddCommand(getBlockStakingReward)
 
 	rootCmd.AddCommand(createBindingTransactionCmd)
 	rootCmd.AddCommand(getBindingHistoryCmd)

@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 	pb "massnet.org/mass-wallet/api/proto"
@@ -72,25 +74,40 @@ var createStakingTransactionCmd = &cobra.Command{
 }
 
 var getStakingHistoryCmd = &cobra.Command{
-	Use:   "liststakingtransactions",
-	Short: "Returns all staking transactions of current wallet.",
-	Args:  cobra.NoArgs,
+	Use:   "liststakingtransactions [all]",
+	Short: "Returns staking transactions of current wallet.",
+	Long: "By default, returns stakings not withdrawn.\n" +
+		"\nArguments:\n" +
+		"  [all]                returns all stakings, including withdrawn.\n",
+	Args: cobra.MinimumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logging.VPrint(logging.INFO, "liststakingtransactions called", EmptyLogFormat)
-
+		logging.VPrint(logging.INFO, "liststakingtransactions called", logging.LogFormat{"args": args})
 		resp := &pb.GetStakingHistoryResponse{}
-		return ClientCall("/v1/transactions/staking/history", GET, nil, resp)
+		if len(args) == 0 || strings.ToLower(args[0]) != "all" {
+			return ClientCall("/v1/transactions/staking/history", GET, nil, resp)
+		}
+		return ClientCall("/v1/transactions/staking/history/all", GET, nil, resp)
 	},
 }
 
-var getLatestRewardListCmd = &cobra.Command{
-	Use:   "listlateststakingreward",
-	Short: "Returns staking reward list in the latest block.",
-	Args:  cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		logging.VPrint(logging.INFO, "listlateststakingreward called", EmptyLogFormat)
+var getBlockStakingReward = &cobra.Command{
+	Use:   "getblockstakingreward [height]",
+	Short: "Returns staking reward list at target height.",
+	Long: "\nBy default, returns the reward list at best height.\n" +
+		"\nArguments:\n" +
+		"  [height]                optional, default value 0.\n",
+	Args: cobra.RangeArgs(0, 1),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		logging.VPrint(logging.INFO, "getblockstakingreward called", EmptyLogFormat)
 
-		resp := &pb.GetLatestRewardListResponse{}
-		return ClientCall("/v1/transactions/staking/latestreward", GET, nil, resp)
+		height := 0
+		if len(args) > 0 {
+			height, err = strconv.Atoi(args[0])
+			if err != nil {
+				return err
+			}
+		}
+		resp := &pb.GetBlockStakingRewardResponse{}
+		return ClientCall(fmt.Sprintf("/v1/blocks/%d/stakingreward", height), GET, nil, resp)
 	},
 }

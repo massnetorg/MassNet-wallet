@@ -149,12 +149,12 @@ func TestPutGetAddress(t *testing.T) {
 		{
 			name: "add standard address of wallet 1",
 			puts: map[string]map[string]uint16{
-				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": map[string]uint16{
+				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": {
 					"ms1qq20yfsypqjuz305j2nhhu8khsj07mxfq2sa8ua685l2leayk02hrsk9kjvx": 0,
 				},
 			},
 			expectAll: map[string]map[string]uint16{
-				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": map[string]uint16{
+				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": {
 					"ms1qq20yfsypqjuz305j2nhhu8khsj07mxfq2sa8ua685l2leayk02hrsk9kjvx": 0,
 				},
 			},
@@ -162,12 +162,12 @@ func TestPutGetAddress(t *testing.T) {
 		{
 			name: "add staking address of wallet 1",
 			puts: map[string]map[string]uint16{
-				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": map[string]uint16{
+				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": {
 					"ms1qp3x3hn3gc4umtsu7mqm0ddqsl7krergc6pdzg75t3uz82zfvdgjuqtgkkhk": 1,
 				},
 			},
 			expectAll: map[string]map[string]uint16{
-				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": map[string]uint16{
+				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": {
 					"ms1qq20yfsypqjuz305j2nhhu8khsj07mxfq2sa8ua685l2leayk02hrsk9kjvx": 0,
 					"ms1qp3x3hn3gc4umtsu7mqm0ddqsl7krergc6pdzg75t3uz82zfvdgjuqtgkkhk": 1,
 				},
@@ -176,16 +176,16 @@ func TestPutGetAddress(t *testing.T) {
 		{
 			name: "add standard address of wallet 2",
 			puts: map[string]map[string]uint16{
-				"ac10tcdcmxcatq0dp0ceucgdjc5m7azujzfenzzwfp": map[string]uint16{
+				"ac10tcdcmxcatq0dp0ceucgdjc5m7azujzfenzzwfp": {
 					"ms1qqehh47s0hvzrqqjl77ayj78yytstjkrsltcna343p8yg7ndskvveql4z3vl": 0,
 				},
 			},
 			expectAll: map[string]map[string]uint16{
-				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": map[string]uint16{
+				"ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz": {
 					"ms1qq20yfsypqjuz305j2nhhu8khsj07mxfq2sa8ua685l2leayk02hrsk9kjvx": 0,
 					"ms1qp3x3hn3gc4umtsu7mqm0ddqsl7krergc6pdzg75t3uz82zfvdgjuqtgkkhk": 1,
 				},
-				"ac10tcdcmxcatq0dp0ceucgdjc5m7azujzfenzzwfp": map[string]uint16{
+				"ac10tcdcmxcatq0dp0ceucgdjc5m7azujzfenzzwfp": {
 					"ms1qqehh47s0hvzrqqjl77ayj78yytstjkrsltcna343p8yg7ndskvveql4z3vl": 0,
 				},
 			},
@@ -194,7 +194,7 @@ func TestPutGetAddress(t *testing.T) {
 
 	testDeleteWalletId := "ac10jv5xfkywm9fu2elcjyqyq4gyz6yu6jzm7fq8fz"
 	testExpectAllAfterDelete := map[string]map[string]uint16{
-		"ac10tcdcmxcatq0dp0ceucgdjc5m7azujzfenzzwfp": map[string]uint16{
+		"ac10tcdcmxcatq0dp0ceucgdjc5m7azujzfenzzwfp": {
 			"ms1qqehh47s0hvzrqqjl77ayj78yytstjkrsltcna343p8yg7ndskvveql4z3vl": 0,
 		},
 	}
@@ -349,6 +349,10 @@ func TestAddRelevantTx(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer chainDbTearDown()
+	err = initBlocks(chainDb, 10)
+	if err != nil {
+		t.Fatal("initBlocks failed:", err)
+	}
 
 	s, walletDb, teardown, err := testTxStore("TstAddRelevant", chainDb)
 	if !assert.Nil(t, err) {
@@ -374,11 +378,19 @@ func TestAddRelevantTx(t *testing.T) {
 				continue
 			}
 			blockMeta := &BlockMeta{
-				block.MsgBlock().Header.Height,
-				*block.Hash(),
-				block.MsgBlock().Header.Timestamp,
+				Height:    block.MsgBlock().Header.Height,
+				Hash:      *block.Hash(),
+				Timestamp: block.MsgBlock().Header.Timestamp,
 			}
-			for _, tx := range block.Transactions() {
+			blockMeta.Loc, err = chainDb.FetchBlockLocByHeight(blockMeta.Height)
+			if err != nil {
+				return err
+			}
+			txlocs, err := block.TxLoc()
+			if err != nil {
+				return err
+			}
+			for j, tx := range block.Transactions() {
 				numOutput += len(tx.MsgTx().TxOut)
 				for _, txout := range tx.MsgTx().TxOut {
 					totalOutput, err = totalOutput.AddInt(txout.Value)
@@ -395,6 +407,7 @@ func TestAddRelevantTx(t *testing.T) {
 				if err != nil {
 					return err
 				}
+				rec.TxLoc = &txlocs[j]
 				err = s.AddRelevantTx(ns, allMinedBalances, rec, blockMeta)
 				if err != nil {
 					return err

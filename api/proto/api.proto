@@ -10,46 +10,46 @@ import "google/protobuf/empty.proto";
 option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 	info: {
 		title: "MASS-Wallet API";
-version: "1.0";
-contact: {
-name: "MASS project";
-url: "https://massnet.org/";
-email: "contact@massnet.org";
-};
-license: {
-name: "";
-url: "";
-};
-};
-// Overwriting host entry breaks tests, so this is not done here.
-external_docs: {
-url: "https://massnet.org/";
-description: "MASS-Wallet API Documentation";
-}
-schemes: [HTTPS];
-consumes: ["application/json", "application/x-foo-mime"];
-produces: ["application/json", "application/x-foo-mime"];
-responses: [{
-key: "403";
-value: {
-description: "No permission.";
-schema: {
-json_schema: {
-type: STRING;
-}
-}
-}
-}, {
-key: "404";
-value: {
-description: "Not found.";
-schema: {
-json_schema: {
-type: STRING;
-}
-}
-}
-}];
+		version: "1.0";
+		contact: {
+			name: "MASS project";
+			url: "https://massnet.org/";
+			email: "contact@massnet.org";
+        };
+        license: {
+            name: "";
+            url: "";
+        };
+	};
+	// Overwriting host entry breaks tests, so this is not done here.
+	external_docs: {
+		url: "https://massnet.org/";
+		description: "MASS-Wallet API Documentation";
+	}
+	schemes: [HTTPS];
+	consumes: ["application/json", "application/x-foo-mime"];
+	produces: ["application/json", "application/x-foo-mime"];
+	responses: [{
+		key: "403";
+		value: {
+            description: "No permission.";
+            schema: {
+				json_schema: {
+					type: STRING;
+				}
+			}
+		}
+	}, {
+		key: "404";
+		value: {
+			description: "Not found.";
+			schema: {
+				json_schema: {
+					type: STRING;
+				}
+			}
+		}
+	}];
 };
 
 
@@ -57,8 +57,13 @@ type: STRING;
 service ApiService {
     rpc GetBestBlock (google.protobuf.Empty) returns (GetBestBlockResponse) {
         option (google.api.http) = {
-             get: "/v1/blocks/best"
-         };
+            get: "/v1/blocks/best"
+        };
+    }
+    rpc GetBlockStakingReward (GetBlockStakingRewardRequest) returns (GetBlockStakingRewardResponse){
+        option (google.api.http) = {
+              get: "/v1/blocks/{height}/stakingreward"
+        };
     }
     rpc GetClientStatus (google.protobuf.Empty) returns (GetClientStatusResponse){
         option (google.api.http) = {
@@ -96,7 +101,7 @@ service ApiService {
               body:"*"
         };
     }
-    rpc ImportWalletWithMnemonic (ImportWalletWithMnemonicRequest) returns (ImportWalletResponse){
+    rpc ImportMnemonic (ImportMnemonicRequest) returns (ImportWalletResponse){
         option (google.api.http) = {
               post: "/v1/wallets/import/mnemonic"
               body:"*"
@@ -114,6 +119,7 @@ service ApiService {
               body:"*"
         };
     }
+
     rpc GetWalletMnemonic (GetWalletMnemonicRequest) returns (GetWalletMnemonicResponse){
         option (google.api.http) = {
             post: "/v1/wallets/mnemonic"
@@ -209,17 +215,6 @@ service ApiService {
                body: "*"
         };
     }
-    rpc GetStakingHistory (google.protobuf.Empty) returns (GetStakingHistoryResponse){
-        option (google.api.http) = {
-              get: "/v1/transactions/staking/history"
-        };
-    }
-    // returns staking rewards in latest block
-    rpc GetLatestRewardList (google.protobuf.Empty) returns (GetLatestRewardListResponse){
-        option (google.api.http) = {
-              get: "/v1/transactions/staking/latestreward"
-        };
-    }
     rpc TxHistory (TxHistoryRequest) returns (TxHistoryResponse){
         option (google.api.http) = {
               post: "/v1/transactions/history"
@@ -235,9 +230,21 @@ service ApiService {
         };
     }
 
-    rpc GetBindingHistory(google.protobuf.Empty) returns (GetBindingHistoryResponse) {
+    rpc GetStakingHistory (GetStakingHistoryRequest) returns (GetStakingHistoryResponse){
         option (google.api.http) = {
-            get: "/v1/transactions/binding/history"
+            get: "/v1/transactions/staking/history/{type}"
+            additional_bindings {
+            get: "/v1/transactions/staking/history"
+            }
+        };
+    }
+
+    rpc GetBindingHistory(GetBindingHistoryRequest) returns (GetBindingHistoryResponse) {
+        option (google.api.http) = {
+            get: "/v1/transactions/binding/history/{type}"
+            additional_bindings {
+                get: "/v1/transactions/binding/history"
+            }
         };
     }
 
@@ -284,24 +291,28 @@ message WalletsResponse {
     message WalletSummary {
         string wallet_id = 1;
         uint32 type = 2; // default 1
-        string remarks = 3;
-        bool ready = 4; // false-importing, true-import completed
-        uint64 synced_height = 5; // Indicates processed blocks when ready=false
+        uint32 version = 3;
+        string remarks = 4;
+        uint32 status = 5; // 0-ready, 1-syncing, 2-removing
+        string status_msg = 6;  // "ready" - when status=0
+                                // "removing" - when status=2
+                                // {synced_height} - when status=1
     }
-    repeated WalletSummary wallets = 1;
+	repeated WalletSummary wallets = 1;
 }
 
 message UseWalletRequest {
     string wallet_id = 1;
 }
 message UseWalletResponse {
-    string chain_id = 1;
-    string wallet_id = 2; // wallet name
-    uint32 type = 3; // default 1
-    string total_balance = 4;
-    int32 external_key_count = 5;
-    int32 internal_key_count = 6;
-    string remarks = 7;
+	string chain_id = 1;
+	string wallet_id = 2; // wallet name
+	uint32 type = 3; // default 1
+	uint32 version = 4;
+	string total_balance = 5;
+	int32 external_key_count = 6;
+    int32 internal_key_count = 7;
+    string remarks = 8;
 }
 
 message CreateWalletRequest {
@@ -312,6 +323,7 @@ message CreateWalletRequest {
 message CreateWalletResponse {
     string wallet_id = 1;
     string mnemonic = 2;
+    uint32 version = 3;
 }
 
 message ImportWalletRequest {
@@ -322,10 +334,11 @@ message ImportWalletResponse {
     bool ok = 1;
     string wallet_id = 2;
     uint32 type = 3;
-    string remarks = 4;
+    uint32 version = 4;
+    string remarks = 5;
 }
 
-message ImportWalletWithMnemonicRequest {
+message ImportMnemonicRequest {
     string mnemonic = 1;
     string passphrase = 2;
     string remarks = 3;
@@ -375,7 +388,7 @@ message ValidateAddressResponse {
 }
 
 message CreateAddressRequest {
-    int32 version = 1;  // 0-standard address, 1-staking address
+   int32 version = 1;  // 0-standard address, 1-staking address
 }
 message CreateAddressResponse {
     string address = 1;
@@ -456,19 +469,19 @@ message DecodeRawTransactionResponse {
         string script_asm = 4;
         string script_hex = 5; // hex-encoded script
         repeated string addresses = 6;  // addresses[0]
-        //          recipient address
-        // addresses[1]
-        //          - not exists when type=1
-        //          - staking_address when type=2
-        //          - binding_address when type=3
+                                        //          recipient address
+                                        // addresses[1]    
+                                        //          - not exists when type=1
+                                        //          - staking_address when type=2
+                                        //          - binding_address when type=3
     }
 
     string tx_id = 1;
-    int32 version = 2;
-    int64 lock_time = 3;
+	int32 version = 2;
+	int64 lock_time = 3;
     int32 size = 4;
-    repeated Vin vin = 5;
-    repeated Vout vout = 6;
+	repeated Vin vin = 5;
+	repeated Vout vout = 6;
     string payload = 7;
 }
 
@@ -478,7 +491,7 @@ message CreateRawTransactionRequest {
     uint64 lock_time = 3;
     string change_address = 4; // optional, if not specified, the first sender will be selected.
     repeated string subtractfeefrom = 5; // optional, equally deduct fee from amount of selected address.
-    // If not specified, sender pays the fee.
+                                        // If not specified, sender pays the fee.
 }
 message AutoCreateTransactionRequest {
     map <string, string> amounts = 1;
@@ -499,15 +512,24 @@ message CreateStakingTransactionRequest {
     string fee = 5;
 }
 
-message GetLatestRewardListResponse {
+message GetBlockStakingRewardRequest {
+    uint64 height = 1;
+}
+message GetBlockStakingRewardResponse {
     message RewardDetail {
         int32 rank = 1;
         string amount = 2;
         double weight = 3;
         string address = 4;
-        string profit = 5; // Non-cumulative income
+        string profit = 5;
     }
     repeated RewardDetail details = 1;
+    uint64 height = 2;
+}
+
+message GetStakingHistoryRequest {
+    string type = 1;    // ""       - excluding withdrawn
+                        // "all"    - including withdrawn
 }
 
 message GetStakingHistoryResponse {
@@ -520,7 +542,7 @@ message GetStakingHistoryResponse {
     }
 
     message Tx {
-        string tx_id = 1;
+        string tx_id = 1; 
         uint32 status = 2;       // 0-pending staking, 1->immature staking, 2-mature staking, 3-expired, 4-withdrawing, 5-withdrawn
         uint64 block_height = 3; // 0 means not mined
         StakingUTXO utxo = 4;
@@ -559,10 +581,10 @@ message Vin {
         uint64 sequence = 3;
         repeated string witness= 4;
         repeated string addresses = 5;  // addresses[0]
-        //          holder_address of input utxo
-        // addresses[1]    -  not exists when type=1
-        //          type=2: staking_address
-        //          type=3: binding_address
+                                        //          holder_address of input utxo
+                                        // addresses[1]    -  not exists when type=1
+                                        //          type=2: staking_address
+                                        //          type=3: binding_address
     }
     string value = 1;
     uint32 n = 2;
@@ -576,10 +598,10 @@ message Vout {
         string hex = 2;
         int32 req_sigs = 3;
         repeated string addresses = 4;  // addresses[0]
-        //          holder_address of output utxo
-        // addresses[1]    -  not exists when type=1
-        //          type=2: staking_address
-        //          type=3: binding_address
+                                        //          holder_address of output utxo
+                                        // addresses[1]    -  not exists when type=1
+                                        //          type=2: staking_address
+                                        //          type=3: binding_address
     }
     string value = 1;
     uint32 n = 2;
@@ -592,14 +614,14 @@ message GetRawTransactionRequest {
 }
 message GetRawTransactionResponse {
     string hex = 1;
-    string tx_id = 2;
-    int32 version = 3;
-    int64 lock_time = 4;
+	string tx_id = 2;
+	int32 version = 3;
+	int64 lock_time = 4;
     BlockInfoForTx block = 5;
-    repeated Vin vin = 6;
-    repeated Vout vout = 7;
+	repeated Vin vin = 6;
+	repeated Vout vout = 7;
     string payload = 8;
-    uint64 confirmations = 9;
+	uint64 confirmations = 9;
     int32 size = 10;
     string fee = 11;
     int32 status = 12;
@@ -650,6 +672,11 @@ message GetAddressBindingResponse {
     map<string, string> amounts = 1;
 }
 
+message GetBindingHistoryRequest {
+    string type = 1;    // ""       - excluding withdrawn
+                        // "all"    - including withdrawn
+}
+
 message GetBindingHistoryResponse {
     message BindingUTXO {
         string tx_id = 1;
@@ -659,7 +686,7 @@ message GetBindingHistoryResponse {
         string amount = 5;
     }
     message History {
-        string tx_id = 1;
+        string tx_id = 1; 
         uint32 status = 2;    // 0-pending binding, 1-confirmed binding, 2-withdrawing, 3-withdrawn
         uint64 block_height = 3; // 0 means not mined
         BindingUTXO utxo = 4;
@@ -691,4 +718,5 @@ message GetWalletMnemonicRequest {
 
 message GetWalletMnemonicResponse {
     string mnemonic = 1;
+    uint32 version = 2;
 }

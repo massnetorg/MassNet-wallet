@@ -1,7 +1,9 @@
 package txmgr
 
 import (
+	"encoding/binary"
 	"errors"
+	"fmt"
 
 	"massnet.org/mass-wallet/config"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
@@ -114,10 +116,25 @@ func (s *SyncStore) GetWalletStatus(tx mwdb.ReadTransaction, walletId string) (*
 
 func (s *SyncStore) PutWalletStatus(tx mwdb.DBTransaction, ws *WalletStatus) error {
 	nsWalletStatus := tx.FetchBucket(s.bucketMeta.nsWalletStatus)
-	return putWalletStatus(nsWalletStatus, ws)
+	if len(ws.WalletID) != 42 {
+		return fmt.Errorf("putWalletStatus expect 42 bytes key(acutal %d)", len(ws.WalletID))
+	}
+	v := make([]byte, 9)
+	binary.BigEndian.PutUint64(v[0:8], ws.SyncedHeight)
+	v[8] = ws.Flags
+	return putKeyValue(nsWalletStatus, []byte(ws.WalletID), v)
 }
 
 func (s *SyncStore) DeleteWalletStatus(tx mwdb.DBTransaction, walletId string) error {
 	nsWalletStatus := tx.FetchBucket(s.bucketMeta.nsWalletStatus)
-	return deleteByKey(nsWalletStatus, []byte(walletId))
+	return deleteKey(nsWalletStatus, []byte(walletId))
+}
+
+func (s *SyncStore) MarkDeleteWallet(tx mwdb.DBTransaction, walletId string) error {
+	status, err := s.GetWalletStatus(tx, walletId)
+	if err != nil {
+		return err
+	}
+	status.Flags |= WalletFlagsRemove
+	return s.PutWalletStatus(tx, status)
 }

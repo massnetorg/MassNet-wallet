@@ -90,7 +90,7 @@ func (c *chainFetcher) FetchBlockHeaderByHeight(height uint64) (*wire.BlockHeade
 }
 
 func (c *chainFetcher) FetchScriptHashRelatedTx(scriptHashes [][]byte, start, stop uint64, chainParams *config.Params) (*HeightSortedRelatedTx, error) {
-	m, err := c.db.FetchScriptHashRelatedTx(scriptHashes, start, stop, chainParams)
+	m, err := c.db.FetchScriptHashRelatedTx(scriptHashes, start, stop)
 	if err != nil {
 		return nil, err
 	}
@@ -112,18 +112,22 @@ func (c *chainFetcher) CheckScriptHashUsed(scriptHash []byte) (bool, error) {
 	return c.db.CheckScriptHashUsed(scriptHash)
 }
 
-// FetchTxByLoc will not returns error if not exists
 func (c *chainFetcher) FetchTxByLoc(height uint64, loc *wire.TxLoc) (*wire.MsgTx, error) {
-	mtx, err := c.db.FetchTxByLoc(height, loc.TxStart, loc.TxLen)
-	if err != nil && err != storage.ErrNotFound && err != database.ErrTxShaMissing {
-		return nil, err
-	}
-	if mtx == nil {
-		return nil, nil
-	}
-	return mtx, nil
+	return c.db.FetchTxByLoc(height, loc.TxStart, loc.TxLen)
+}
+
+func (c *chainFetcher) FetchTxByFileLoc(blkLoc *database.BlockLoc, txLoc *wire.TxLoc) (*wire.MsgTx, error) {
+	return c.db.FetchTxByFileLoc(blkLoc, txLoc)
 }
 
 func (c *chainFetcher) NewestSha() (sha *wire.Hash, height uint64, err error) {
 	return c.db.NewestSha()
+}
+
+func (c *chainFetcher) FetchBlockShaByHeight(height uint64) (sha *wire.Hash, err error) {
+	return c.db.FetchBlockShaByHeight(height)
+}
+
+func (c *chainFetcher) FetchBlockLocByHeight(height uint64) (*database.BlockLoc, error) {
+	return c.db.FetchBlockLocByHeight(height)
 }

@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
 	cmn "github.com/massnetorg/tendermint/tmlibs/common"
+	"massnet.org/mass-wallet/logging"
 )
 
 // NetAddress defines information about a peer on the network

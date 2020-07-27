@@ -2,6 +2,7 @@ package ifc
 
 import (
 	"massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/database"
 	"massnet.org/mass-wallet/wire"
 )
 
@@ -34,6 +35,8 @@ type ChainFetcher interface {
 
 	FetchTxByLoc(height uint64, loc *wire.TxLoc) (*wire.MsgTx, error)
 
+	FetchTxByFileLoc(blkLoc *database.BlockLoc, loc *wire.TxLoc) (*wire.MsgTx, error)
+
 	FetchBlockBySha(sha *wire.Hash) (blk *wire.MsgBlock, err error)
 
 	FetchBlockByHeight(uint64) (blk *wire.MsgBlock, err error)
@@ -47,4 +50,8 @@ type ChainFetcher interface {
 	CheckScriptHashUsed(scriptHash []byte) (bool, error)
 
 	NewestSha() (sha *wire.Hash, height uint64, err error)
+
+	FetchBlockShaByHeight(height uint64) (sha *wire.Hash, err error)
+
+	FetchBlockLocByHeight(height uint64) (*database.BlockLoc, error)
 }

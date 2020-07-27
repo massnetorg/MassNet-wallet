@@ -9,10 +9,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
 	wire "github.com/massnetorg/tendermint/go-wire"
 	cmn "github.com/massnetorg/tendermint/tmlibs/common"
 	flow "github.com/massnetorg/tendermint/tmlibs/flowrate"
+	"massnet.org/mass-wallet/logging"
 )
 
 const (

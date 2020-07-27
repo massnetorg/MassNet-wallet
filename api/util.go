@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/status"
-
 	"massnet.org/mass-wallet/blockchain"
 	"massnet.org/mass-wallet/config"
+	configpb "massnet.org/mass-wallet/config/pb"
 	"massnet.org/mass-wallet/consensus"
 	"massnet.org/mass-wallet/errors"
 	"massnet.org/mass-wallet/logging"
@@ -18,8 +18,7 @@ import (
 	"massnet.org/mass-wallet/massutil/safetype"
 	"massnet.org/mass-wallet/masswallet"
 	"massnet.org/mass-wallet/masswallet/keystore"
-
-	configpb "massnet.org/mass-wallet/config/pb"
+	"massnet.org/mass-wallet/txscript"
 )
 
 const (
@@ -329,7 +328,9 @@ func convertResponseError(err error) error {
 			"err": err,
 		})
 		return status.New(ErrAPIInvalidTxId, ErrCode[ErrAPIInvalidTxId]).Err()
-	case masswallet.ErrInvalidParameter:
+	case masswallet.ErrInvalidParameter,
+		txscript.ErrFrozenPeriod,
+		blockchain.ErrInvalidStakingTxValue:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPIInvalidParameter], logging.LogFormat{
 			"err": err,
 		})
@@ -350,7 +351,8 @@ func convertResponseError(err error) error {
 			"err": err,
 		})
 		return status.New(ErrAPIInvalidAddress, ErrCode[ErrAPIInvalidAddress]).Err()
-	case keystore.ErrIllegalPassphrase:
+	case keystore.ErrIllegalPassphrase,
+		keystore.ErrSamePrivpass:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPIInvalidNewPassphrase], logging.LogFormat{
 			"err": err,
 		})
@@ -360,6 +362,21 @@ func convertResponseError(err error) error {
 			"err": err,
 		})
 		return status.New(ErrAPIInvalidKeystoreJson, ErrCode[ErrAPIInvalidKeystoreJson]).Err()
+	case keystore.ErrKeystoreVersion:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIInvalidKeystoreVersion], logging.LogFormat{
+			"err": err,
+		})
+		return status.New(ErrAPIInvalidKeystoreVersion, ErrCode[ErrAPIInvalidKeystoreVersion]).Err()
+	case keystore.ErrChangePassNotAllowed:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIChangePassUnsupported], logging.LogFormat{
+			"err": err,
+		})
+		return status.New(ErrAPIChangePassUnsupported, ErrCode[ErrAPIChangePassUnsupported]).Err()
+	case keystore.ErrBadTimingForChangingPass:
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIWalletUnlocked], logging.LogFormat{
+			"err": err,
+		})
+		return status.New(ErrAPIWalletUnlocked, ErrCode[ErrAPIWalletUnlocked]).Err()
 	case keystore.ErrCoinType:
 		logging.CPrint(logging.ERROR, ErrCode[ErrAPIMismatchedKeystoreJson], logging.LogFormat{
 			"err": err,

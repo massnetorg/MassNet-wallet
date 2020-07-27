@@ -25,6 +25,9 @@ const (
 	ErrAPIWalletUnready             = 1306
 	ErrAPIGapLimit                  = 1307
 	ErrAPIUnusedAddressLimit        = 1308
+	ErrAPIChangePassUnsupported     = 1309
+	ErrAPIWalletUnlocked            = 1310
+	ErrAPIInvalidKeystoreVersion    = 1311
 
 	// txScript
 	ErrAPIRejectTx          = 1401
@@ -80,8 +83,8 @@ var ErrCode = map[uint32]string{
 	ErrAPIUserTxFee:                 "Invalid userTxFee",
 	ErrAPIGetStakingTxDetail:        "Failed to query staking tx detail",
 	ErrAPIInvalidPassphrase:         "Invalid passphrase",
-	ErrAPIInvalidOldPassphrase:      "Invalid passphrase",
-	ErrAPIInvalidNewPassphrase:      "Invalid passphrase",
+	ErrAPIInvalidOldPassphrase:      "Invalid old passphrase",
+	ErrAPIInvalidNewPassphrase:      "Invalid new passphrase",
 	ErrAPIInvalidSeed:               "Invalid seed",
 	ErrAPIInvalidWalletId:           "Invalid walletId",
 	ErrAPIInvalidKeystoreJson:       "Invalid keystore json",
@@ -90,7 +93,7 @@ var ErrCode = map[uint32]string{
 	ErrAPIInsufficientWalletBalance: "Insufficient wallet balance",
 	ErrAPIInvalidTxHex:              "Invalid txHex",
 	ErrAPIOutputNotExist:            "Output not exist",
-	ErrAPIDuplicateSeed:             "Duplicate seed in the wallet",
+	ErrAPIDuplicateSeed:             "Duplicated wallet",
 	ErrAPIPrivPassSameAsPubPass:     "New private passphrase same as public passphrase",
 	ErrAPIWalletUnready:             "Wallet is unready, need to wait util wallet imported",
 	ErrAPITxAlreadyExists:           "Transaction already exists",
@@ -101,17 +104,20 @@ var ErrCode = map[uint32]string{
 	ErrAPIInvalidTxId:               "Invalid transaction id",
 	ErrAPIInvalidTxHistoryCount:     "Invalid count for transaction history",
 	ErrAPIMismatchedKeystoreJson:    "Keystore json does not match the client or network",
+	ErrAPIInvalidKeystoreVersion:    "Invalid keystore version",
 	ErrAPIUnknownSubfeefrom:         "Unknown subtractfeefrom",
 	ErrAPIDustChange:                "Change is dust",
 	ErrAPIDustAmount:                "Amount is dust",
 	ErrAPINotEnoughInputs:           "Not enough inputs",
 
-	ErrAPISignRawTx:          "Failed to sign raw transaction",
-	ErrAPIQueryDataFailed:    "Query for data failed",
-	ErrAPIAbnormalData:       "Abnormal data",
-	ErrAPIUnusedAddressLimit: "Too many unused address",
-	ErrAPIUnspendable:        "Unspendable output",
-	ErrAPIDoubleSpend:        "Output already spent",
-	ErrAPIOverfullInputs:     "Overfull inputs",
-	ErrAPIBigTransactionFee:  "Big transaction fee",
+	ErrAPISignRawTx:             "Failed to sign raw transaction",
+	ErrAPIQueryDataFailed:       "Query for data failed",
+	ErrAPIAbnormalData:          "Abnormal data",
+	ErrAPIUnusedAddressLimit:    "Too many unused address",
+	ErrAPIUnspendable:           "Unspendable output",
+	ErrAPIDoubleSpend:           "Output already spent",
+	ErrAPIOverfullInputs:        "Overfull inputs",
+	ErrAPIChangePassUnsupported: "Unsupported to change passphrase of current wallet",
+	ErrAPIWalletUnlocked:        "Wallet unlocked, try again later",
+	ErrAPIBigTransactionFee:     "Big transaction fee",
 }

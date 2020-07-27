@@ -290,7 +290,7 @@ func testTxStore(txStoreName string, databaseDb database.Db) (txstore *TxStore, 
 			return err
 		}
 		bm := &StoreBucketMeta{}
-		utxoStore, err := NewUtxoStore(bucket, ksmgr, bm, &config.ChainParams)
+		utxoStore, err := NewUtxoStore(chainFetcher, bucket, ksmgr, bm, &config.ChainParams)
 		if err != nil {
 			return err
 		}
