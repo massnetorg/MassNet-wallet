@@ -23,5 +23,11 @@ The build output is `./bin/mass-db-upgrade-1.1.0`
 ```
 `[db_dir]` is the actual value of option `data.db_dir`.
 
-### Step 4 Re-import
+### Step 4 Check (Optional)
+```bash
+./mass-db-upgrade-1.1.0 check [db_dir]
+```
+`[db_dir]` is the actual value of option `data.db_dir`.
+
+### Step 5 Re-import
 Delete `${data.db_dir}/wallet.db`, then re-import your wallets (keystore or mnemonic).
