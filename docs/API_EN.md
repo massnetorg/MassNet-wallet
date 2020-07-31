@@ -622,9 +622,12 @@ null
 ### Parameters
 | param | type | meaning | notes |
 | ------ | ------ | ------ | ------ |
-| inputs | []TransactionInput |  |  |
-| amounts | map<string,string> |  | key is paid address, value is in unit MASS  |
+| inputs | Array&lt;TransactionInput&gt; |  |  |
+| amounts | Map&lt;string,string&gt; |  | key is paid address, value is in unit MASS  |
+| change_address | string |  | optional, if not specified, the first sender will be used.  |
+| subtractfeefrom | Array&lt;string&gt; |  | optional, equally deduct fee from amount of selected address.If not specified, sender pays the fee.  |
 | lock_time | int |  | optional.  |
+
  - TransactionInput
     - `String` - tx_id 
     - `Integer` - vout 
@@ -645,7 +648,8 @@ null
 	],
 	"amounts":{
 		"ms1qqc7773md3ux8wkha6td2q9vcxfae39xvuzgj063q4l2mwymp2h0aqunux9z":"200.00000001"
-	}
+    },
+    "subtractfeefrom": ["ms1qqc7773md3ux8wkha6td2q9vcxfae39xvuzgj063q4l2mwymp2h0aqunux9z"]
 }
 
 // Response
@@ -660,9 +664,10 @@ null
 | param | type | meaning | notes |
 | ------ | ------ | ------ | ------ |
 | amounts | map<string,string> |  | key is paid address, value is in unit MASS |
+| change_address | string |  | optional, if not specified, the first sender will be used.  |
+| from_address | string | who will pay for this transaction | optional. |
 | lock_time | int |  | optional.|
 | fee | string |  | optional. |
-| from_address | string | who will pay for this transaction | optional. |
 ### Returns
 - `String` - hex 
 ### Example
