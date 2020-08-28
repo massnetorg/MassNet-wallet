@@ -15,6 +15,7 @@ const (
 	// block err
 	ErrAPINewestHash          = 1201
 	ErrAPIBlockHeaderNotFound = 1202
+	ErrAPIBlockNotFound       = 1203
 
 	// wallet err
 	ErrAPINoAddressInWallet         = 1301
@@ -79,6 +80,7 @@ var ErrCode = map[uint32]string{
 	ErrAPINewestHash:                "Failed to get newest hash",
 	ErrAPIRawTx:                     "Failed to create raw transaction",
 	ErrAPIBlockHeaderNotFound:       "Failed to find block header",
+	ErrAPIBlockNotFound:             "Failed to find block",
 	ErrAPIUnknownErr:                "Unknown error",
 	ErrAPIUserTxFee:                 "Invalid userTxFee",
 	ErrAPIGetStakingTxDetail:        "Failed to query staking tx detail",

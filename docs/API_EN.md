@@ -5,6 +5,7 @@
 
 # API methods
 * [GetBestBlock](#getbestblock)
+* [GetBlockByHeight](#getblockbyheight)
 * [GetClientStatus](#getclientstatus)
 * [Wallets](#wallets)
 * [CreateWallet](#createwallet)
@@ -52,6 +53,564 @@ null
 }
 ```
 
+## GetBlockByHeight
+    POST /v1/blocks/height/{height}
+### Parameters
+| param | type | meaning | notes |
+| ------ | ------ | ------ | ------ |
+| height | uint64 |  |  |
+### Returns
+- `String` - hash
+- `String` - chain_id
+- `Integer` - version
+- `Integer` - height
+- `Integer` - confirmations 
+- `Integer` - time 
+- `String` - previous_hash 
+- `String` - next_hash 
+- `String` - transaction_root
+- `String` - witness_root
+- `String` - proposal_root
+- `String` - target 
+- `String` - quality 
+- `String` - challenge 
+- `String` - public_key 
+- `Object` - proof
+    - `String` - x 
+    - `String` - x_prime
+    - `Integer` - bit_length
+- `Object` - block_signature 
+    - `String` - r
+    - `String` - s
+- `Array of String` - ban_list
+- `Object` - proposal_area
+    - `Array of FaultPubKey` - punishment_area
+        - FaultPubKey
+            - `Integer` - version
+            - `Integer` - proposal_type
+            - `String` - public_key 
+            - `Array of Header` - testimony
+            - Header
+                - `String` - hash
+                - `String` - chain_id
+                - `Integer` - version
+                - `Integer` - height
+                - `Integer` - time
+                - `String` - previous_hash
+                - `String` - transaction_root
+                - `String` - witness_root
+                - `String` - proposal_root
+                - `String` - target 
+                - `String` - challenge 
+                - `String` - public_key 
+                - `Object` - proof 
+                - `Object` - block_signature 
+                - `Array of String` - ban_list 
+    - `Array of NormalProposal` - other_area 
+        - NormalProposal
+            - `Integer` - version
+            - `Integer` - proposal_type
+            - `String` - data
+- `Array of TxRawResult` - raw_tx 
+    - TxRawResult
+        - `String` - txid
+        - `Integer` - version
+        - `Integer` - locktime
+        - `Array of Vin` - vin
+            - Vin
+                - `String` - value 
+                - `Integer` - n 
+                - `Integer` - type  
+                - `Object` - redeem_detail 
+                    - `String` - tx_id 
+                    - `Integer` - vout 
+                    - `Integer` - sequence 
+                    - `Array of String` - witness 
+                    - `Array of String` - addresses // addresses[0]
+                                                    //          holder_address of input utxo
+                                                    // addresses[1]    -  not exists when type=1
+                                                    //          type=2: staking_address
+                                                    //          type=3: binding_address
+        - `Array of Vout` - vout
+            - Vout
+                - `String` - value 
+                - `Integer` - n 
+                - `Integer` - type  
+                - `Object` - script_detail 
+                    - `String` - asm 
+                    - `String` - hex 
+                    - `Integer` - req_sigs 
+                    - `Array of String` - addresses // addresses[0]
+                                                    //          holder_address of input utxo
+                                                    // addresses[1]    -  not exists when type=1
+                                                    //          type=2: staking_address
+                                                    //          type=3: binding_address
+        - `String` - payload
+        - `Integer` - confirmations 
+        - `Integer` - size 
+        - `String` - fee 
+        - `Integer` - status 
+        - `Integer` - type 
+- `Integer` - size 
+- `String` - time_utc
+- `Integer` - tx_count
+### Example
+```json
+{
+    "hash": "a2e014a87e7388261dd46ad3cb8ba5560d054881cf3acb22b0d3ba832cebb989",
+    "chain_id": "5433524b370b149007ba1d06225b5d8e53137a041869834cff5860b02bebc5c7",
+    "version": "1",
+    "height": "10000",
+    "confirmations": "740805",
+    "time": "1567702158",
+    "previous_hash": "391f0842ad2fa8b18c47a84c9f688cd79685c61358ce3643f5b6fc979655494c",
+    "next_hash": "c31b9ad4bb038d259219ae2dc8ccbba947984e30dc12f7ae2c364ea2b89cb233",
+    "transaction_root": "2644e75e1e07dca71eff356f51fff406c637791aaac58910edb42c80b50d4390",
+    "witness_root": "2644e75e1e07dca71eff356f51fff406c637791aaac58910edb42c80b50d4390",
+    "proposal_root": "9663440551fdcd6ada50b1fa1b0003d19bc7944955820b54ab569eb9a7ab7999",
+    "target": "9ae99aa3e8b7",
+    "quality": "14438790b1cdd",
+    "challenge": "65b5c71764830dfe47a873765cb827da51aae1c38bcfceeb1ad49e1431688d76",
+    "public_key": "02c35b466747bc743d6cb9b4186fc32792959ab0835001173af1c3d0370dcdb02e",
+    "proof": {
+        "x": "0e78dbc5",
+        "x_prime": "b7585fbc",
+        "bit_length": 32
+    },
+    "block_signature": {
+        "r": "7455a07660426c8c427747a9f56a6dfdf694771b7206fa44507d2bbd736b9768",
+        "s": "7995979d051afeec267fba2e878ca0e320890952a65e8257f0c18dcc294da506"
+    },
+    "ban_list": [],
+    "proposal_area": {
+        "punishment_area": [],
+        "other_area": []
+    },
+    "raw_tx": [
+        {
+            "txid": "2644e75e1e07dca71eff356f51fff406c637791aaac58910edb42c80b50d4390",
+            "version": 1,
+            "lock_time": "0",
+            "vin": [],
+            "vout": [
+                {
+                    "value": "50.20401505",
+                    "n": 0,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 2924a0e1557fd282588aa1fb493ae37b9eb45d50b7e8bb6902f3763753e871b8",
+                        "hex": "00202924a0e1557fd282588aa1fb493ae37b9eb45d50b7e8bb6902f3763753e871b8",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq9yj2pc240lfgyky258a5jwhr0w0tgh2skl5tk6gz7dmrw5lgwxuqf4dltz"
+                        ]
+                    }
+                },
+                {
+                    "value": "49.79348849",
+                    "n": 1,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 e5125049d6929dc5f42b3a1c58c0a7a5ca1d12c2db6b734d6eee129705290f3a",
+                        "hex": "0020e5125049d6929dc5f42b3a1c58c0a7a5ca1d12c2db6b734d6eee129705290f3a",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqu5f9qjwkj2wutapt8gw93s985h9p6ykzmd4hxntwacffwpffpuaq499cf5"
+                        ]
+                    }
+                },
+                {
+                    "value": "49.19004188",
+                    "n": 2,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 8a6ac1d090a01262f1bdc25d075541214b1e067a295fb96d3bbe9382e8a09e7c",
+                        "hex": "00208a6ac1d090a01262f1bdc25d075541214b1e067a295fb96d3bbe9382e8a09e7c",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq3f4vr5ys5qfx9udacfwsw42py993upn6990mjmfmh6fc969qne7q007qgg"
+                        ]
+                    }
+                },
+                {
+                    "value": "48.7008844",
+                    "n": 3,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 2e86cb356002b17f8e4f9c627efa0d3987d4cd609f2c74a0e56355e89ba7248a",
+                        "hex": "00202e86cb356002b17f8e4f9c627efa0d3987d4cd609f2c74a0e56355e89ba7248a",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq96rvkdtqq2chlrj0n338a7sd8xrafntqnuk8fg89vd273xa8yj9qf9efyg"
+                        ]
+                    }
+                },
+                {
+                    "value": "45.71473799",
+                    "n": 4,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 2e90cfed85f9bc5cd0f2ca15ea421bf9328b4a99bafefc2dec1ad54873caf9c0",
+                        "hex": "00202e90cfed85f9bc5cd0f2ca15ea421bf9328b4a99bafefc2dec1ad54873caf9c0",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq96gvlmv9lx79e58jeg275ssmlyegkj5ehtl0ct0vrt25su72l8qqw9q548"
+                        ]
+                    }
+                },
+                {
+                    "value": "41.10751455",
+                    "n": 5,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 db6b1546b7e8bf1819894d767c119acbe78466b7dd80e02fc572439804ab594c",
+                        "hex": "0020db6b1546b7e8bf1819894d767c119acbe78466b7dd80e02fc572439804ab594c",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqmd43234hazl3sxvff4m8cyv6e0ncge4hmkqwqt79wfpesp9tt9xqanrnr2"
+                        ]
+                    }
+                },
+                {
+                    "value": "37.14671044",
+                    "n": 6,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 ec74c6742eeb505fccb98d08a178b2253d981a4b199f929155e88a6ad16f43fc",
+                        "hex": "0020ec74c6742eeb505fccb98d08a178b2253d981a4b199f929155e88a6ad16f43fc",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqa36vvapwadg9ln9e35y2z79jy57esxjtrx0e9y24az9x45t0g07qcfv2qr"
+                        ]
+                    }
+                },
+                {
+                    "value": "36.57252184",
+                    "n": 7,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 0776d270ba9842944c32cade52a2d8991870c056cecb7c7a206a837048193fc4",
+                        "hex": "00200776d270ba9842944c32cade52a2d8991870c056cecb7c7a206a837048193fc4",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqqamdyu96nppfgnpjet099gkcnyv8pszkem9hc73qd2phqjqe8lzq8y9tn2"
+                        ]
+                    }
+                },
+                {
+                    "value": "36.38965923",
+                    "n": 8,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 66367d146b1165ebd6bae3c52d408e44dff27e05d38ebf1f1b2655f595427f36",
+                        "hex": "002066367d146b1165ebd6bae3c52d408e44dff27e05d38ebf1f1b2655f595427f36",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqvcm869rtz9j7h446u0zj6sywgn0lyls96w8t78cmye2lt92z0umqx5a4mq"
+                        ]
+                    }
+                },
+                {
+                    "value": "35.57774925",
+                    "n": 9,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 5c69278b61b94c2ba3bfc6f84cd2d18279fd63f94438f4d9c6f8be9c2c09b101",
+                        "hex": "00205c69278b61b94c2ba3bfc6f84cd2d18279fd63f94438f4d9c6f8be9c2c09b101",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqt35j0zmph9xzhgalcmuye5k3sful6clegsu0fkwxlzlfctqfkyqslxkr4y"
+                        ]
+                    }
+                },
+                {
+                    "value": "34.54000394",
+                    "n": 10,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 ac03c642537f7ced93edaf9dad2a0348257315ad2cbfd59f03a360c0d70f1dd2",
+                        "hex": "0020ac03c642537f7ced93edaf9dad2a0348257315ad2cbfd59f03a360c0d70f1dd2",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq4spuvsjn0a7wmyld47w662srfqjhx9dd9jlat8cr5dsvp4c0rhfqr90q0h"
+                        ]
+                    }
+                },
+                {
+                    "value": "29.30830469",
+                    "n": 11,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 716b35f9e36fb8b9a9fbf3cfe0f1fb952f61277f00888e3039537a2d6807219b",
+                        "hex": "0020716b35f9e36fb8b9a9fbf3cfe0f1fb952f61277f00888e3039537a2d6807219b",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqw94nt70rd7utn20m7087pu0mj5hkzfmlqzyguvpe2daz66q8yxdsljzngn"
+                        ]
+                    }
+                },
+                {
+                    "value": "28.87421812",
+                    "n": 12,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 f9a8490dd2c9832f5d3c8535da81617ae00d60727cb5a2d688c29a17481c17ff",
+                        "hex": "0020f9a8490dd2c9832f5d3c8535da81617ae00d60727cb5a2d688c29a17481c17ff",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqlx5yjrwjexpj7hfus56a4qtp0tsq6crj0j66945gc2dpwjquzllsvatggv"
+                        ]
+                    }
+                },
+                {
+                    "value": "28.80086095",
+                    "n": 13,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 ecd9869679694103ec60e0084d9362a666b03f8d47c3e89c237b61854b2b7da7",
+                        "hex": "0020ecd9869679694103ec60e0084d9362a666b03f8d47c3e89c237b61854b2b7da7",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqanvcd9ned9qs8mrquqyymymz5entq0udglp738pr0dsc2jet0knsszzp3c"
+                        ]
+                    }
+                },
+                {
+                    "value": "28.06621042",
+                    "n": 14,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 1d4d5cca10a52431dad17a705c27b26a1818756e111493c10a26a7062efe7b13",
+                        "hex": "00201d4d5cca10a52431dad17a705c27b26a1818756e111493c10a26a7062efe7b13",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqr4x4ejss55jrrkk30fc9cfajdgvpsatwzy2f8sg2y6nsvth70vfsmywrzc"
+                        ]
+                    }
+                },
+                {
+                    "value": "27.42939138",
+                    "n": 15,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 598804cada1384f3b41448c5867ce91a8745dabc3736efcdaeea4d108808f954",
+                        "hex": "0020598804cada1384f3b41448c5867ce91a8745dabc3736efcdaeea4d108808f954",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqtxyqfjk6zwz08dq5frzcvl8fr2r5tk4uxumwlndwafx3pzqgl92q9z78n3"
+                        ]
+                    }
+                },
+                {
+                    "value": "27.42847707",
+                    "n": 16,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 a41b202370bbfee42959880602021b96226648d1d92d1b3e2d784e0ea40bc526",
+                        "hex": "0020a41b202370bbfee42959880602021b96226648d1d92d1b3e2d784e0ea40bc526",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq5sdjqgmsh0lwg22e3qrqyqsmjc3xvjx3myk3k03d0p8qafqtc5nq3hxzsq"
+                        ]
+                    }
+                },
+                {
+                    "value": "26.38707451",
+                    "n": 17,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 cef84c79e45e6374766f2cd0e64a24146641db983cfd8454436263a113280781",
+                        "hex": "0020cef84c79e45e6374766f2cd0e64a24146641db983cfd8454436263a113280781",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqemuyc70yte3hgan09ngwvj3yz3nyrkuc8n7cg4zrvf36zyegq7qs9npxv9"
+                        ]
+                    }
+                },
+                {
+                    "value": "23.30201771",
+                    "n": 18,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 884c5bc44925ce47b1c6782b140ef7b03ec2a62d5d0c5f8704ac1be38b9bb3d6",
+                        "hex": "0020884c5bc44925ce47b1c6782b140ef7b03ec2a62d5d0c5f8704ac1be38b9bb3d6",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq3px9h3zfyh8y0vwx0q43grhhkqlv9f3dt5x9lpcy4sd78zumk0tq6c0cz7"
+                        ]
+                    }
+                },
+                {
+                    "value": "20.2611771",
+                    "n": 19,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 a2f9f2583b6ce426925a798fc523dceb1650555e7edc68e19b1edf68e5ca1fb7",
+                        "hex": "0020a2f9f2583b6ce426925a798fc523dceb1650555e7edc68e19b1edf68e5ca1fb7",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq5tulykpmdnjzdyj60x8u2g7uavt9q4270mwx3cvmrm0k3ew2r7mscl3252"
+                        ]
+                    }
+                },
+                {
+                    "value": "19.18960221",
+                    "n": 20,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 0ff26d43dbb689d88f2d1ff69c4e10fab553c2cdd544417566849ff9fd22edf0",
+                        "hex": "00200ff26d43dbb689d88f2d1ff69c4e10fab553c2cdd544417566849ff9fd22edf0",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqplex6s7mk6ya3redrlmfcnssl2648skd64zyzatxsj0lnlfzahcqcs225x"
+                        ]
+                    }
+                },
+                {
+                    "value": "17.4999517",
+                    "n": 21,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 8da3b8464cb706d554538307050185e1bf72e6744cbbaef0e5369dce63941d23",
+                        "hex": "00208da3b8464cb706d554538307050185e1bf72e6744cbbaef0e5369dce63941d23",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq3k3ms3jvkurd24znsvrs2qv9uxlh9en5fja6au89x6wuucu5r53s24q7yt"
+                        ]
+                    }
+                },
+                {
+                    "value": "15.43360422",
+                    "n": 22,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 58798602c98693eac3d038f135c39f1a704b13ab78ea1ecd494a986de7a3b296",
+                        "hex": "002058798602c98693eac3d038f135c39f1a704b13ab78ea1ecd494a986de7a3b296",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqtpucvqkfs6f74s7s8rcntsulrfcykyat0r4pan2ff2vxmeark2tq0te9r9"
+                        ]
+                    }
+                },
+                {
+                    "value": "14.26328352",
+                    "n": 23,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 d893b43ea69e22a63c41312339be312c743cf8f8afd493034923f83b3e741683",
+                        "hex": "0020d893b43ea69e22a63c41312339be312c743cf8f8afd493034923f83b3e741683",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqmzfmg04xnc32v0zpxy3nn033936re78c4l2fxq6fy0urk0n5z6psd2nc0w"
+                        ]
+                    }
+                },
+                {
+                    "value": "12.80038264",
+                    "n": 24,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 101911496c4d8d76da791b232b0e2a5cef51cb1f57cc38ea91237213653921c3",
+                        "hex": "0020101911496c4d8d76da791b232b0e2a5cef51cb1f57cc38ea91237213653921c3",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqzqv3zjtvfkxhdknerv3jkr32tnh4rjcl2lxr3653ydepxefey8psmy9cz5"
+                        ]
+                    }
+                },
+                {
+                    "value": "10.97175655",
+                    "n": 25,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 4fb1654024bd62151e51e953f3b76f5401be17906a970b8236ca063190c90e70",
+                        "hex": "00204fb1654024bd62151e51e953f3b76f5401be17906a970b8236ca063190c90e70",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqf7ck2spyh43p28j3a9fl8dm02sqmu9usd2tshq3kegrrryxfpecq9386vl"
+                        ]
+                    }
+                },
+                {
+                    "value": "9.59114385",
+                    "n": 26,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 5f4200521ea94fd86f9b9abdb2d771711703ea95c29e14b5702a137ead6ddd96",
+                        "hex": "00205f4200521ea94fd86f9b9abdb2d771711703ea95c29e14b5702a137ead6ddd96",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqtapqq5s7498asmumn27m94m3wyts8654c20pfdts9gfhattdmktqp2j7jt"
+                        ]
+                    }
+                },
+                {
+                    "value": "9.18701748",
+                    "n": 27,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 db98a0a191a92a6b1d1fc3196dcaf1b56a8d57262c0fcd7ff3dfdab41c789a7f",
+                        "hex": "0020db98a0a191a92a6b1d1fc3196dcaf1b56a8d57262c0fcd7ff3dfdab41c789a7f",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqmwv2pgv34y4xk8glcvvkmjh3k44g64ex9s8u6llnmldtg8rcnfls20k8mt"
+                        ]
+                    }
+                },
+                {
+                    "value": "9.14313046",
+                    "n": 28,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 82adcc674fc9cadfbfe7b9f37e97654437b5951f6df14417500dfe0474ee7aa6",
+                        "hex": "002082adcc674fc9cadfbfe7b9f37e97654437b5951f6df14417500dfe0474ee7aa6",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqs2kuce60e89dl0l8h8eha9m9gsmmt9gldhc5g96sphlqga8w02nq86lq99"
+                        ]
+                    }
+                },
+                {
+                    "value": "9.1250682",
+                    "n": 29,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 330fbdb6b46f700795bb0b23ccaa99bdb0f978d010aa092dbc88587560475784",
+                        "hex": "0020330fbdb6b46f700795bb0b23ccaa99bdb0f978d010aa092dbc88587560475784",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qqxv8mmd45dacq09dmpv3ue25ehkc0j7xszz4qjtdu3pv82cz827zq0lwdmu"
+                        ]
+                    }
+                },
+                {
+                    "value": "192.00000016",
+                    "n": 30,
+                    "type": 1,
+                    "script_detail": {
+                        "asm": "0 f36de9ba772fa487f30e0f3d5b9b09c3ed778f6dfc475a7d66fc481ecec055f0",
+                        "hex": "0020f36de9ba772fa487f30e0f3d5b9b09c3ed778f6dfc475a7d66fc481ecec055f0",
+                        "req_sigs": 1,
+                        "addresses": [
+                            "ms1qq7dk7nwnh97jg0ucwpu74hxcfc0kh0rmdl3r45ltxl3ypankq2hcqsntrlq"
+                        ]
+                    }
+                }
+            ],
+            "payload": "10270000000000001e000000",
+            "confirmations": "1",
+            "size": 1370,
+            "fee": "0",
+            "status": 1,
+            "type": 4
+        }
+    ],
+    "size": 2707,
+    "time_utc": "2019-09-05T16:49:18Z",
+    "tx_count": 1
+}
+```
+
 ## GetClientStatus
     GET /v1/client/status
 ### Parameters
@@ -63,7 +622,7 @@ null
 - `Integer` - local_best_height 
 - `Integer` - known_best_height 
 - `Integer` - wallet_sync_height
-- `Object`, peer_count
+- `Object` peer_count
     - `Integer` - total    
     - `Integer` - outbound 
     - `Integer` - inbound           

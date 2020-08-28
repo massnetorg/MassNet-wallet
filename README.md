@@ -1,12 +1,12 @@
 # MassNet Wallet
 
-[![Build Status](https://travis-ci.org/mass-community/MassNet-wallet.svg)](https://travis-ci.org/mass-community/MassNet-wallet) [![MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)](./LICENSE)
+[![Build Status](https://travis-ci.org/massnetorg/MassNet-wallet.svg)](https://travis-ci.org/massnetorg/MassNet-wallet) [![MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)](./LICENSE)
 
 A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
 
 ## Requirements
 
-  [Go](http://golang.org) 1.11 or newer.
+  [Go](http://golang.org) 1.13 or newer.
 
 ## Development
 
@@ -14,21 +14,21 @@ A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
 
 #### Linux/Darwin
 
-- Clone source code to `$GOPATH/src/github.com/mass-community/MassNet-wallet`.
+- Clone source code to `$GOPATH/src/github.com/massnetorg/MassNet-wallet`.
 - Build the program.
   ```bash
-  cd $GOPATH/src/github.com/mass-community/MassNet-wallet
+  cd $GOPATH/src/github.com/massnetorg/MassNet-wallet
   make build
   ```
 - Run `./bin/masswallet` to start.
 
 #### Windows
 
-- Clone source code to `$GOPATH/src/github.com/mass-community/MassNet-wallet`.
+- Clone source code to `$GOPATH/src/github.com/massnetorg/MassNet-wallet`.
 - Set environment variable `GO111MODULE="on"`.
 - Build the program.
   ```bat
-  cd %GOPATH%/src/github.com/mass-community/MassNet-wallet
+  cd %GOPATH%/src/github.com/massnetorg/MassNet-wallet
   go build -o bin\masswallet.exe
   ```
 - Run `bin\masswallet.exe` to start.
@@ -37,7 +37,7 @@ A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
 
 #### Prerequisites
 
-- Install [Golang](http://golang.org) 1.11 or newer.
+- Install [Golang](http://golang.org) 1.13 or newer.
 - Install the specific version or [ProtoBuf](https://developers.google.com/protocol-buffers), and related `protoc-*`:
   ```
   # libprotoc
@@ -77,7 +77,11 @@ The following keys maybe trusted to commit code.
 
 ### API
 
-A documentation for API is provided [here](docs/API_en.md).
+A documentation for API is provided [here](docs/API_EN.md).
+
+### Command Line Tool
+
+A documentation for CLI is provided [here](docs/CLI_en.md).
 
 ### Transaction Scripts
 

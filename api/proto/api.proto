@@ -60,6 +60,11 @@ service ApiService {
             get: "/v1/blocks/best"
         };
     }
+    rpc GetBlockByHeight (GetBlockByHeightRequest) returns (GetBlockResponse) {
+        option (google.api.http) = {
+            get: "/v1/blocks/height/{height}"
+        };
+    }
     rpc GetBlockStakingReward (GetBlockStakingRewardRequest) returns (GetBlockStakingRewardResponse){
         option (google.api.http) = {
               get: "/v1/blocks/{height}/stakingreward"
@@ -719,4 +724,102 @@ message GetWalletMnemonicRequest {
 message GetWalletMnemonicResponse {
     string mnemonic = 1;
     uint32 version = 2;
+}
+
+message MakeUpUTXORequest {
+    string passphrase = 1; // Optional, if not provided, returns latest making task info(ongoing or finished).
+    string threshold = 2; // Optional, only UTXOs that less than this number(in MASS) will be made up, default 100.
+    repeated string addresses = 3; // Optional, only UTXOs of specified addresses will be made up, default all of current wallet.
+}
+
+message MakeUpUTXOResponse {
+    string status = 1; // "none", "ongoing", "interrupted", "finished"
+    string status_msg = 2;
+    string wallet_id = 3;
+    uint32 success_num = 4; // number of transactions that have been sent
+    uint32 fail_num = 5; // number of failed transactions
+}
+
+message GetBlockByHeightRequest {
+    uint64 height = 1;
+}
+
+message GetBlockResponse {
+    message Proof {
+        string x = 1;
+        string x_prime = 2;
+        uint32 bit_length = 3;
+    }
+    message PoCSignature {
+        string r = 1;
+        string s = 2;
+    }
+    message ProposalArea {
+        message FaultPubKey {
+            message Header {
+                string hash = 1;
+                string chain_id = 2;
+                uint64 version = 3;
+                uint64 height = 4;
+                int64 time = 5;
+                string previous_hash = 6;
+                string transaction_root = 7;
+                string witness_root = 8;
+                string proposal_root = 9;
+                string target = 10;
+                string challenge = 11;
+                string public_key = 12;
+                Proof proof = 13;
+                PoCSignature block_signature = 14;
+                repeated string ban_list = 15;
+            }
+          uint32 version = 1;
+          uint32 proposal_type = 2;
+          string public_key = 3;
+          repeated Header testimony = 4;
+        }
+        message NormalProposal {
+            uint32 version = 1;
+            uint32 proposal_type = 2;
+            string data = 3;
+        }
+        repeated FaultPubKey punishment_area = 1;
+        repeated NormalProposal other_area = 2;
+    }
+    message TxRawResult {
+        string txid = 1;
+        uint32 version = 2;
+        uint64 lock_time = 3;
+        repeated Vin vin = 4;
+        repeated Vout vout = 5;
+        string payload = 6;
+        uint64 confirmations = 7;
+        uint32 size = 8;
+        string fee = 9;
+        int32 status = 10;
+        int32 type = 11;
+    }
+    string hash = 1;
+    string chain_id = 2;
+    uint64 version = 3;
+    uint64 height = 4;
+    uint64 confirmations = 5;
+    int64 time = 6;
+    string previous_hash = 7;
+    string next_hash = 8;
+    string transaction_root = 9;
+    string witness_root = 10;
+    string proposal_root = 11;
+    string target = 12;
+    string quality = 13;
+    string challenge = 14;
+    string public_key = 15;
+    Proof proof = 16;
+    PoCSignature block_signature = 17;
+    repeated string ban_list = 18;
+    ProposalArea proposal_area = 19;
+    repeated TxRawResult raw_tx = 20;
+    uint32 size = 21;
+    string time_utc = 22;
+    uint32 tx_count = 23;
 }

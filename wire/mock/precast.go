@@ -37,7 +37,7 @@ func initTemplateData(n int) {
 	scriptToWalletKey = make(map[string]*btcec.PrivateKey)
 
 	gopath := os.Getenv("GOPATH")
-	root := filepath.Join(gopath, "src/github.com/mass-community/MassNet-wallet")
+	root := filepath.Join(gopath, "src/github.com/massnetorg/MassNet-wallet")
 	file1, err := os.Open(filepath.Join(root, "wire/mock/template_data/block.dat"))
 	if err != nil {
 		panic(err)

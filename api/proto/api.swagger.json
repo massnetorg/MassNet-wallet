@@ -278,6 +278,43 @@
         ]
       }
     },
+    "/v1/blocks/height/{height}": {
+      "get": {
+        "operationId": "GetBlockByHeight",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetBlockResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "height",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
     "/v1/blocks/{height}/stakingreward": {
       "get": {
         "operationId": "GetBlockStakingReward",
@@ -1276,6 +1313,62 @@
     }
   },
   "definitions": {
+    "FaultPubKeyHeader": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string"
+        },
+        "chain_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "time": {
+          "type": "string",
+          "format": "int64"
+        },
+        "previous_hash": {
+          "type": "string"
+        },
+        "transaction_root": {
+          "type": "string"
+        },
+        "witness_root": {
+          "type": "string"
+        },
+        "proposal_root": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "challenge": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        },
+        "proof": {
+          "$ref": "#/definitions/GetBlockResponseProof"
+        },
+        "block_signature": {
+          "$ref": "#/definitions/GetBlockResponsePoCSignature"
+        },
+        "ban_list": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "GetAddressesResponseAddressDetail": {
       "type": "object",
       "properties": {
@@ -1338,6 +1431,99 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "GetBlockResponsePoCSignature": {
+      "type": "object",
+      "properties": {
+        "r": {
+          "type": "string"
+        },
+        "s": {
+          "type": "string"
+        }
+      }
+    },
+    "GetBlockResponseProof": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "string"
+        },
+        "x_prime": {
+          "type": "string"
+        },
+        "bit_length": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "GetBlockResponseProposalArea": {
+      "type": "object",
+      "properties": {
+        "punishment_area": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProposalAreaFaultPubKey"
+          }
+        },
+        "other_area": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ProposalAreaNormalProposal"
+          }
+        }
+      }
+    },
+    "GetBlockResponseTxRawResult": {
+      "type": "object",
+      "properties": {
+        "txid": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "lock_time": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "vin": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufVin"
+          }
+        },
+        "vout": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rpcprotobufVout"
+          }
+        },
+        "payload": {
+          "type": "string"
+        },
+        "confirmations": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "fee": {
+          "type": "string"
+        },
+        "status": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "type": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
@@ -1468,6 +1654,44 @@
           "type": "string"
         },
         "withdrawable_binding": {
+          "type": "string"
+        }
+      }
+    },
+    "ProposalAreaFaultPubKey": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "proposal_type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "public_key": {
+          "type": "string"
+        },
+        "testimony": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FaultPubKeyHeader"
+          }
+        }
+      }
+    },
+    "ProposalAreaNormalProposal": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "proposal_type": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "data": {
           "type": "string"
         }
       }
@@ -1961,6 +2185,92 @@
           "items": {
             "$ref": "#/definitions/GetBindingHistoryResponseHistory"
           }
+        }
+      }
+    },
+    "rpcprotobufGetBlockResponse": {
+      "type": "object",
+      "properties": {
+        "hash": {
+          "type": "string"
+        },
+        "chain_id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "confirmations": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "time": {
+          "type": "string",
+          "format": "int64"
+        },
+        "previous_hash": {
+          "type": "string"
+        },
+        "next_hash": {
+          "type": "string"
+        },
+        "transaction_root": {
+          "type": "string"
+        },
+        "witness_root": {
+          "type": "string"
+        },
+        "proposal_root": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "quality": {
+          "type": "string"
+        },
+        "challenge": {
+          "type": "string"
+        },
+        "public_key": {
+          "type": "string"
+        },
+        "proof": {
+          "$ref": "#/definitions/GetBlockResponseProof"
+        },
+        "block_signature": {
+          "$ref": "#/definitions/GetBlockResponsePoCSignature"
+        },
+        "ban_list": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "proposal_area": {
+          "$ref": "#/definitions/GetBlockResponseProposalArea"
+        },
+        "raw_tx": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GetBlockResponseTxRawResult"
+          }
+        },
+        "size": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "time_utc": {
+          "type": "string"
+        },
+        "tx_count": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
