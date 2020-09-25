@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/hex"
-	"strconv"
 	"strings"
 
 	pb "massnet.org/mass-wallet/api/proto"
@@ -143,8 +142,14 @@ func (s *APIServer) buildDecodeRawTxResponse(mtx *wire.MsgTx) (*pb.DecodeRawTran
 			encodedAddrs = append(encodedAddrs, addr.EncodeAddress())
 		}
 
+		val, err := AmountToString(txOut.Value)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "Failed to convert amount to string", logging.LogFormat{"err": err})
+			return nil, err
+		}
+
 		vout := &pb.DecodeRawTransactionResponse_Vout{
-			Value:     strconv.Itoa(int(txOut.Value)),
+			Value:     val,
 			N:         uint32(n),
 			Type:      uint32(scriptClass),
 			ScriptAsm: disbuf,
