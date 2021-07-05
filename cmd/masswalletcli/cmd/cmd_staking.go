@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/massnetorg/mass-core/logging"
 	"github.com/spf13/cobra"
 	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/logging"
 )
 
 var (

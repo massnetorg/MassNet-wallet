@@ -1,12 +1,10 @@
 # MassNet Wallet
 
-[![Build Status](https://travis-ci.org/massnetorg/MassNet-wallet.svg)](https://travis-ci.org/massnetorg/MassNet-wallet) [![MIT](https://img.shields.io/badge/license-MIT-brightgreen.svg)](./LICENSE)
-
-A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
+  A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
 
 ## Requirements
 
-  [Go](http://golang.org) 1.13 or newer.
+  [Go](http://golang.org) 1.11 or newer.
 
 ## Development
 
@@ -14,21 +12,21 @@ A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
 
 #### Linux/Darwin
 
-- Clone source code to `$GOPATH/src/github.com/massnetorg/MassNet-wallet`.
+- Clone source code to `$GOPATH/src/massnet.org`.
 - Build the program.
   ```bash
-  cd $GOPATH/src/github.com/massnetorg/MassNet-wallet
+  cd $GOPATH/src/massnet.org/mass-wallet
   make build
   ```
 - Run `./bin/masswallet` to start.
 
 #### Windows
 
-- Clone source code to `$GOPATH/src/github.com/massnetorg/MassNet-wallet`.
-- Set environment variable `GO111MODULE="on"`.
+- Clone source code to `$GOPATH\src\massnet.org`.
+- Set environment variable `GO111MODULE="off"` if your Golang version is newer than 1.11.
 - Build the program.
   ```bat
-  cd %GOPATH%/src/github.com/massnetorg/MassNet-wallet
+  cd %GOPATH%\src\massnet.org\mass-wallet
   go build -o bin\masswallet.exe
   ```
 - Run `bin\masswallet.exe` to start.
@@ -37,7 +35,7 @@ A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
 
 #### Prerequisites
 
-- Install [Golang](http://golang.org) 1.13 or newer.
+- Install [Golang](http://golang.org) 1.11 or newer.
 - Install the specific version or [ProtoBuf](https://developers.google.com/protocol-buffers), and related `protoc-*`:
   ```
   # libprotoc
@@ -63,29 +61,17 @@ A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
 
 #### Reporting Bugs
 
-Contact MASS community via community@massnet.org, and we will get back to you soon.
-
-#### Verifying Commits
-
-The following keys maybe trusted to commit code.
-
-| Name | Fingerprint |
-|------|-------------|
-| massnetorg | A8A9 5C74 1AB8 08D3 E6E6  5B6C F8A8 D5CF 14D0 C419 |
+Contact MASS community via community@massnet.org, and we will get back to you as soon as possible.
 
 ## Documentation
 
 ### API
 
-A documentation for API is provided [here](docs/API_EN.md).
-
-### Command Line Tool
-
-A documentation for CLI is provided [here](docs/CLI_en.md).
+A document for API is provided [here](docs/API_en.md).
 
 ### Transaction Scripts
 
-A documentation for Transaction Scripts is provided [here](docs/script_en.md).
+A document for Transaction Scripts is provided [here](docs/script_en.md).
 
 ## License
 

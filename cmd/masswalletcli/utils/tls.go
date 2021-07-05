@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
 )
 
 func GenerateTLSCertPair(certPath, keyPath string) error {

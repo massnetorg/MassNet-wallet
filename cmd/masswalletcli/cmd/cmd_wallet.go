@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/massnetorg/mass-core/logging"
 	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -162,21 +162,20 @@ var listWalletsCmd = &cobra.Command{
 }
 
 var createWalletCmd = &cobra.Command{
-	Use:   "createwallet <passphrase> [entropy=?] [remarks=?]",
+	Use:   "createwallet [entropy=?] [remarks=?]",
 	Short: "Creates a new wallet of latest version(1).",
 	Long: "Creates a new wallet of latest version(1), both walletId and mnemonic are included in response.\n" +
 		"\nArguments:\n" +
-		"  <passphrase>  used to protect mnemonic\n" +
 		"  [entropy]     optional, initial entropy length, it must be a multiple of 32 bits, the allowed size is 128-256.\n" +
 		"  [remarks]     optional.\n",
-	Example: `  createwallet 123456 entropy=160 remarks='create a wallet for test'`,
-	Args:    cobra.MinimumNArgs(1),
+	Example: `  createwallet entropy=160 remarks='create a wallet for test'`,
+	Args:    cobra.MinimumNArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var (
 			entropy = 128
 			remarks = ""
 		)
-		for i := 1; i < len(args); i++ {
+		for i := 0; i < len(args); i++ {
 			key, value, err := parseCommandVar(args[i])
 			if err != nil {
 				return err
@@ -202,7 +201,7 @@ var createWalletCmd = &cobra.Command{
 		})
 
 		req := &pb.CreateWalletRequest{
-			Passphrase: args[0],
+			Passphrase: readPassword(),
 			BitSize:    int32(entropy),
 			Remarks:    remarks,
 		}
@@ -227,15 +226,15 @@ var useWalletCmd = &cobra.Command{
 }
 
 var removeWalletCmd = &cobra.Command{
-	Use:   "removewallet <wallet_id> <passphrase>",
+	Use:   "removewallet <wallet_id>",
 	Short: "Removes specified wallet from server.",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "removewallet called", logging.LogFormat{"walletid": args[0]})
 
 		req := &pb.RemoveWalletRequest{
 			WalletId:   args[0],
-			Passphrase: args[1],
+			Passphrase: readPassword(),
 		}
 		resp := &pb.RemoveWalletResponse{}
 		return ClientCall("/v1/wallets/remove", POST, req, resp)
@@ -243,15 +242,15 @@ var removeWalletCmd = &cobra.Command{
 }
 
 var exportWalletCmd = &cobra.Command{
-	Use:   "exportwallet <wallet_id> <passphrase>",
+	Use:   "exportwallet <wallet_id>",
 	Short: "Exports wallet keystore.",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "exportwallet called", logging.LogFormat{"walletid": args[0]})
 
 		req := &pb.ExportWalletRequest{
 			WalletId:   args[0],
-			Passphrase: args[1],
+			Passphrase: readPassword(),
 		}
 		resp := &pb.ExportWalletResponse{}
 		return ClientCall("/v1/wallets/export", POST, req, resp)
@@ -259,20 +258,19 @@ var exportWalletCmd = &cobra.Command{
 }
 
 var importWalletCmd = &cobra.Command{
-	Use:   "importwallet <keystore> <passphrase>",
+	Use:   "importwallet <keystore>",
 	Short: "Imports a wallet keystore.",
 	Long: "Imports a wallet keystore, both version 0 and 1 are compatible\n" +
 		"\nArguments:\n" +
-		"  <keystore>     raw json of keystore.\n" +
-		"  <passphrase>   wallet passphrase.\n",
+		"  <keystore>     raw json of keystore.\n",
 	Example: `  importwallet '{"crypto":"", "hdPath":"","remarks":"",...}' 123456`,
-	Args:    cobra.ExactArgs(2),
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "importwallet called", EmptyLogFormat)
 
 		req := &pb.ImportWalletRequest{
 			Keystore:   args[0],
-			Passphrase: args[1],
+			Passphrase: readPassword(),
 		}
 		resp := &pb.ImportWalletResponse{}
 		return ClientCall("/v1/wallets/import", POST, req, resp)
@@ -280,20 +278,19 @@ var importWalletCmd = &cobra.Command{
 }
 
 var importMnemonicCmd = &cobra.Command{
-	Use:   "importmnemonic <mnemonic> <passphrase> [initial=?] [remarks=?]",
+	Use:   "importmnemonic <mnemonic> [initial=?] [remarks=?]",
 	Short: "Imports a wallet backup mnemonic.",
 	Long: "Imports a wallet backup mnemonic.\n" +
 		"\nArguments:\n" +
 		"  <mnemonic>	mnemonic phrase\n" +
-		"  <passphrase>	wallet passphrase\n" +
 		"  [initial]	number of initial addresses, default 0\n",
 	Example: `  importmnemonic 'tomorrow entry oval ...' 123456 initial=10 remarks='backup mnemonic'`,
-	Args:    cobra.MinimumNArgs(2),
+	Args:    cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		initial := 0
 		remarks := ""
-		for i := 2; i < len(args); i++ {
+		for i := 1; i < len(args); i++ {
 			key, value, err := parseCommandVar(args[i])
 			if err != nil {
 				return err
@@ -318,7 +315,7 @@ var importMnemonicCmd = &cobra.Command{
 
 		req := &pb.ImportMnemonicRequest{
 			Mnemonic:      args[0],
-			Passphrase:    args[1],
+			Passphrase:    readPassword(),
 			ExternalIndex: uint32(initial),
 			Remarks:       remarks,
 		}
@@ -328,9 +325,9 @@ var importMnemonicCmd = &cobra.Command{
 }
 
 var getWalletMnemonicCmd = &cobra.Command{
-	Use:   "getwalletmnemonic <wallet_id> <passphrase>",
+	Use:   "getwalletmnemonic <wallet_id>",
 	Short: "Returns mnemonic of the specified wallet.",
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "getwalletmnemonic called", logging.LogFormat{
 			"walletid": args[0],
@@ -338,7 +335,7 @@ var getWalletMnemonicCmd = &cobra.Command{
 
 		req := &pb.GetWalletMnemonicRequest{
 			WalletId:   args[0],
-			Passphrase: args[1],
+			Passphrase: readPassword(),
 		}
 		resp := &pb.GetWalletMnemonicResponse{}
 		return ClientCall("/v1/wallets/mnemonic", POST, req, resp)

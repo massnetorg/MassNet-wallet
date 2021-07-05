@@ -2,18 +2,21 @@ package api
 
 import (
 	"encoding/hex"
+	"sort"
 	"strings"
 
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/consensus"
+	"github.com/massnetorg/mass-core/consensus/forks"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/poc"
+	"github.com/massnetorg/mass-core/txscript"
+	"github.com/massnetorg/mass-core/wire"
 	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/blockchain"
 	"massnet.org/mass-wallet/config"
-	cfg "massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/consensus"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
 	"massnet.org/mass-wallet/masswallet"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
+	"massnet.org/mass-wallet/masswallet/utils"
 
 	"golang.org/x/crypto/ripemd160"
 	"golang.org/x/net/context"
@@ -35,7 +38,7 @@ func (s *APIServer) createTxRawResult(mtx *wire.MsgTx, blkHeader *wire.BlockHead
 
 	isCoinbase := blockchain.IsCoinBaseTx(mtx)
 
-	vouts, totalOutValue, err := createVoutList(mtx, &cfg.ChainParams)
+	vouts, totalOutValue, err := createVoutList(mtx, config.ChainParams)
 	if err != nil {
 		return nil, err
 	}
@@ -98,15 +101,15 @@ func (s *APIServer) createTxRawResult(mtx *wire.MsgTx, blkHeader *wire.BlockHead
 }
 
 func (s *APIServer) buildDecodeRawTxResponse(mtx *wire.MsgTx) (*pb.DecodeRawTransactionResponse, error) {
-
 	resp := &pb.DecodeRawTransactionResponse{
-		TxId:     mtx.TxHash().String(),
-		Version:  int32(mtx.Version),
-		LockTime: int64(mtx.LockTime),
-		Size:     int32(mtx.PlainSize()),
-		Vin:      make([]*pb.DecodeRawTransactionResponse_Vin, 0, len(mtx.TxIn)),
-		Vout:     make([]*pb.DecodeRawTransactionResponse_Vout, 0, len(mtx.TxOut)),
-		Payload:  hex.EncodeToString(mtx.Payload),
+		TxId:          mtx.TxHash().String(),
+		Version:       int32(mtx.Version),
+		LockTime:      int64(mtx.LockTime),
+		Size:          int32(mtx.PlainSize()),
+		Vin:           make([]*pb.DecodeRawTransactionResponse_Vin, 0, len(mtx.TxIn)),
+		Vout:          make([]*pb.DecodeRawTransactionResponse_Vout, 0, len(mtx.TxOut)),
+		PayloadHex:    hex.EncodeToString(mtx.Payload),
+		PayloadDecode: blockchain.DecodePayload(mtx.Payload).String(),
 	}
 
 	for _, txIn := range mtx.TxIn {
@@ -119,44 +122,35 @@ func (s *APIServer) buildDecodeRawTxResponse(mtx *wire.MsgTx) (*pb.DecodeRawTran
 	}
 
 	for n, txOut := range mtx.TxOut {
+		val, err := AmountToString(txOut.Value)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "Failed to transfer amount to string", logging.LogFormat{"err": err})
+			return nil, err
+		}
+
 		disbuf, err := txscript.DisasmString(txOut.PkScript)
 		if err != nil {
 			logging.CPrint(logging.WARN, "DisasmString error", logging.LogFormat{"err": err})
 			return nil, err
 		}
 
-		scriptClass, addrs, _, _, err := txscript.ExtractPkScriptAddrs(txOut.PkScript, &cfg.ChainParams)
+		scriptClass, recipient, staking, binding, _, err := extractAddressInfos(txOut.PkScript)
 		if err != nil {
 			return nil, err
 		}
 
-		encodedAddrs := make([]string, 0, len(addrs))
-		for _, addr := range addrs {
-			if scriptClass == txscript.StakingScriptHashTy {
-				std, err := massutil.NewAddressWitnessScriptHash(addr.ScriptAddress(), &cfg.ChainParams)
-				if err != nil {
-					return nil, err
-				}
-				encodedAddrs = append(encodedAddrs, std.EncodeAddress())
-			}
-			encodedAddrs = append(encodedAddrs, addr.EncodeAddress())
+		decodedOut := &pb.DecodeRawTransactionResponse_Vout{
+			Value:            val,
+			N:                uint32(n),
+			Type:             uint32(scriptClass),
+			ScriptAsm:        disbuf,
+			ScriptHex:        hex.EncodeToString(txOut.PkScript),
+			RecipientAddress: recipient,
+			StakingAddress:   staking,
+			BindingTarget:    binding,
 		}
 
-		val, err := AmountToString(txOut.Value)
-		if err != nil {
-			logging.CPrint(logging.ERROR, "Failed to convert amount to string", logging.LogFormat{"err": err})
-			return nil, err
-		}
-
-		vout := &pb.DecodeRawTransactionResponse_Vout{
-			Value:     val,
-			N:         uint32(n),
-			Type:      uint32(scriptClass),
-			ScriptAsm: disbuf,
-			ScriptHex: hex.EncodeToString(txOut.PkScript),
-			Addresses: encodedAddrs,
-		}
-		resp.Vout = append(resp.Vout, vout)
+		resp.Vout = append(resp.Vout, decodedOut)
 	}
 	return resp, nil
 }
@@ -178,7 +172,7 @@ func witnessToHex(witness wire.TxWitness) []string {
 
 // createVoutList returns a slice of JSON objects for the outputs of the passed
 // transaction.
-func createVoutList(mtx *wire.MsgTx, chainParams *cfg.Params) (vouts []*pb.Vout, totalValue int64, err error) {
+func createVoutList(mtx *wire.MsgTx, chainParams *config.Params) (vouts []*pb.Vout, totalValue int64, err error) {
 	vouts = make([]*pb.Vout, 0, len(mtx.TxOut))
 	for i, txout := range mtx.TxOut {
 		// The disassembled string will contain [error] inline if the
@@ -192,21 +186,9 @@ func createVoutList(mtx *wire.MsgTx, chainParams *cfg.Params) (vouts []*pb.Vout,
 		// Ignore the error here since an error means the script
 		// couldn't parse and there is no additional information about
 		// it anyways.
-		scriptClass, addrs, _, reqSigs, err := txscript.ExtractPkScriptAddrs(txout.PkScript, chainParams)
+		scriptClass, recipient, staking, binding, reqSigs, err := extractAddressInfos(txout.PkScript)
 		if err != nil {
 			return nil, 0, err
-		}
-
-		encodedAddrs := make([]string, 0, len(addrs))
-		for _, addr := range addrs {
-			if scriptClass == txscript.StakingScriptHashTy {
-				std, err := massutil.NewAddressWitnessScriptHash(addr.ScriptAddress(), chainParams)
-				if err != nil {
-					return nil, 0, err
-				}
-				encodedAddrs = append(encodedAddrs, std.EncodeAddress())
-			}
-			encodedAddrs = append(encodedAddrs, addr.EncodeAddress())
 		}
 
 		val, err := AmountToString(txout.Value)
@@ -219,10 +201,12 @@ func createVoutList(mtx *wire.MsgTx, chainParams *cfg.Params) (vouts []*pb.Vout,
 			Value: val,
 			Type:  uint32(scriptClass),
 			ScriptDetail: &pb.Vout_ScriptDetail{
-				Asm:       disbuf,
-				Hex:       hex.EncodeToString(txout.PkScript),
-				ReqSigs:   int32(reqSigs),
-				Addresses: encodedAddrs,
+				Asm:              disbuf,
+				Hex:              hex.EncodeToString(txout.PkScript),
+				ReqSigs:          int32(reqSigs),
+				RecipientAddress: recipient,
+				StakingAddress:   staking,
+				BindingTarget:    binding,
 			},
 		}
 		vouts = append(vouts, vout)
@@ -263,21 +247,10 @@ func (s *APIServer) createVinList(mtx *wire.MsgTx, isCoinbase bool) (vins []*pb.
 		prevVout := prevTx.TxOut[txIn.PreviousOutPoint.Index]
 
 		// parse type and addrs
-		scriptClass, addrs, _, _, err := txscript.ExtractPkScriptAddrs(prevVout.PkScript, &cfg.ChainParams)
+		scriptClass, recipient, staking, binding, _, err := extractAddressInfos(prevVout.PkScript)
 		if err != nil {
-			logging.CPrint(logging.ERROR, "Failed to encode address", logging.LogFormat{"err": err})
+			logging.CPrint(logging.ERROR, "Failed to decode address", logging.LogFormat{"err": err})
 			return nil, 0, err
-		}
-		encodedAddrs := make([]string, 0, len(addrs))
-		for _, addr := range addrs {
-			if scriptClass == txscript.StakingScriptHashTy {
-				std, err := massutil.NewAddressWitnessScriptHash(addr.ScriptAddress(), &cfg.ChainParams)
-				if err != nil {
-					return nil, 0, err
-				}
-				encodedAddrs = append(encodedAddrs, std.EncodeAddress())
-			}
-			encodedAddrs = append(encodedAddrs, addr.EncodeAddress())
 		}
 
 		// prev vout value
@@ -292,11 +265,13 @@ func (s *APIServer) createVinList(mtx *wire.MsgTx, isCoinbase bool) (vins []*pb.
 			N:     uint32(i),
 			Type:  uint32(scriptClass),
 			RedeemDetail: &pb.Vin_RedeemDetail{
-				TxId:      txIn.PreviousOutPoint.Hash.String(),
-				Vout:      txIn.PreviousOutPoint.Index,
-				Sequence:  txIn.Sequence,
-				Witness:   witnessToHex(txIn.Witness),
-				Addresses: encodedAddrs,
+				TxId:           txIn.PreviousOutPoint.Hash.String(),
+				Vout:           txIn.PreviousOutPoint.Index,
+				Sequence:       txIn.Sequence,
+				Witness:        witnessToHex(txIn.Witness),
+				FromAddress:    recipient,
+				StakingAddress: staking,
+				BindingTarget:  binding,
 			},
 		}
 		vins = append(vins, vin)
@@ -549,7 +524,7 @@ func (s *APIServer) CreateRawTransaction(ctx context.Context, in *pb.CreateRawTr
 		return nil, cvtErr
 	}
 
-	err = checkTxFeeLimit(s.config.Config, fee)
+	err = checkTxFeeLimit(s.config, fee)
 	if err != nil {
 		return nil, err
 	}
@@ -576,13 +551,13 @@ func (s *APIServer) CreateStakingTransaction(ctx context.Context, in *pb.CreateS
 	}
 
 	if len(in.FromAddress) > 0 {
-		_, err = checkWitnessAddress(in.FromAddress, false, &cfg.ChainParams)
+		_, err = checkWitnessAddress(in.FromAddress, false, config.ChainParams)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	_, err = checkWitnessAddress(in.StakingAddress, true, &cfg.ChainParams)
+	_, err = checkWitnessAddress(in.StakingAddress, true, config.ChainParams)
 	if err != nil {
 		return nil, err
 	}
@@ -605,7 +580,7 @@ func (s *APIServer) CreateStakingTransaction(ctx context.Context, in *pb.CreateS
 		return nil, cvtErr
 	}
 
-	err = checkTxFeeLimit(s.config.Config, fee)
+	err = checkTxFeeLimit(s.config, fee)
 	if err != nil {
 		return nil, err
 	}
@@ -642,36 +617,35 @@ func (s *APIServer) CreateBindingTransaction(ctx context.Context, in *pb.CreateB
 	}
 
 	if len(in.FromAddress) > 0 {
-		_, err = checkWitnessAddress(in.FromAddress, false, &cfg.ChainParams)
+		_, err = checkWitnessAddress(in.FromAddress, false, config.ChainParams)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	//load output
-	outPut := make([]*masswallet.BindingOutput, 0)
-	for _, num := range in.Outputs {
-		_, err = checkWitnessAddress(num.HolderAddress, false, &cfg.ChainParams)
+	bindings := make([]*masswallet.BindingOutput, 0)
+	for _, output := range in.Outputs {
+		holder, err := checkWitnessAddress(output.HolderAddress, false, config.ChainParams)
 		if err != nil {
 			return nil, err
 		}
-		_, err = checkPoCPubKeyAddress(num.BindingAddress, &cfg.ChainParams)
+		target, err := parseBindingTarget(output.BindingAddress, config.ChainParams)
 		if err != nil {
 			return nil, err
 		}
-		val, err := checkParseAmount(num.Amount)
+
+		val, err := checkParseAmount(output.Amount)
 		if err != nil {
 			return nil, err
 		}
-		tempBindingOutput := &masswallet.BindingOutput{
-			HolderAddress:  num.HolderAddress,
-			BindingAddress: num.BindingAddress,
-			Amount:         val,
-		}
-		outPut = append(outPut, tempBindingOutput)
+		bindings = append(bindings, &masswallet.BindingOutput{
+			Holder:        holder,
+			BindingTarget: target,
+			Amount:        val,
+		})
 	}
 	//construct binding transaction
-	mtxHex, fee, err := s.massWallet.CreateBindingTransaction(in.FromAddress, txFee, outPut)
+	mtxHex, fee, err := s.massWallet.CreateBindingTransaction(in.FromAddress, txFee, bindings)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "CreateBindingTransaction failed", logging.LogFormat{"err": err})
 		cvtErr := convertResponseError(err)
@@ -681,12 +655,57 @@ func (s *APIServer) CreateBindingTransaction(ctx context.Context, in *pb.CreateB
 		return nil, cvtErr
 	}
 
-	err = checkTxFeeLimit(s.config.Config, fee)
+	err = checkTxFeeLimit(s.config, fee)
 	if err != nil {
 		return nil, err
 	}
 
 	logging.CPrint(logging.INFO, "api: CreateBindingTransaction completed", logging.LogFormat{})
+	return &pb.CreateRawTransactionResponse{Hex: mtxHex}, nil
+}
+
+func (s *APIServer) CreatePoolPkCoinbaseTransaction(ctx context.Context, in *pb.CreatePoolPkCoinbaseTransactionRequest) (*pb.CreateRawTransactionResponse, error) {
+	from, err := checkWitnessAddress(strings.TrimSpace(in.FromAddress), false, config.ChainParams)
+	if err != nil {
+		return nil, err
+	}
+
+	raw, err := hex.DecodeString(in.Payload)
+	if err != nil {
+		return nil, status.New(ErrAPIInvalidParameter, "invalid hex-encoded payload").Err()
+	}
+	payload := blockchain.DecodePayload(raw)
+	if payload == nil || payload.Method != blockchain.BindPoolCoinbase {
+		return nil, status.New(ErrAPIInvalidParameter, "unexpected payload").Err()
+	}
+
+	value, _ := massutil.NewAmountFromInt(1000000) // 0.01 MASS
+	outputs := map[string]massutil.Amount{
+		from.EncodeAddress(): value,
+	}
+
+	requiredCost, _ := massutil.NewAmountFromInt(int64(consensus.MASSIP0002SetPoolPkCoinbaseFee))
+
+	mtxHex, fee, err := s.massWallet.AutoCreateRawTransaction(outputs, 0, requiredCost, from.EncodeAddress(), from.EncodeAddress(), raw)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "CreateSetPoolPkCoinbaseTransaction failed", logging.LogFormat{"err": err})
+		cvtErr := convertResponseError(err)
+		if cvtErr == apiUnknownError {
+			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+		}
+		return nil, cvtErr
+	}
+
+	max, err := checkParseAmount(s.config.Wallet.Settings.MaxTxFee)
+	if err != nil {
+		max, _ = checkParseAmount(config.DefaultMaxTxFee)
+	}
+	max, _ = max.AddInt(int64(consensus.MASSIP0002SetPoolPkCoinbaseFee))
+	if max.Cmp(fee) < 0 {
+		logging.CPrint(logging.ERROR, "big transaction fee", logging.LogFormat{"fee": fee, "limit": max})
+		st := status.New(ErrAPIBigTransactionFee, ErrCode[ErrAPIBigTransactionFee])
+		return nil, st.Err()
+	}
 	return &pb.CreateRawTransactionResponse{Hex: mtxHex}, nil
 }
 
@@ -722,20 +741,20 @@ func (s *APIServer) AutoCreateTransaction(ctx context.Context, in *pb.AutoCreate
 
 	fromAddr := strings.TrimSpace(in.FromAddress)
 	if len(fromAddr) > 0 {
-		_, err = checkWitnessAddress(fromAddr, false, &cfg.ChainParams)
+		_, err = checkWitnessAddress(fromAddr, false, config.ChainParams)
 		if err != nil {
 			return nil, err
 		}
 	}
 	changeAddr := strings.TrimSpace(in.ChangeAddress)
 	if len(changeAddr) > 0 {
-		_, err = checkWitnessAddress(changeAddr, false, &cfg.ChainParams)
+		_, err = checkWitnessAddress(changeAddr, false, config.ChainParams)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	mtxHex, fee, err := s.massWallet.AutoCreateRawTransaction(amounts, in.LockTime, txFee, fromAddr, changeAddr)
+	mtxHex, fee, err := s.massWallet.AutoCreateRawTransaction(amounts, in.LockTime, txFee, fromAddr, changeAddr, nil)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "AutoCreateRawTransaction failed", logging.LogFormat{"err": err})
 		cvtErr := convertResponseError(err)
@@ -745,7 +764,7 @@ func (s *APIServer) AutoCreateTransaction(ctx context.Context, in *pb.AutoCreate
 		return nil, cvtErr
 	}
 
-	err = checkTxFeeLimit(s.config.Config, fee)
+	err = checkTxFeeLimit(s.config, fee)
 	if err != nil {
 		return nil, err
 	}
@@ -757,12 +776,7 @@ func (s *APIServer) AutoCreateTransaction(ctx context.Context, in *pb.AutoCreate
 func (s *APIServer) GetTransactionFee(ctx context.Context, in *pb.GetTransactionFeeRequest) (*pb.GetTransactionFeeResponse, error) {
 	logging.CPrint(logging.INFO, "api: GetTransactionFee", logging.LogFormat{"params": in})
 
-	err := checkLocktime(in.LockTime)
-	if err != nil {
-		return nil, err
-	}
-
-	err = checkNotEmpty(in.Amounts)
+	err := checkNotEmpty(in.Amounts)
 	if err != nil {
 		return nil, err
 	}
@@ -775,21 +789,24 @@ func (s *APIServer) GetTransactionFee(ctx context.Context, in *pb.GetTransaction
 
 	if len(in.Inputs) == 0 {
 		if in.HasBinding {
-			gAddr := getEstimateBindingAddress()
-			gOutputs := make([]*masswallet.BindingOutput, 0)
+			target := mockBindingTarget()
+			bindings := make([]*masswallet.BindingOutput, 0)
 			for address, value := range in.Amounts {
+				holder, err := checkWitnessAddress(address, false, config.ChainParams)
+				if err != nil {
+					return nil, err
+				}
 				val, err := checkParseAmount(value)
 				if err != nil {
 					return nil, err
 				}
-				tempBindingOutput := &masswallet.BindingOutput{
-					HolderAddress:  address,
-					BindingAddress: gAddr,
-					Amount:         val,
-				}
-				gOutputs = append(gOutputs, tempBindingOutput)
+				bindings = append(bindings, &masswallet.BindingOutput{
+					Holder:        holder,
+					BindingTarget: target,
+					Amount:        val,
+				})
 			}
-			_, txFee, err = s.massWallet.EstimateBindingTxFee(gOutputs, 0, txFee, "", "")
+			_, txFee, err = s.massWallet.EstimateBindingTxFee(bindings, 0, txFee, "", "")
 			if err != nil {
 				logging.CPrint(logging.ERROR, "EstimateBindingTxFee failed", logging.LogFormat{"err": err})
 				cvtErr := convertResponseError(err)
@@ -815,7 +832,7 @@ func (s *APIServer) GetTransactionFee(ctx context.Context, in *pb.GetTransaction
 				outputs = append(outputs, output)
 			}
 
-			_, txFee, err = s.massWallet.EstimateStakingTxFee(outputs, uint64(in.LockTime), massutil.ZeroAmount(), "", "")
+			_, txFee, err = s.massWallet.EstimateStakingTxFee(outputs, 0, massutil.ZeroAmount(), "", "")
 			if err != nil {
 				logging.CPrint(logging.ERROR, "EstimateStakingTxFee failed", logging.LogFormat{"err": err})
 				cvtErr := convertResponseError(err)
@@ -861,14 +878,431 @@ func (s *APIServer) GetTransactionFee(ctx context.Context, in *pb.GetTransaction
 	return &pb.GetTransactionFeeResponse{Fee: fee}, nil
 }
 
-func getEstimateBindingAddress() string {
-	var h [ripemd160.Size]byte
-	esAddr, _ := massutil.NewAddressPubKeyHash(h[:], &config.ChainParams)
-	return esAddr.EncodeAddress()
+// Returns new binding
+func mockBindingTarget() massutil.Address {
+	var h [ripemd160.Size + 2]byte
+	h[21] = 32
+	target, _ := massutil.NewAddressBindingTarget(h[:], config.ChainParams)
+	return target
 }
 
 func getEstimateStakingAddress() string {
 	var h wire.Hash
-	esAddr, _ := massutil.NewAddressStakingScriptHash(h[:], &config.ChainParams)
+	esAddr, _ := massutil.NewAddressStakingScriptHash(h[:], config.ChainParams)
 	return esAddr.EncodeAddress()
+}
+
+func (s *APIServer) TxHistory(ctx context.Context, in *pb.TxHistoryRequest) (*pb.TxHistoryResponse, error) {
+	logging.CPrint(logging.INFO, "api: TxHistory", logging.LogFormat{
+		"count":   in.Count,
+		"address": in.Address,
+	})
+
+	if len(in.Address) > 0 {
+		err := checkAddressLen(in.Address)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if in.Count > 1000 {
+		return nil, status.New(ErrAPIInvalidTxHistoryCount, ErrCode[ErrAPIInvalidTxHistoryCount]).Err()
+	}
+
+	histories, err := s.massWallet.GetTxHistory(int(in.Count), in.Address)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "GetTxHistory failed", logging.LogFormat{"err": err})
+		cvtErr := convertResponseError(err)
+		if cvtErr == apiUnknownError {
+			return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
+		}
+		return nil, cvtErr
+	}
+	sort.Slice(histories, func(i, j int) bool {
+		return histories[i].BlockHeight > histories[j].BlockHeight
+	})
+	reps := &pb.TxHistoryResponse{
+		Histories: histories,
+	}
+
+	logging.CPrint(logging.INFO, "api: TxHistory completed", logging.LogFormat{"num": len(histories)})
+	return reps, nil
+}
+
+func (s *APIServer) GetStakingHistory(ctx context.Context, in *pb.GetStakingHistoryRequest) (*pb.GetStakingHistoryResponse, error) {
+	logging.CPrint(logging.INFO, "api: GetStakingHistory", logging.LogFormat{})
+	newestHeight := s.node.Blockchain().BestBlockHeight()
+	rewards, err := s.node.Blockchain().GetUnexpiredStakingRank(newestHeight)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "Failed to FetchAllLockTx from chainDB", logging.LogFormat{
+			"err": err,
+		})
+		st := status.New(ErrAPIGetStakingTxDetail, ErrCode[ErrAPIGetStakingTxDetail])
+		return nil, st.Err()
+	}
+	excludeWithdrawn := true
+	if in.Type == "all" {
+		excludeWithdrawn = false
+	}
+	stakingTxs, err := s.massWallet.GetStakingHistory(excludeWithdrawn)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "Failed to GetStakingHistory from walletDB", logging.LogFormat{
+			"err": err,
+		})
+		st := status.New(ErrAPIGetStakingTxDetail, ErrCode[ErrAPIGetStakingTxDetail])
+		return nil, st.Err()
+	}
+
+	weights := make(map[string]float64)
+	txs := make([]*pb.GetStakingHistoryResponse_Tx, 0)
+
+	for _, lTx := range stakingTxs {
+		amt, err := AmountToString(lTx.Utxo.Amount.IntValue())
+		if err != nil {
+			logging.CPrint(logging.ERROR, "Failed to transfer amount to string", logging.LogFormat{
+				"err": err,
+			})
+			st := status.New(ErrAPIGetStakingTxDetail, ErrCode[ErrAPIGetStakingTxDetail])
+			return nil, st.Err()
+		}
+		tx := &pb.GetStakingHistoryResponse_Tx{
+			TxId:        lTx.TxHash.String(),
+			BlockHeight: lTx.BlockHeight,
+			Utxo: &pb.GetStakingHistoryResponse_StakingUTXO{
+				TxId:         lTx.Utxo.Hash.String(),
+				Vout:         lTx.Utxo.Index,
+				Address:      lTx.Utxo.Address,
+				Amount:       amt,
+				FrozenPeriod: lTx.Utxo.FrozenPeriod,
+			},
+		}
+		if tx.BlockHeight == 0 {
+			tx.Status = stakingStatusPending
+		} else {
+			confs := newestHeight - lTx.BlockHeight
+			switch {
+			case confs < consensus.StakingTxRewardStart:
+				tx.Status = stakingStatusImmature
+			case confs > uint64(lTx.Utxo.FrozenPeriod):
+				switch {
+				case lTx.Utxo.Spent:
+					tx.Status = stakingStatusWithdrawn
+				case lTx.Utxo.SpentByUnmined:
+					tx.Status = stakingStatusWithdrawing
+				default:
+					tx.Status = stakingStatusExpired
+				}
+			default:
+				tx.Status = stakingStatusMature
+			}
+		}
+		txs = append(txs, tx)
+		_, ok := weights[tx.Utxo.Address]
+		if ok {
+			continue
+		}
+
+		for _, reward := range rewards {
+			scriptHash := make([]byte, 0)
+			scriptHash = append(scriptHash, reward.ScriptHash[:]...)
+
+			scriptHashStruct, err := massutil.NewAddressStakingScriptHash(scriptHash, config.ChainParams)
+			if err != nil {
+				logging.CPrint(logging.ERROR, "create addressLocktimeScriptHash failed",
+					logging.LogFormat{
+						"err": err,
+					})
+				st := status.New(ErrAPIGetStakingTxDetail, ErrCode[ErrAPIGetStakingTxDetail])
+				return nil, st.Err()
+			}
+			witAddress := scriptHashStruct.EncodeAddress()
+			if strings.Compare(witAddress, tx.Utxo.Address) == 0 {
+				weights[witAddress] = reward.Weight.Float64()
+				break
+			}
+		}
+	}
+	reply := &pb.GetStakingHistoryResponse{
+		Txs:     txs,
+		Weights: weights,
+	}
+
+	logging.CPrint(logging.INFO, "api: GetStakingHistory completed", logging.LogFormat{
+		"num": len(stakingTxs),
+	})
+	return reply, nil
+}
+
+func (s *APIServer) GetBindingHistory(ctx context.Context, in *pb.GetBindingHistoryRequest) (*pb.GetBindingHistoryResponse, error) {
+	logging.CPrint(logging.INFO, "api: GetBindingHistory", logging.LogFormat{})
+
+	excludeWithdrawn := true
+	if in.Type == "all" {
+		excludeWithdrawn = false
+	}
+	details, err := s.massWallet.GetBindingHistory(excludeWithdrawn)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "GetBindingHistory failed", logging.LogFormat{"err": err})
+		cvtErr := convertResponseError(err)
+		if cvtErr == apiUnknownError {
+			return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
+		}
+		return nil, cvtErr
+	}
+	histories := make([]*pb.GetBindingHistoryResponse_History, 0)
+	for _, detail := range details {
+		amt, err := checkFormatAmount(detail.Utxo.Amount)
+		if err != nil {
+			return nil, err
+		}
+		froms := make([]string, 0)
+
+		if detail.IsDeposit() {
+			if detail.MsgTx == nil {
+				logging.CPrint(logging.ERROR, "transaction not found", logging.LogFormat{
+					"tx": detail.TxHash.String(),
+				})
+			} else {
+				if blockchain.IsCoinBaseTx(detail.MsgTx) {
+					froms = append(froms, "COINBASE")
+				} else {
+					fromSet := make(map[string]struct{}, 0)
+					for _, txIn := range detail.MsgTx.TxIn {
+						list, err := s.node.Blockchain().GetTransactionInDB(&txIn.PreviousOutPoint.Hash)
+						if err != nil || len(list) == 0 {
+							logging.CPrint(logging.ERROR, "transaction not found", logging.LogFormat{
+								"tx":  txIn.PreviousOutPoint.Hash.String(),
+								"err": err,
+							})
+							return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
+						} else {
+							prevMtx := list[len(list)-1].Tx
+							ps, err := utils.ParsePkScript(prevMtx.TxOut[txIn.PreviousOutPoint.Index].PkScript, config.ChainParams)
+							if err != nil {
+								logging.CPrint(logging.ERROR, "ParsePkScript failed", logging.LogFormat{
+									"err": err,
+								})
+								return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+							}
+							fromSet[ps.StdEncodeAddress()] = struct{}{}
+						}
+					}
+					for from := range fromSet {
+						froms = append(froms, from)
+					}
+				}
+			}
+		}
+
+		history := &pb.GetBindingHistoryResponse_History{
+			TxId:        detail.TxHash.String(),
+			BlockHeight: detail.BlockHeight,
+			Utxo: &pb.GetBindingHistoryResponse_BindingUTXO{
+				TxId:          detail.Utxo.Hash.String(),
+				Vout:          detail.Utxo.Index,
+				HolderAddress: detail.Utxo.Holder.EncodeAddress(),
+				BindingTarget: detail.Utxo.BindingTarget.EncodeAddress(),
+				Amount:        amt,
+			},
+			FromAddresses: froms,
+		}
+		{
+			history.Utxo.TargetType = "MASS"
+			if target, ok := detail.Utxo.BindingTarget.(*massutil.AddressBindingTarget); ok {
+				if target.ScriptAddress()[20] == 1 {
+					history.Utxo.TargetType = "Chia"
+				}
+				history.Utxo.TargetSize = uint32(target.ScriptAddress()[21])
+			}
+		}
+		switch {
+		case history.BlockHeight == 0:
+			history.Status = bindingStatusPending
+		case detail.Utxo.Spent:
+			history.Status = bindingStatusWithdrawn
+		case detail.Utxo.SpentByUnmined:
+			history.Status = bindingStatusWithdrawing
+		default:
+			history.Status = bindingStatusConfirmed
+		}
+		histories = append(histories, history)
+	}
+
+	logging.CPrint(logging.INFO, "api: GetBindingHistory completed", logging.LogFormat{})
+	return &pb.GetBindingHistoryResponse{Histories: histories}, nil
+}
+
+func (s *APIServer) SendRawTransaction(ctx context.Context, in *pb.SendRawTransactionRequest) (*pb.SendRawTransactionResponse, error) {
+	// Deserialize and send off to tx relay
+	logging.CPrint(logging.INFO, "api: SendRawTransaction", logging.LogFormat{})
+	if len(in.Hex) == 0 {
+		logging.CPrint(logging.ERROR, ErrCode[ErrAPIInvalidTxHex], logging.LogFormat{
+			"err": in.Hex})
+		st := status.New(ErrAPIInvalidTxHex, ErrCode[ErrAPIInvalidTxHex])
+		return nil, st.Err()
+	}
+	serializedTx, err := decodeHexStr(in.Hex)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "Failed to decode txHex", logging.LogFormat{
+			"err": err,
+		})
+		st := status.New(ErrAPIInvalidTxHex, ErrCode[ErrAPIInvalidTxHex])
+		return nil, st.Err()
+	}
+	msgtx := wire.NewMsgTx()
+	err = msgtx.SetBytes(serializedTx, wire.Packet)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "Failed to deserialize transaction", logging.LogFormat{
+			"err": err,
+		})
+		st := status.New(ErrAPIInvalidTxHex, ErrCode[ErrAPIInvalidTxHex])
+		return nil, st.Err()
+	}
+
+	if !forks.EnforceMASSIP0002WarmUp(s.node.Blockchain().BestBlockHeight()) {
+		if payload := blockchain.DecodePayload(msgtx.Payload); payload != nil && payload.Method == blockchain.BindPoolCoinbase {
+			return nil, status.New(ErrAPIUnacceptable, "cannot yet set coinbase for pool pk").Err()
+		}
+		for _, txout := range msgtx.TxOut {
+			if _, target, _ := txscript.GetBindingScriptHash(txout.PkScript); len(target) == 22 {
+				return nil, status.New(ErrAPIUnacceptable, "cannot yet send new binding transaction").Err()
+			}
+		}
+	} else {
+		for _, txout := range msgtx.TxOut {
+			if _, target, _ := txscript.GetBindingScriptHash(txout.PkScript); len(target) == 20 {
+				return nil, status.New(ErrAPIUnacceptable, "deprecated binding transaction").Err()
+			}
+		}
+	}
+
+	tx := massutil.NewTx(msgtx)
+	_, err = s.node.Blockchain().ProcessTx(tx)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "ProcessTx failed", logging.LogFormat{"err": err})
+		s.massWallet.ClearUsedUTXOMark(msgtx)
+		cvtErr := convertResponseError(err)
+		if cvtErr == apiUnknownError {
+			return nil, status.New(ErrAPIRejectTx, err.Error()).Err()
+		}
+		return nil, cvtErr
+	}
+
+	logging.CPrint(logging.INFO, "api: SendRawTransaction completed", logging.LogFormat{
+		"txHash": tx.Hash().String(),
+	})
+	return &pb.SendRawTransactionResponse{TxId: tx.Hash().String()}, nil
+}
+
+func (s *APIServer) GetNetworkBinding(ctx context.Context, in *pb.GetNetworkBindingRequest) (*pb.GetNetworkBindingResponse, error) {
+	height := in.Height
+	if height == 0 || height > s.node.Blockchain().BestBlockHeight() {
+		height = s.node.Blockchain().BestBlockHeight()
+	}
+	networkTotal, err := s.node.Blockchain().GetNetworkBinding(height)
+	if err != nil {
+		return nil, status.New(ErrAPIQueryDataFailed, err.Error()).Err()
+	}
+
+	resp := &pb.GetNetworkBindingResponse{
+		Height:                    height,
+		TotalBinding:              networkTotal.String(),
+		BindingPriceMassBitlength: make(map[uint32]string),
+		BindingPriceChiaK:         make(map[uint32]string),
+	}
+
+	// mass
+	for bl := 32; bl <= 40; bl += 2 {
+		required, err := forks.GetRequiredBinding(height, poc.PlotSize(poc.ProofTypeDefault, bl), bl, networkTotal)
+		if err != nil {
+			return nil, status.New(ErrAPIQueryDataFailed, err.Error()).Err()
+		}
+		resp.BindingPriceMassBitlength[uint32(bl)] = required.String()
+	}
+
+	// chia
+	if forks.EnforceMASSIP0002WarmUp(height) {
+		for bl := 32; bl <= 40; bl++ {
+			required, err := forks.GetRequiredBinding(height, poc.PlotSize(poc.ProofTypeChia, bl), bl, networkTotal)
+			if err != nil {
+				return nil, status.New(ErrAPIQueryDataFailed, err.Error()).Err()
+			}
+			resp.BindingPriceChiaK[uint32(bl)] = required.String()
+		}
+	}
+
+	return resp, nil
+}
+
+func (s *APIServer) CheckPoolPkCoinbase(ctx context.Context, in *pb.CheckPoolPkCoinbaseRequest) (*pb.CheckPoolPkCoinbaseResponse, error) {
+	poolPks := make([][]byte, 0, len(in.PoolPubkeys))
+	for _, pkStr := range in.PoolPubkeys {
+		pk, err := hex.DecodeString(pkStr)
+		if err != nil {
+			return nil, status.New(ErrAPIInvalidParameter, "pubkey cannot be decoded").Err()
+		}
+		poolPks = append(poolPks, pk)
+	}
+	pkToCb, pkToNonce, err := s.node.Blockchain().GetPoolPkCoinbase(poolPks)
+	if err != nil {
+		return nil, status.New(ErrAPIQueryDataFailed, err.Error()).Err()
+	}
+
+	result := make(map[string]*pb.CheckPoolPkCoinbaseResponse_Info)
+	for pk, cb := range pkToCb {
+		result[pk] = &pb.CheckPoolPkCoinbaseResponse_Info{
+			Coinbase: cb,
+			Nonce:    pkToNonce[pk],
+		}
+	}
+	return &pb.CheckPoolPkCoinbaseResponse{Result: result}, nil
+}
+
+func (s *APIServer) CheckTargetBinding(ctx context.Context, in *pb.CheckTargetBindingRequest) (*pb.CheckTargetBindingResponse, error) {
+	infos := make(map[string]*pb.CheckTargetBindingResponse_Info)
+	for _, addr := range in.Targets {
+		addr = strings.TrimSpace(addr)
+		if _, ok := infos[addr]; ok {
+			continue
+		}
+		target, err := parseBindingTarget(addr, config.ChainParams)
+		if err != nil {
+			infos[addr] = &pb.CheckTargetBindingResponse_Info{TargetType: "Unknown"}
+			logging.CPrint(logging.INFO, "failed to decode target", logging.LogFormat{"target": addr, "err": err})
+			continue
+		}
+
+		info := &pb.CheckTargetBindingResponse_Info{
+			TargetType: "MASS",
+		}
+		infos[addr] = info
+
+		amount := massutil.ZeroAmount()
+		if massutil.IsAddressPubKeyHash(target) { // old binding
+			list, err := s.node.Blockchain().FetchOldBinding(target.ScriptAddress())
+			if err != nil {
+				logging.CPrint(logging.ERROR, "failed to get old binding", logging.LogFormat{"target": addr, "err": err})
+				return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
+			}
+			for _, binding := range list {
+				amount, err = amount.AddInt(binding.Value)
+				if err != nil {
+					logging.CPrint(logging.ERROR, "amount error", logging.LogFormat{"err": err})
+					return nil, status.New(ErrAPIAbnormalData, err.Error()).Err()
+				}
+			}
+		} else { // new binding
+			amount, err = s.node.Blockchain().GetNewBinding(target.ScriptAddress())
+			if err != nil {
+				logging.CPrint(logging.ERROR, "failed to get new biniding", logging.LogFormat{"target": addr, "err": err})
+				return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
+			}
+			if target.ScriptAddress()[20] == byte(poc.ProofTypeChia) {
+				info.TargetType = "Chia"
+			}
+			info.TargetSize = uint32(target.ScriptAddress()[21])
+		}
+
+		info.Amount = amount.String()
+	}
+	return &pb.CheckTargetBindingResponse{Result: infos}, nil
 }

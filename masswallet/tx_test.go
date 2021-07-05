@@ -3,7 +3,7 @@ package masswallet
 import (
 	"testing"
 
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/mass-core/massutil"
 	"massnet.org/mass-wallet/masswallet/txmgr"
 )
 

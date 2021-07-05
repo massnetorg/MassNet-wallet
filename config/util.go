@@ -14,9 +14,10 @@ import (
 	"time"
 	"unicode"
 
+	coreconfig "github.com/massnetorg/mass-core/config"
 	configpb "massnet.org/mass-wallet/config/pb"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/logging"
 )
 
 // appDataDir returns an operating system specific directory to be used for
@@ -221,39 +222,40 @@ func NormalizeSeeds(inputs, defaultPort string) string {
 }
 
 // NewDefaultConfig
-func NewDefaultConfig() *configpb.Config {
-	return &configpb.Config{
-		App: &configpb.AppConfig{},
-		Network: &configpb.NetworkConfig{
-			P2P: &configpb.P2PConfig{
-				Seeds:            "",
-				AddPeer:          make([]string, 0),
-				HandshakeTimeout: 30,
-				DialTimeout:      3,
-				ListenAddress:    "tcp://0.0.0.0:43453",
-			},
-			API: &configpb.APIConfig{
-				Host:         "localhost",
-				GRPCPort:     "9685",
-				HttpPort:     "9686",
-				HttpCORSAddr: []string{"localhost"},
-				DisableTls:   false,
-				RpcCert:      "./cert.crt",
-				RpcKey:       "./cert.key",
-			},
+func NewDefCoreConfig() *coreconfig.Config {
+	return &coreconfig.Config{
+		Chain:   &coreconfig.Chain{},
+		Metrics: &coreconfig.Metrics{},
+		P2P: &coreconfig.P2P{
+			Seeds:            "",
+			AddPeer:          make([]string, 0),
+			HandshakeTimeout: 30,
+			DialTimeout:      3,
+			ListenAddress:    "tcp://0.0.0.0:43454",
 		},
-		Log: &configpb.LogConfig{
-			LogDir:   "./logs",
+		Log: &coreconfig.Log{
+			LogDir:   "logs",
 			LogLevel: "info",
 		},
-		Data: &configpb.DataConfig{
-			DbType:        "leveldb",
-			DbDir:         DefaultChainDataDir,
-			WalletPubPass: "1234567890",
+		Datastore: &coreconfig.Datastore{
+			DBType: "leveldb",
+			Dir:    DefaultChainDataDir,
 		},
-		// Warning: Advanced settings can break compatibility.
-		// Do not attempt to set them if you dont kown how they work.
-		Advanced: &configpb.AdvancedConfig{
+	}
+}
+func NewDefWalletConfig() *configpb.WalletConfig {
+	return &configpb.WalletConfig{
+		PubPass: "1234567890",
+		API: &configpb.WalletConfig_API{
+			Host:         "localhost",
+			GRPCPort:     "9687",
+			HttpPort:     "9688",
+			HttpCORSAddr: []string{"localhost"},
+			DisableTls:   false,
+			RpcCert:      "cert.crt",
+			RpcKey:       "cert.key",
+		},
+		Settings: &configpb.WalletConfig_Settings{
 			AddressGapLimit:         DefaultAddressGapLimit,
 			MaxUnusedStakingAddress: DefaultMaxUnusedStakingAddress,
 			MaxTxFee:                DefaultMaxTxFee,

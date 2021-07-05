@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/massnetorg/mass-core/massutil"
 	"github.com/stretchr/testify/assert"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 )
 

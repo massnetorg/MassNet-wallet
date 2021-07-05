@@ -1,6 +1,6 @@
 package masswallet
 
-import "massnet.org/mass-wallet/errors"
+import "errors"
 
 var (
 	ErrShaHashFromStr        = errors.New("Failed to decode hash from string")

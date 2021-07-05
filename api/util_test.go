@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"massnet.org/mass-wallet/massutil/safetype"
+	"github.com/massnetorg/mass-core/massutil/safetype"
 
+	"github.com/massnetorg/mass-core/consensus"
+	"github.com/massnetorg/mass-core/massutil"
 	"github.com/stretchr/testify/assert"
 	"massnet.org/mass-wallet/api"
 	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/consensus"
-	"massnet.org/mass-wallet/massutil"
 )
 
 var (

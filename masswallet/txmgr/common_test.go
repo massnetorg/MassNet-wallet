@@ -3,25 +3,25 @@ package txmgr
 import (
 	"bufio"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 
-	_ "massnet.org/mass-wallet/database/storage/ldbstorage"
+	_ "github.com/massnetorg/mass-core/database/storage/ldbstorage"
 
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/database/ldb"
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/database/ldb"
 
-	"massnet.org/mass-wallet/blockchain"
+	"github.com/massnetorg/mass-core/blockchain"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/errors"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/ifc"
 	"massnet.org/mass-wallet/masswallet/keystore"
 
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/wire"
 )
 
 // testDbRoot is the root directory used to create all test databases.
@@ -148,7 +148,7 @@ func insertBlock2(bc *blockchain.Blockchain, num *wire.MsgBlock, db *database.Db
 	if err = (*db).SubmitBlock(block); err != nil {
 		return err
 	}
-	if err = AddrIndexer.SyncAttachBlock(block, txInputStore); err != nil {
+	if err = AddrIndexer.SyncAttachBlock(nil, block, txInputStore); err != nil {
 		return err
 	}
 	if err = (*db).Commit(hash); err != nil {
@@ -280,7 +280,7 @@ func testTxStore(txStoreName string, databaseDb database.Db) (txstore *TxStore, 
 		if err != nil {
 			return err
 		}
-		ksmgr, err := keystore.NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		ksmgr, err := keystore.NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return err
 		}
@@ -290,7 +290,7 @@ func testTxStore(txStoreName string, databaseDb database.Db) (txstore *TxStore, 
 			return err
 		}
 		bm := &StoreBucketMeta{}
-		utxoStore, err := NewUtxoStore(chainFetcher, bucket, ksmgr, bm, &config.ChainParams)
+		utxoStore, err := NewUtxoStore(chainFetcher, bucket, ksmgr, bm, config.ChainParams)
 		if err != nil {
 			return err
 		}
@@ -300,7 +300,7 @@ func testTxStore(txStoreName string, databaseDb database.Db) (txstore *TxStore, 
 		if err != nil {
 			return err
 		}
-		syncStore, err := NewSyncStore(bucket, bm, &config.ChainParams)
+		syncStore, err := NewSyncStore(bucket, bm, config.ChainParams)
 		if err != nil {
 			return err
 		}
@@ -310,7 +310,7 @@ func testTxStore(txStoreName string, databaseDb database.Db) (txstore *TxStore, 
 			return err
 		}
 		s, err = NewTxStore(chainFetcher, bucket,
-			utxoStore, syncStore, ksmgr, bm, &config.ChainParams)
+			utxoStore, syncStore, ksmgr, bm, config.ChainParams)
 		if err != nil {
 			return err
 		}
@@ -362,7 +362,7 @@ func testTxStore(txStoreName string, databaseDb database.Db) (txstore *TxStore, 
 			return err
 		}
 		s.bucketMeta.nsDebits = bucket0.GetBucketMeta()
-		_, err = NewSyncStore(bucketS, s.bucketMeta, &config.ChainParams)
+		_, err = NewSyncStore(bucketS, s.bucketMeta, config.ChainParams)
 		if err != nil {
 			return err
 		}

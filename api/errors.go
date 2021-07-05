@@ -65,6 +65,7 @@ const (
 	ErrAPIUnknownErr      = 1701
 	ErrAPIQueryDataFailed = 1702
 	ErrAPIAbnormalData    = 1703
+	ErrAPIUnacceptable    = 1704
 )
 
 var ErrCode = map[uint32]string{
@@ -122,4 +123,5 @@ var ErrCode = map[uint32]string{
 	ErrAPIChangePassUnsupported: "Unsupported to change passphrase of current wallet",
 	ErrAPIWalletUnlocked:        "Wallet unlocked, try again later",
 	ErrAPIBigTransactionFee:     "Big transaction fee",
+	ErrAPIUnacceptable:          "Request is unacceptable",
 }

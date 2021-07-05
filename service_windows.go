@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"massnet.org/mass-wallet/version"
+	"github.com/massnetorg/mass-core/version"
 
-	"massnet.org/mass-wallet/config"
+	"github.com/massnetorg/mass-core/config"
 
 	"github.com/btcsuite/winsvc/eventlog"
 	"github.com/btcsuite/winsvc/mgr"

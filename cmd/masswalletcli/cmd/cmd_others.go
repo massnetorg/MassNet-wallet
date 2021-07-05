@@ -5,11 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/massnetorg/mass-core/logging"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	pb "massnet.org/mass-wallet/api/proto"
 	"massnet.org/mass-wallet/cmd/masswalletcli/utils"
-	"massnet.org/mass-wallet/logging"
 )
 
 var createCertCmd = &cobra.Command{
@@ -57,13 +57,25 @@ var getClientStatusCmd = &cobra.Command{
 
 var getBestBlockCmd = &cobra.Command{
 	Use:   "getbestblock",
-	Short: "Returns data about best block.",
+	Short: "Gets best block.",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		logging.VPrint(logging.INFO, "getbestblock called", EmptyLogFormat)
+		logging.VPrint(logging.INFO, "getbestblock called")
 
-		resp := &pb.GetBestBlockResponse{}
+		resp := &pb.GetBlockResponse{}
 		return ClientCall("/v1/blocks/best", GET, nil, resp)
+	},
+}
+
+var getBlockByHeightCmd = &cobra.Command{
+	Use:   "getblockbyheight <height>",
+	Short: "Gets block by height.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		logging.VPrint(logging.INFO, "getblockbyheight called")
+
+		resp := &pb.GetBlockResponse{}
+		return ClientCall(fmt.Sprintf("/v1/blocks/height/%s", args[0]), GET, nil, resp)
 	},
 }
 

@@ -5,18 +5,21 @@
 package main
 
 import (
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/blockchain/state"
+	chaincfg "github.com/massnetorg/mass-core/config"
+	"github.com/massnetorg/mass-core/logging"
 
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/netsync"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/netsync"
+	"github.com/massnetorg/mass-core/wire"
 
-	"massnet.org/mass-wallet/consensus"
+	"github.com/massnetorg/mass-core/consensus"
 )
 
 // server provides a bitcoin server for handling communications to and from
@@ -168,15 +171,26 @@ func (s *server) WaitForShutdown() {
 // newServer returns a new mass server configured to listen on addr for the
 // bitcoin network type specified by chainParams.  Use start to begin accepting
 // connections from peers.
-func newServer(db database.Db) (*server, error) {
+func newServer(db database.Db, stateBindingDb state.Database, chainParams *chaincfg.Params) (*server, error) {
 	s := &server{
 		quit: make(chan struct{}),
 		db:   db,
 	}
 
+	var checkpoints []chaincfg.Checkpoint
+	if !cfg.Core.Chain.DisableCheckpoints {
+		checkpoints = chaincfg.MergeCheckpoints(chainParams.Checkpoints, cfg.AddCheckpoints)
+	}
+
 	var err error
 	// Create Blockchain
-	s.chain, err = blockchain.NewBlockchain(db, cfg.Data.DbDir, s)
+	s.chain, err = blockchain.NewBlockchain(&blockchain.Config{
+		DB:             db,
+		StateBindingDb: stateBindingDb,
+		ChainParams:    chainParams,
+		Checkpoints:    checkpoints,
+		CachePath:      filepath.Join(cfg.Core.Datastore.Dir, blockchain.BlockCacheFileName),
+	})
 	if err != nil {
 		logging.CPrint(logging.ERROR, "fail on new BlockChain", logging.LogFormat{"err": err})
 		return nil, err
@@ -184,7 +198,7 @@ func newServer(db database.Db) (*server, error) {
 
 	// New SyncManager
 	newBlockCh := make(chan *wire.Hash, consensus.MaxNewBlockChSize)
-	syncManager, err := netsync.NewSyncManager(cfg, s.chain, s.chain.GetTxPool(), newBlockCh)
+	syncManager, err := netsync.NewSyncManager(cfg.Core, s.chain, s.chain.GetTxPool(), newBlockCh)
 	if err != nil {
 		return nil, err
 	}

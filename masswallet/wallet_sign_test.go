@@ -11,21 +11,21 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/massnetorg/mass-core/consensus"
+	"github.com/massnetorg/mass-core/database/memdb"
+	"github.com/massnetorg/mass-core/massutil"
 	"github.com/stretchr/testify/assert"
-	"massnet.org/mass-wallet/consensus"
-	"massnet.org/mass-wallet/database/memdb"
-	"massnet.org/mass-wallet/massutil"
 
 	"massnet.org/mass-wallet/masswallet/keystore"
 
 	"massnet.org/mass-wallet/masswallet/txmgr"
 
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/massnetorg/mass-core/txscript"
+	"github.com/massnetorg/mass-core/wire"
 	"massnet.org/mass-wallet/config"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	_ "massnet.org/mass-wallet/masswallet/db/ldb"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
 )
 
 //wallet path
@@ -72,11 +72,12 @@ func iniWallet(walletName string) (*wallet, error) {
 	}
 
 	cfg := &config.Config{
-		Config: config.NewDefaultConfig(),
+		Core:   config.NewDefCoreConfig(),
+		Wallet: config.NewDefWalletConfig(),
 	}
 
 	var w wallet
-	w.mgr, err = NewWalletManager(iniServer(), db, cfg, &config.ChainParams, pubpass)
+	w.mgr, err = NewWalletManager(iniServer(), db, cfg, config.ChainParams, pubpass)
 	if err != nil {
 		db.Close()
 		return nil, err
@@ -134,7 +135,7 @@ func createP2wshScript(w *wallet, nRequire, nTotal int) ([]byte, error) {
 	for _, addr := range addrs {
 		pubKeys = append(pubKeys, addr.PubKey)
 	}
-	redeemScript, witnessAddress, err := keystore.NewNonPersistentWitSAddrForBtcec(pubKeys, nRequire, massutil.AddressClassWitnessV0, &config.ChainParams)
+	redeemScript, witnessAddress, err := keystore.NewNonPersistentWitSAddrForBtcec(pubKeys, nRequire, massutil.AddressClassWitnessV0, config.ChainParams)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +159,7 @@ func createP2wshStakingScript(w *wallet, nRequire, nTotal int, frozenPeriod uint
 		pubKeys = append(pubKeys, addr.PubKey)
 	}
 	redeemScript, witnessAddress, err := keystore.NewNonPersistentWitSAddrForBtcec(pubKeys,
-		nRequire, massutil.AddressClassWitnessStaking, &config.ChainParams)
+		nRequire, massutil.AddressClassWitnessStaking, config.ChainParams)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +183,7 @@ func createP2wshBindingScript(w *wallet, nRequire, nTotal int, pocPkHash []byte)
 		pubKeys = append(pubKeys, addr.PubKey)
 	}
 	redeemScript, witnessAddress, err := keystore.NewNonPersistentWitSAddrForBtcec(pubKeys,
-		nRequire, massutil.AddressClassWitnessV0, &config.ChainParams)
+		nRequire, massutil.AddressClassWitnessV0, config.ChainParams)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +219,7 @@ func signAndCheck(msg string, tx *wire.MsgTx, idx int, pkScript []byte,
 	previousScript []byte, value int64) error {
 	hashCache := txscript.NewTxSigHashes(tx)
 
-	witness, err := txscript.SignTxOutputWit(&config.ChainParams, tx,
+	witness, err := txscript.SignTxOutputWit(config.ChainParams, tx,
 		idx, value, pkScript, hashCache, hashType, kdb, sdb)
 	if err != nil {
 		return fmt.Errorf("failed to sign output %s: %v", msg, err)

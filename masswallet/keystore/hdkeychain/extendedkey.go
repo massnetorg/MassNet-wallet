@@ -19,10 +19,10 @@ import (
 	"math/big"
 
 	"github.com/btcsuite/btcd/btcec"
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/massutil/base58"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/mass-core/config"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/massutil/base58"
+	"github.com/massnetorg/mass-core/wire"
 )
 
 const (

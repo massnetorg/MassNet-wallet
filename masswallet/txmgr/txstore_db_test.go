@@ -8,11 +8,11 @@ import (
 
 	// "time"
 
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/wire"
 	"github.com/stretchr/testify/assert"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
-	"massnet.org/mass-wallet/wire"
 )
 
 const (

@@ -5,11 +5,11 @@ import (
 	"errors"
 
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/pocec"
+	"github.com/massnetorg/mass-core/txscript"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/pocec"
-	"massnet.org/mass-wallet/txscript"
 )
 
 func NewPoCAddress(pubKey *pocec.PublicKey, net *config.Params) ([]byte, massutil.Address, error) {

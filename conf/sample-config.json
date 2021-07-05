@@ -1,35 +1,49 @@
 {
-  "app": {
-    "profile": "",
-    "cpu_profile": ""
-  },
-  "network": {
-    "p2p": {
-      "seeds": "",
-      "add_peer": null,
-      "skip_upnp": false,
-      "handshake_timeout": 30,
-      "dial_timeout": 3,
-      "listen_address": "tcp://0.0.0.0:43453"
+    "core": {
+        "chain": {
+            "disable_checkpoints": false,
+            "add_checkpoints": ["{height}:{block_hash_hex}"]
+        },
+        "metrics": {
+            "profile_port": ""
+        },
+        "p2p": {
+            "seeds": "",
+            "add_peer": [
+                "",
+                ""
+            ],
+            "skip_upnp": false,
+            "handshake_timeout": 30,
+            "dial_timeout": 3,
+            "listen_address": "tcp://0.0.0.0:43454"
+        },
+        "log": {
+            "log_dir": "logs",
+            "log_level": "info",
+            "disable_cprint": false
+        },
+        "datastore": {
+            "dir": "chain",
+            "db_type": "leveldb"
+        }
     },
-    "api": {
-      "host": "localhost",
-      "grpc_port": "9685",
-      "http_port": "9686",
-      "http_cors_addr": [
-        "localhost"
-      ],
-      "disable_tls": false,
-      "rpc_cert": "./cert.crt",
-      "rpc_key": "./cert.key"
+    "wallet": {
+        "api": {
+            "host": "localhost",
+            "grpc_port": "9685",
+            "http_port": "9686",
+            "http_cors_addr": [
+                "localhost"
+            ],
+            "disable_tls": false,
+            "rpc_cert": "cert.crt",
+            "rpc_key": "cert.key"
+        },
+        "settings": {
+            "address_gap_limit": 20,
+            "max_unused_staking_address": 2,
+            "max_tx_fee": "1.0"
+        }
     }
-  },
-  "log": {
-    "log_dir": "./logs",
-    "log_level": "info"
-  },
-  "data": {
-    "db_type": "leveldb",
-    "db_dir": "chain"
-  }
 }

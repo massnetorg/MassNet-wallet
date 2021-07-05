@@ -6,17 +6,17 @@ import (
 	"sort"
 	"sync"
 
-	"massnet.org/mass-wallet/consensus"
+	"github.com/massnetorg/mass-core/consensus"
 
-	"massnet.org/mass-wallet/blockchain"
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/wire"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/ifc"
 	"massnet.org/mass-wallet/masswallet/keystore"
 	"massnet.org/mass-wallet/masswallet/utils"
-	"massnet.org/mass-wallet/wire"
 )
 
 type CreditIterationFilter func(*Credit) (stopIter, selectItem bool)
@@ -1071,11 +1071,11 @@ func (s *UtxoStore) GetUnminedBindingHistoryDetail(tx mwdb.ReadTransaction, addr
 			TxHash: history.txhash,
 			Index:  index,
 			Utxo: BindingUtxo{
-				Hash:           history.txhash,
-				Index:          index,
-				Amount:         amt,
-				HolderAddress:  script.StdEncodeAddress(),
-				BindingAddress: script.SecondEncodeAddress(),
+				Hash:          history.txhash,
+				Index:         index,
+				Amount:        amt,
+				Holder:        script.StdAddress(),
+				BindingTarget: script.SecondAddress(),
 			},
 			MsgTx: &rec.MsgTx,
 		}
@@ -1170,12 +1170,12 @@ func (s *UtxoStore) GetBindingHistoryDetail(tx mwdb.ReadTransaction, addrMgr *ke
 			Index:       index,
 			BlockHeight: history.blockHeight,
 			Utxo: BindingUtxo{
-				Hash:           history.txhash,
-				Index:          index,
-				Amount:         amt,
-				Spent:          spent,
-				HolderAddress:  script.StdEncodeAddress(),
-				BindingAddress: script.SecondEncodeAddress(),
+				Hash:          history.txhash,
+				Index:         index,
+				Amount:        amt,
+				Spent:         spent,
+				Holder:        script.StdAddress(),
+				BindingTarget: script.SecondAddress(),
 			},
 			MsgTx: msgtx,
 		}

@@ -1,10 +1,11 @@
 package keystore
 
 import (
-	"massnet.org/mass-wallet/masswallet/keystore/wordlists"
 	"math"
 	"strings"
 	"testing"
+
+	"massnet.org/mass-wallet/masswallet/keystore/wordlists"
 )
 
 func TestNewMnemonic(t *testing.T) {

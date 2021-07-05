@@ -13,15 +13,16 @@ import (
 	"runtime"
 	"strings"
 
-	"massnet.org/mass-wallet/version"
-	"massnet.org/mass-wallet/wire"
+	coreconfig "github.com/massnetorg/mass-core/config"
+	"github.com/massnetorg/mass-core/consensus"
+	"github.com/massnetorg/mass-core/version"
+	"github.com/massnetorg/mass-core/wire"
 
 	"errors"
 
 	configpb "massnet.org/mass-wallet/config/pb"
 
 	flags "github.com/btcsuite/go-flags"
-	"massnet.org/mass-wallet/consensus"
 )
 
 const (
@@ -70,10 +71,11 @@ type serviceOptions struct {
 }
 
 type Config struct {
-	*configpb.Config
-	ConfigFile  string `short:"C" long:"configfile" description:"Path to configuration file"`
-	ShowVersion bool   `short:"V" long:"version" description:"Display Version information and exit"`
-	Create      bool   `long:"create" description:"Create the wallet if it does not exist"`
+	Core           *coreconfig.Config      `json:"core"`
+	Wallet         *configpb.WalletConfig  `json:"wallet"`
+	AddCheckpoints []coreconfig.Checkpoint `json:"-"`
+	ShowVersion    bool                    `short:"V" long:"version" description:"Display Version information and exit" json:"-"`
+	Create         bool                    `long:"create" description:"Create the wallet if it does not exist" json:"-"`
 }
 
 // newConfigParser returns a new command line flags parser.
@@ -93,10 +95,10 @@ func newConfigParser(cfg *Config, so *serviceOptions, options flags.Options) *fl
 func ParseConfig() (*Config, []string, error) {
 	// Default config.
 	cfg := Config{
-		ConfigFile:  DefaultConfigFilename,
 		ShowVersion: defaultShowVersion,
 		Create:      defaultCreate,
-		Config:      NewDefaultConfig(),
+		Core:        NewDefCoreConfig(),
+		Wallet:      NewDefWalletConfig(),
 	}
 
 	// Service options which are only added on Windows.
@@ -151,13 +153,13 @@ func ParseConfig() (*Config, []string, error) {
 }
 
 func LoadConfig(cfg *Config) {
-	b, err := ioutil.ReadFile(cfg.ConfigFile)
+	b, err := ioutil.ReadFile(DefaultConfigFilename)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(0)
 	}
 
-	if err := json.Unmarshal(b, cfg.Config); err != nil {
+	if err := json.Unmarshal(b, cfg); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(0)
 	}
@@ -165,37 +167,47 @@ func LoadConfig(cfg *Config) {
 
 func CheckConfig(cfg *Config) *Config {
 	// Checks for P2PConfig
-	cfg.Network.P2P.Seeds = NormalizeSeeds(cfg.Network.P2P.Seeds, ChainParams.DefaultPort)
-	if cfg.Network.API.DisableTls {
-		cfg.Network.API.RpcCert = ""
-		cfg.Network.API.RpcKey = ""
+	cfg.Core.P2P.Seeds = NormalizeSeeds(cfg.Core.P2P.Seeds, ChainParams.DefaultPort)
+	if cfg.Wallet.API.DisableTls {
+		cfg.Wallet.API.RpcCert = ""
+		cfg.Wallet.API.RpcKey = ""
 	}
 
 	// Checks for DataConfig
-	if !validDbType(cfg.Data.DbType) {
-		err := errors.New(fmt.Sprintf("invalid db_type %s", cfg.Data.DbType))
+	if !validDbType(cfg.Core.Datastore.DBType) {
+		err := errors.New(fmt.Sprintf("invalid db_type %s", cfg.Core.Datastore.DBType))
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(0)
 	}
-	cfg.Data.DbDir = cleanAndExpandPath(cfg.Data.DbDir)
+	cfg.Core.Datastore.Dir = cleanAndExpandPath(cfg.Core.Datastore.Dir)
 
 	// Checks for LogConfig
-	cfg.Log.LogDir = cleanAndExpandPath(cfg.Log.LogDir)
+	cfg.Core.Log.LogDir = cleanAndExpandPath(cfg.Core.Log.LogDir)
+
+	// add checkpoints
+	if !cfg.Core.Chain.DisableCheckpoints {
+		add, err := coreconfig.ParseCheckpoints(cfg.Core.Chain.AddCheckpoints)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(0)
+		}
+		cfg.AddCheckpoints = add
+	}
 
 	// Checks for AdvancedConfig
-	if cfg.Advanced.AddressGapLimit <= 1 {
+	if cfg.Wallet.Settings.AddressGapLimit <= 1 {
 		err := errors.New(fmt.Sprintf("AddressGapLimit should be larger than 1"))
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(0)
 	}
-	if cfg.Advanced.AddressGapLimit <= cfg.Advanced.MaxUnusedStakingAddress {
-		cfg.Advanced.MaxUnusedStakingAddress = (uint32)(float32(cfg.Advanced.AddressGapLimit) * 0.2)
+	if cfg.Wallet.Settings.AddressGapLimit <= cfg.Wallet.Settings.MaxUnusedStakingAddress {
+		cfg.Wallet.Settings.MaxUnusedStakingAddress = (uint32)(float32(cfg.Wallet.Settings.AddressGapLimit) * 0.2)
 	}
-	if cfg.Advanced.MaxUnusedStakingAddress == 0 {
-		cfg.Advanced.MaxUnusedStakingAddress = 1
+	if cfg.Wallet.Settings.MaxUnusedStakingAddress == 0 {
+		cfg.Wallet.Settings.MaxUnusedStakingAddress = 1
 	}
-	if len(cfg.Advanced.MaxTxFee) == 0 {
-		cfg.Advanced.MaxTxFee = DefaultMaxTxFee
+	if len(cfg.Wallet.Settings.MaxTxFee) == 0 {
+		cfg.Wallet.Settings.MaxTxFee = DefaultMaxTxFee
 	}
 
 	return cfg

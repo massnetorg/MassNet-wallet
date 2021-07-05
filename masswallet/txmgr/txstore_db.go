@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/wire"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
-	"massnet.org/mass-wallet/wire"
 )
 
 func existsRawUnmined(ns mwdb.Bucket, k []byte) ([]byte, error) {

@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"errors"
 	"sync"
 
 	"crypto/rand"
@@ -13,10 +14,9 @@ import (
 	"math"
 
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
 	"massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/keystore/hdkeychain"
 	"massnet.org/mass-wallet/masswallet/keystore/snacl"

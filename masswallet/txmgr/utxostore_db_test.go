@@ -8,15 +8,15 @@ import (
 	// "os"
 	"testing"
 
+	"github.com/massnetorg/mass-core/massutil"
 	"github.com/stretchr/testify/assert"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/utils"
 
 	// "github.com/stretchr/testify/assert"
 
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/mass-core/wire"
 )
 
 func TestCanonicalKeyCreateAndRead(t *testing.T) {
@@ -113,7 +113,7 @@ func TestUnminedCredit(t *testing.T) {
 	k := make([]byte, 36)
 	copy(k[0:32], tx1.Hash().Bytes())
 	binary.BigEndian.PutUint32(k[32:36], uint32(tx1.Index()))
-	pkscript, err := utils.ParsePkScript(tx1.MsgTx().TxOut[0].PkScript, &config.ChainParams)
+	pkscript, err := utils.ParsePkScript(tx1.MsgTx().TxOut[0].PkScript, config.ChainParams)
 	assert.Nil(t, err)
 	amount, err := massutil.NewAmountFromInt(tx1.MsgTx().TxOut[0].Value)
 	assert.Nil(t, err)

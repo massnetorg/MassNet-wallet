@@ -1,9 +1,9 @@
 package ifc
 
 import (
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/wire"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/wire"
 )
 
 type BlockListener interface {

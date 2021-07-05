@@ -13,21 +13,21 @@ import (
 
 	"encoding/hex"
 
-	"massnet.org/mass-wallet/blockchain"
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/database/ldb"
+	"github.com/massnetorg/mass-core/database/memdb"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/netsync"
+	"github.com/massnetorg/mass-core/txscript"
+	"github.com/massnetorg/mass-core/wire"
+	"github.com/massnetorg/mass-core/wire/mock"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/database/ldb"
-	"massnet.org/mass-wallet/database/memdb"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	_ "massnet.org/mass-wallet/masswallet/db/ldb"
 	"massnet.org/mass-wallet/masswallet/keystore"
 	"massnet.org/mass-wallet/masswallet/txmgr"
 	"massnet.org/mass-wallet/masswallet/utils"
-	"massnet.org/mass-wallet/netsync"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
-	"massnet.org/mass-wallet/wire/mock"
 )
 
 const (
@@ -100,8 +100,8 @@ func init() {
 	}
 
 	cfg = &config.Config{
-		Config:      config.NewDefaultConfig(),
-		ConfigFile:  "",
+		Core:        config.NewDefCoreConfig(),
+		Wallet:      config.NewDefWalletConfig(),
 		ShowVersion: false,
 		Create:      false,
 	}
@@ -207,7 +207,7 @@ func TestNewWallet(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown()
-	_, err = NewWalletManager(&mockServer{databaseDb}, walletDb, cfg, &config.ChainParams, pubPassphrase)
+	_, err = NewWalletManager(&mockServer{databaseDb}, walletDb, cfg, config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -225,7 +225,7 @@ func TestWalletManager_CreateWallet_UseWallet_Wallets_WalletBalance(t *testing.T
 		t.Fatal("new walletDb error")
 	}
 	defer teardown()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb, cfg, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb, cfg, config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -299,7 +299,7 @@ func TestWalletManager_NewAddress_GetAddresses(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb, cfg, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb, cfg, config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -394,7 +394,7 @@ func TestWalletManager_ExportWallet_ImportWallet(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown()
-	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{databaseDb}, walletDb1, cfg, config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -431,7 +431,7 @@ func TestWalletManager_ExportWallet_ImportWallet(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown2()
-	w, err = NewWalletManager(&mockServer{databaseDb}, walletDb2, cfg, &config.ChainParams, pubPassphrase)
+	w, err = NewWalletManager(&mockServer{databaseDb}, walletDb2, cfg, config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -493,7 +493,7 @@ func simpleFilterTx(rec *txmgr.TxRecord, tx *wire.MsgTx, walletId string) (*txmg
 
 	// check TxOut
 	for i, txOut := range tx.TxOut {
-		ps, err := utils.ParsePkScript(txOut.PkScript, &config.ChainParams)
+		ps, err := utils.ParsePkScript(txOut.PkScript, config.ChainParams)
 		if err != nil {
 
 			return nil, err
@@ -520,7 +520,7 @@ func TestWalletManager_EstimateTxFee(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown()
-	w, err := NewWalletManager(&mockServer{chainDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{chainDb}, walletDb1, cfg, config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -669,7 +669,7 @@ func TestWalletManager_EstimateTxFee(t *testing.T) {
 		addr1: amt1,
 	}
 	//minTxFee
-	incompleteTx, txFee, err := w.EstimateTxFee(txOuts, 0, massutil.ZeroAmount(), "", "")
+	incompleteTx, txFee, err := w.EstimateTxFee(txOuts, 0, massutil.ZeroAmount(), "", "", nil)
 	if err != nil {
 		t.Fatal("estimate txFee error", err.Error())
 	}
@@ -682,7 +682,7 @@ func TestWalletManager_EstimateTxFee(t *testing.T) {
 	//SetTxFee
 	amt, err := massutil.NewAmountFromUint(10e8)
 	assert.Nil(t, err)
-	incompleteTx0, txFee0, err := w.EstimateTxFee(txOuts, 0, amt, "", "")
+	incompleteTx0, txFee0, err := w.EstimateTxFee(txOuts, 0, amt, "", "", nil)
 	if err != nil {
 		t.Fatal("estimate txFee error", err.Error())
 	}
@@ -707,7 +707,7 @@ func TestWalletManager_AutoConstructTx(t *testing.T) {
 		t.Fatal("new walletDb error")
 	}
 	defer teardown()
-	w, err := NewWalletManager(&mockServer{chainDb}, walletDb1, cfg, &config.ChainParams, pubPassphrase)
+	w, err := NewWalletManager(&mockServer{chainDb}, walletDb1, cfg, config.ChainParams, pubPassphrase)
 	if err != nil {
 		t.Fatal("new wallet error", err.Error())
 	}
@@ -857,7 +857,7 @@ func TestWalletManager_AutoConstructTx(t *testing.T) {
 	}
 	amt, err := massutil.NewAmountFromUint(10e8)
 	assert.Nil(t, err)
-	txHex, txFee, err := w.AutoCreateRawTransaction(txOuts, 0, amt, "", "")
+	txHex, txFee, err := w.AutoCreateRawTransaction(txOuts, 0, amt, "", "", nil)
 	if err != nil {
 		t.Fatal("AutoCreateRawTransaction error", err.Error())
 	}

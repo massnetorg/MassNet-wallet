@@ -1,9 +1,10 @@
 package keystore
 
 import (
+	"testing"
+
 	"massnet.org/mass-wallet/config"
 	"massnet.org/mass-wallet/masswallet/keystore/hdkeychain"
-	"testing"
 )
 
 var (
@@ -16,7 +17,7 @@ func TestHD(t *testing.T) {
 		t.Fatalf("failed to new seed, %v", err)
 	}
 
-	rootKey, err := hdkeychain.NewMaster(seed, &config.ChainParams)
+	rootKey, err := hdkeychain.NewMaster(seed, config.ChainParams)
 	if err != nil {
 		t.Fatalf("failed to derive master extended key: %v", err)
 	}

@@ -5,7 +5,7 @@ import (
 
 	"massnet.org/mass-wallet/masswallet/txmgr"
 
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/mass-core/massutil"
 )
 
 func ExampleSubmit() {

@@ -1,6 +1,6 @@
 package keystore
 
-import "massnet.org/mass-wallet/errors"
+import "errors"
 
 var (
 	ErrKMPubKeyNotSet = errors.New("required KeystoreManager public key parameters not stored in database")

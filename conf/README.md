@@ -9,7 +9,7 @@ The simplest configuration with other items configured to default value is like:
 
 ```json
 {
-    "network": {
+    "core": {
         "p2p": {
             "seeds": "192.168.1.100,192.168.1.200,..."
         }

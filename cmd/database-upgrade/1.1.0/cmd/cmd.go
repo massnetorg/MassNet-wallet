@@ -3,10 +3,10 @@ package cmd
 import (
 	"path/filepath"
 
+	"github.com/massnetorg/mass-core/database/ldb"
+	"github.com/massnetorg/mass-core/database/storage"
+	"github.com/massnetorg/mass-core/logging"
 	"github.com/spf13/cobra"
-	"massnet.org/mass-wallet/database/ldb"
-	"massnet.org/mass-wallet/database/storage"
-	"massnet.org/mass-wallet/logging"
 )
 
 var (

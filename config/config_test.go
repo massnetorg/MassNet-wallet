@@ -2,55 +2,110 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	cfgjson = `
-	{
-		"app" : {
-			"profile": "",
-			"cpu_profile": ""
-		},
-		"network": {
+	cfgjson = `{
+		"core": {
 			"p2p": {
 				"seeds": "",
-				"listen_address": ""
+				"listen_address": "tcp://0.0.0.0:43453"
 			},
-			"api": {
-				"grpc_port": "9687",
-				"http_port": "9688",
-				"disable_tls": true,
-				"rpc_cert": "./cert.crt",
-				"rpc_key": "./cert.key"
+			"log": {
+				"log_dir": "./logs"
+			},
+			"datastore": {
+				"dir": "./chain"
 			}
 		},
-		"data": {
-			"db_dir": "chain",
-			"db_type": "leveldb"
-		},
-		"log": {
-			"log_dir": "logs",
-			"log_level": "info"
-		},
-		"advanced": {
-			"address_gap_limit": 3000
+		"wallet": {
+			"api": {
+				"host": "localhost",
+				"http_port": "9686",
+				"disable_tls": true
+			},
+			"settings": {
+				"max_tx_fee": 1.0
+			}
 		}
-	}   
-	`
+	}`
 )
 
-func TestMarshal(t *testing.T) {
+func ExampleCheck() {
 	cfg := &Config{
-		Config: NewDefaultConfig(),
+		Core:   NewDefCoreConfig(),
+		Wallet: NewDefWalletConfig(),
 	}
-	err := json.Unmarshal([]byte(cfgjson), cfg.Config)
-	assert.Nil(t, err)
+	json.Unmarshal([]byte(cfgjson), cfg)
 	CheckConfig(cfg)
-	assert.Empty(t, cfg.Config.Network.API.RpcCert)
-	assert.Empty(t, cfg.Config.Network.API.RpcKey)
+
+	data, _ := json.MarshalIndent(cfg, "", "    ")
+
+	fmt.Println(string(data))
+
+	// Output:
+	// {
+	//     "core": {
+	//         "chain": {
+	//             "disable_checkpoints": false,
+	//             "add_checkpoints": null
+	//         },
+	//         "metrics": {
+	//             "profile_port": ""
+	//         },
+	//         "p2p": {
+	//             "seeds": "",
+	//             "add_peer": [],
+	//             "skip_upnp": false,
+	//             "handshake_timeout": 30,
+	//             "dial_timeout": 3,
+	//             "vault_mode": false,
+	//             "listen_address": "tcp://0.0.0.0:43453"
+	//         },
+	//         "log": {
+	//             "log_dir": "logs",
+	//             "log_level": "info",
+	//             "disable_cprint": false
+	//         },
+	//         "datastore": {
+	//             "dir": "chain",
+	//             "db_type": "leveldb"
+	//         },
+	//         "influxdb": {
+	//             "run": false,
+	//             "url": "",
+	//             "database": "",
+	//             "username": "",
+	//             "password": "",
+	//             "hostname": "",
+	//             "tags": null
+	//         }
+	//     },
+	//     "wallet": {
+	//         "pub_pass": "1234567890",
+	//         "api": {
+	//             "host": "localhost",
+	//             "grpc_port": "9687",
+	//             "http_port": "9686",
+	//             "http_cors_addr": [
+	//                 "localhost"
+	//             ],
+	//             "disable_tls": true,
+	//             "rpc_cert": "",
+	//             "rpc_key": ""
+	//         },
+	//         "settings": {
+	//             "address_gap_limit": 20,
+	//             "max_unused_staking_address": 8,
+	//             "max_tx_fee": "1.0"
+	//         }
+	//     }
+	// }
+
 }
 
 func TestMarshalMaxTxFee(t *testing.T) {
@@ -62,15 +117,19 @@ func TestMarshalMaxTxFee(t *testing.T) {
 		{
 			"notset",
 			`{
-				"advanced": {}
+				"wallet": {
+					"settings": {}
+				}
 			}`,
 			DefaultMaxTxFee,
 		},
 		{
 			"valid",
 			`{
-				"advanced": {
-					"max_tx_fee": "5.555"
+				"wallet": {
+					"settings": {
+						"max_tx_fee": "5.555"
+					}
 				}
 			}`,
 			"5.555",
@@ -79,12 +138,14 @@ func TestMarshalMaxTxFee(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := &Config{
-				Config: NewDefaultConfig(),
+				Core:   NewDefCoreConfig(),
+				Wallet: NewDefWalletConfig(),
 			}
-			err := json.Unmarshal([]byte(test.cfgjson), cfg.Config)
+			err := json.Unmarshal([]byte(test.cfgjson), cfg)
 			assert.Nil(t, err)
 			CheckConfig(cfg)
-			assert.True(t, cfg.Config.Advanced.MaxTxFee == test.expect)
+			assert.True(t, cfg.Wallet.Settings.MaxTxFee == test.expect)
+
 		})
 	}
 }

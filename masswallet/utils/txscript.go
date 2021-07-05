@@ -3,9 +3,10 @@ package utils
 import (
 	"errors"
 
+	"github.com/massnetorg/mass-core/consensus"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/txscript"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/txscript"
 )
 
 var (
@@ -22,6 +23,8 @@ type PkScript interface {
 	IsStaking() bool
 	IsBinding() bool
 	ScriptClass() txscript.ScriptClass
+	StdAddress() massutil.Address
+	SecondAddress() massutil.Address
 }
 
 type pkScriptInfo struct {
@@ -54,6 +57,14 @@ func (s *pkScriptInfo) IsStaking() bool {
 
 func (s *pkScriptInfo) IsBinding() bool {
 	return s.scriptClass == txscript.BindingScriptHashTy
+}
+
+func (s *pkScriptInfo) StdAddress() massutil.Address {
+	return s.stdAddress
+}
+
+func (s *pkScriptInfo) SecondAddress() massutil.Address {
+	return s.secondAddress
 }
 
 // StdScriptAddress:
@@ -134,7 +145,15 @@ func ParsePkScript(pkScript []byte, chainParams *config.Params) (PkScript, error
 		if err != nil {
 			return nil, err
 		}
-		ret.secondAddress, err = massutil.NewAddressPubKeyHash(s2, chainParams)
+		if len(s2) == txscript.OP_DATA_20 { // old binding
+			ret.secondAddress, err = massutil.NewAddressPubKeyHash(s2, chainParams)
+		} else { // new binding
+			ret.secondAddress, err = massutil.NewAddressBindingTarget(s2, chainParams)
+			ret.maturity = consensus.MASSIP0002BindingLockedPeriod
+		}
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, ErrUnsupportedScript
 	}

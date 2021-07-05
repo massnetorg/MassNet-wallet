@@ -12,9 +12,8 @@ import (
 	"testing"
 	//"time"
 
+	"github.com/massnetorg/mass-core/massutil"
 	"massnet.org/mass-wallet/config"
-	//"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 
 	//"massnet.org/mass-wallet/masswallet/keystore/snacl"
@@ -116,7 +115,7 @@ func TestKeystoreManager_NewKeystore(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
@@ -146,7 +145,7 @@ func TestKeystoreManager_NewKeystore(t *testing.T) {
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		for _, scryptConfig := range testConfig {
 			start := time.Now()
-			_, _, err := km.NewKeystore(tx, 128, privPassphrase, "test", &config.ChainParams, scryptConfig, addressGapLimit)
+			_, _, err := km.NewKeystore(tx, 128, privPassphrase, "test", config.ChainParams, scryptConfig, addressGapLimit)
 			if err != nil {
 				return err
 			}
@@ -187,7 +186,7 @@ func TestKeystoreManager_NewKeystore(t *testing.T) {
 // 		if err != nil {
 // 			return fmt.Errorf("failed to get bucket, %v", err)
 // 		}
-// 		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+// 		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 // 		if err != nil {
 // 			return fmt.Errorf("failed to new keystore manager, %v", err)
 // 		}
@@ -221,7 +220,7 @@ func TestKeystoreManager_NewKeystore(t *testing.T) {
 
 // 	var accountID2 string
 // 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
-// 		accountID, _, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "new", &config.ChainParams, nil, addressGapLimit)
+// 		accountID, _, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "new", config.ChainParams, nil, addressGapLimit)
 // 		if err != nil {
 // 			return err
 // 		}
@@ -333,30 +332,30 @@ func TestKeystoreManager_NewKeystore_NextAddress(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -459,17 +458,17 @@ func TestKeystoreManager_ExportKeystore_ImportKeystore(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -571,7 +570,7 @@ func TestKeystoreManager_ExportKeystore_ImportKeystore(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km1, err = NewKeystoreManager(bucket, pubPassphrase2, &config.ChainParams)
+		km1, err = NewKeystoreManager(bucket, pubPassphrase2, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
@@ -638,12 +637,12 @@ func TestKeystoreManager_ImportKeystoreWithMnemonic(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -706,7 +705,7 @@ func TestKeystoreManager_ImportKeystoreWithMnemonic(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km1, err = NewKeystoreManager(bucket, pubPassphrase2, &config.ChainParams)
+		km1, err = NewKeystoreManager(bucket, pubPassphrase2, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
@@ -748,7 +747,7 @@ func TestKeystoreManager_ExportKeystore(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get bucket, %v", err)
 		}
-		kmw, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		kmw, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			t.Fatalf("failed to new keystore manager, %v", err)
 		}
@@ -760,7 +759,7 @@ func TestKeystoreManager_ExportKeystore(t *testing.T) {
 	var accountID string
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		var err error
-		accountID, _, err = kmw.NewKeystore(tx, defaultBitSize, []byte("123456"), "first", &config.ChainParams, nil, addressGapLimit)
+		accountID, _, err = kmw.NewKeystore(tx, defaultBitSize, []byte("123456"), "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return err
 		}
@@ -872,18 +871,18 @@ func TestKeystoreManager_DeleteKeystore(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		accountID = accountID1
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1030,12 +1029,12 @@ func TestKeystoreManager_SignHash(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, fastScrypt, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1136,30 +1135,30 @@ func TestKeystoreManager_ChangePubPassphrase(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, fastScrypt, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1245,18 +1244,18 @@ func TestKeystoreManager_ChangeRemark(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		accountID = accountID1
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1321,31 +1320,31 @@ func TestKeystoreManager_GetManangedAddressByStdAddress(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err = km.NewKeystore(tx, 0, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1424,30 +1423,30 @@ func TestKeystoreManager_GetManangedAddressByScriptHash(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1515,18 +1514,18 @@ func TestKeystoreManager_GetMnemonic(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 		//new keystore
 		var mnemonic string
-		accountID, mnemonic, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID, mnemonic, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID, mnemonic)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1624,21 +1623,21 @@ func TestKeystoreManager_UseKeystoreForWallet(t *testing.T) {
 		}
 
 		// new keystore manager
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			t.Fatalf("failed to new keystore manager, %v", err)
 		}
 
 		// new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", &config.ChainParams, fastScrypt, addressGapLimit)
+		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
 
 		var mnemonic2 string
-		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", &config.ChainParams, fastScrypt, addressGapLimit)
+		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
@@ -1764,30 +1763,30 @@ func TestKeystoreManager_GetAddrManager(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1849,30 +1848,30 @@ func TestKeystoreManager_GetAddrs(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -1935,21 +1934,21 @@ func TestKeystoreManager_GetAddrManagerByAccountID(t *testing.T) {
 		}
 
 		// new keystore manager
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			t.Fatalf("failed to new keystore manager, %v", err)
 		}
 
 		// new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", &config.ChainParams, fastScrypt, addressGapLimit)
+		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
 
 		var mnemonic2 string
-		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", &config.ChainParams, fastScrypt, addressGapLimit)
+		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
@@ -2041,21 +2040,21 @@ func TestKeystoreManager_CheckPrivPassphrase(t *testing.T) {
 		}
 
 		// new keystore manager
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			t.Fatalf("failed to new keystore manager, %v", err)
 		}
 
 		// new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", &config.ChainParams, fastScrypt, addressGapLimit)
+		accountID1, mnemonic1, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase, "first account", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
 
 		var mnemonic2 string
-		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", &config.ChainParams, fastScrypt, addressGapLimit)
+		accountID2, mnemonic2, err = km.NewKeystore(dbTransaction, defaultBitSize, privPassphrase2, "second account", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			t.Fatalf("failed to new keystore, %v", err)
 		}
@@ -2101,7 +2100,7 @@ func TestKeystoreManager_RemoveCachedKeystore(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to get bucket, %v", err)
 		}
-		kmw, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		kmw, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			t.Fatalf("failed to new keystore manager, %v", err)
 		}
@@ -2113,7 +2112,7 @@ func TestKeystoreManager_RemoveCachedKeystore(t *testing.T) {
 
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		var err error
-		_, _, err = kmw.NewKeystore(tx, defaultBitSize, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = kmw.NewKeystore(tx, defaultBitSize, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return err
 		}
@@ -2126,7 +2125,7 @@ func TestKeystoreManager_RemoveCachedKeystore(t *testing.T) {
 	var accountID2 string
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		var err error
-		accountID2, _, err = kmw.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, nil, addressGapLimit)
+		accountID2, _, err = kmw.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return err
 		}
@@ -2158,30 +2157,30 @@ func TestNewKeystoreManager(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err := NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err := NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 
 		// invalid privpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, invalidPass, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalPassphrase {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		// privpass same as pubpass
-		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, pubPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != ErrIllegalNewPrivPass {
 			return fmt.Errorf("failed to catch error, %v", err)
 		}
 
 		//new keystore
-		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err := km.NewKeystore(tx, 0, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
 		t.Logf("accountID: %v, mnemonic: %v", accountID1, mnemonic1)
-		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", &config.ChainParams, fastScrypt, addressGapLimit)
+		_, _, err = km.NewKeystore(tx, defaultBitSize, privPassphrase, "second", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -2214,7 +2213,7 @@ func TestNewKeystoreManager(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err := NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err := NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return err
 		}
@@ -2245,7 +2244,7 @@ func TestKeystoreManager_NextAddresses_Mock(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
@@ -2258,7 +2257,7 @@ func TestKeystoreManager_NextAddresses_Mock(t *testing.T) {
 	var accountID string
 	err = mwdb.Update(ldb, func(tx mwdb.DBTransaction) error {
 		var err error
-		accountID, _, err = km.NewKeystore(tx, 128, privPassphrase, "test", &config.ChainParams, fastScrypt, addressGapLimit)
+		accountID, _, err = km.NewKeystore(tx, 128, privPassphrase, "test", config.ChainParams, fastScrypt, addressGapLimit)
 		if err != nil {
 			return err
 		}
@@ -2341,7 +2340,7 @@ func managedAddressDetails(t *testing.T, addr *ManagedAddress) {
 		t.Logf("private key: %v", addr.PrivKey())
 	}
 	t.Logf("scriptHash: %v", addr.ScriptAddress())
-	redeemScript, err := addr.RedeemScript(&config.ChainParams)
+	redeemScript, err := addr.RedeemScript(config.ChainParams)
 	if err != nil {
 		t.Fatal(err)
 	}

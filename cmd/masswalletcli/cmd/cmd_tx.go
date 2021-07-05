@@ -3,13 +3,16 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
+	"syscall"
 
+	"github.com/massnetorg/mass-core/logging"
 	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/logging"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 // args for Transaction
@@ -91,12 +94,11 @@ var autoCreateRawTransactionCmd = &cobra.Command{
 }
 
 var signRawTransactionCmd = &cobra.Command{
-	Use:   "signrawtransaction <hexstring> <passphrase> [mode=?]",
+	Use:   "signrawtransaction <hexstring> [mode=?]",
 	Short: "Adds signatures to a raw transaction and returns the resulting raw transaction.",
 	Long: "Adds signatures to a raw transaction and returns the resulting raw transaction.\n" +
 		"\nArguments:\n" +
 		"  <hexstring>   signed, serialized, hex-encoded transaction\n" +
-		"  <passphrase>  \n" +
 		"  [mode]        Optional, allowed modes(normally ALL) are:\n" +
 		"            ALL:                 sign for all inputs and outputs (default)\n" +
 		"            NONE:                sign for all inputs\n" +
@@ -105,11 +107,11 @@ var signRawTransactionCmd = &cobra.Command{
 		"            NONE|ANYONECANPAY:   sign for one specified input\n" +
 		"            SINGLE|ANYONECANPAY: sign for one specified input and corresponding output",
 	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.RangeArgs(2, 3)(cmd, args); err != nil {
+		if err := cobra.RangeArgs(1, 2)(cmd, args); err != nil {
 			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
 			return err
 		}
-		for i := 2; i < len(args); i++ {
+		for i := 1; i < len(args); i++ {
 			key, value, err := parseCommandVar(args[i])
 			if err != nil {
 				return err
@@ -134,7 +136,7 @@ var signRawTransactionCmd = &cobra.Command{
 
 		req := &pb.SignRawTransactionRequest{
 			RawTx:      args[0],
-			Passphrase: args[1],
+			Passphrase: readPassword(),
 			Flags:      signFlags,
 		}
 		resp := &pb.SignRawTransactionResponse{}
@@ -143,19 +145,18 @@ var signRawTransactionCmd = &cobra.Command{
 }
 
 var getTransactionFeeCmd = &cobra.Command{
-	Use:   "gettransactionfee <outputs> <inputs> [binding=true] [locktime=?]",
+	Use:   "gettransactionfee <outputs> <inputs> [binding=true]",
 	Short: "Estimates transaction fee.",
 	Long: "Estimates transaction fee.\n" +
 		"\nArguments:\n" +
 		"  <outputs>    a ToAddress-Value map\n" +
 		"  <inputs>     an array of TxOut\n" +
-		"  [binding]   optional, indicates whether this transaction contains binding\n" +
-		"  [locktime]   optional, a non negative integer, default 0\n",
+		"  [binding]   optional, indicates whether this transaction contains binding\n",
 	Example: `  gettransactionfee '{"ms1qq7xrhu6dh6r02ep42p563nmku3d9t8e6mu6yz0h7k9rnc4gr53a7sl7tw3r": "100.5", ...}' '[{"tx_id":"12324abef","vout":0}, ...]'` +
 		"\n  // win\n" +
 		`  gettransactionfee "{\"ms1qq7xrhu6dh6r02ep42p563nmku3d9t8e6mu6yz0h7k9rnc4gr53a7sl7tw3r\": \"100.5\", ...}" "[]" locktime=100`,
 	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.RangeArgs(2, 4)(cmd, args); err != nil {
+		if err := cobra.RangeArgs(2, 3)(cmd, args); err != nil {
 			logging.VPrint(logging.ERROR, LogMsgIncorrectArgsNumber, logging.LogFormat{"actual": len(args)})
 			return err
 		}
@@ -182,11 +183,6 @@ var getTransactionFeeCmd = &cobra.Command{
 				if err != nil {
 					return err
 				}
-			case "locktime":
-				locktime, err = strconv.ParseUint(value, 10, 64)
-				if err != nil {
-					return err
-				}
 			default:
 				return errorUnknownCommandParam(key)
 			}
@@ -195,16 +191,14 @@ var getTransactionFeeCmd = &cobra.Command{
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "gettransactionfee called", logging.LogFormat{
-			"outputs":  outputs,
-			"intputs":  inputs,
-			"locktime": locktime,
-			"binding":  estimateBinding,
+			"outputs": outputs,
+			"intputs": inputs,
+			"binding": estimateBinding,
 		})
 
 		req := &pb.GetTransactionFeeRequest{
 			Amounts:    outputs,
 			Inputs:     inputs,
-			LockTime:   locktime,
 			HasBinding: estimateBinding,
 		}
 
@@ -315,4 +309,31 @@ var listTrasactionsCmd = &cobra.Command{
 		resp := &pb.TxHistoryResponse{}
 		return ClientCall("/v1/transactions/history", POST, req, resp)
 	},
+}
+
+func readPassword() string {
+	for {
+		fmt.Fprint(os.Stdout, "Enter password:")
+		pwd, err := terminal.ReadPassword(int(syscall.Stdin))
+		if err != nil {
+			ExitError(err.Error())
+		}
+		password := strings.TrimSpace(string(pwd))
+		if len(password) == 0 {
+			fmt.Println("")
+			PromptError("Empty password not allowed")
+			continue
+		}
+		fmt.Println("")
+		return password
+	}
+}
+
+func PromptError(msg string) {
+	fmt.Fprintln(os.Stderr, fmt.Sprintf("%c[1;;31m%s%s%c[0m", 0x1B, "Failed: ", msg, 0x1B))
+}
+
+func ExitError(msg string) {
+	fmt.Fprintln(os.Stderr, fmt.Sprintf("%c[1;;31m%s%s%c[0m", 0x1B, "Failed: ", msg, 0x1B))
+	os.Exit(0)
 }

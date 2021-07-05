@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/logging"
 )
 
 // interruptChannel is used to receive SIGINT (Ctrl+C) signals.

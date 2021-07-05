@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/massnetorg/mass-core/logging"
 	"github.com/spf13/cobra"
-	"massnet.org/mass-wallet/logging"
 )
 
 func init() {

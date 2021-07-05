@@ -31,7 +31,7 @@ func allowCORS(h http.Handler, config *config.Config) http.Handler {
 	c := cors.New(cors.Options{
 		AllowedHeaders: []string{"Content-Type", "Accept"},
 		AllowedMethods: []string{"GET", "HEAD", "POST", "PUT", "DELETE"},
-		AllowedOrigins: config.Network.API.HttpCORSAddr,
+		AllowedOrigins: config.Wallet.API.HttpCORSAddr,
 		MaxAge:         600,
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +39,7 @@ func allowCORS(h http.Handler, config *config.Config) http.Handler {
 		select {
 		case httpCh <- true:
 			defer func() { <-httpCh }()
-			if len(config.Network.API.HttpCORSAddr) == 0 {
+			if len(config.Wallet.API.HttpCORSAddr) == 0 {
 				h.ServeHTTP(w, r)
 			} else {
 				c.Handler(h).ServeHTTP(w, r)
@@ -78,30 +78,30 @@ func Run(cfg *config.Config) error {
 		grpc.WithInsecure(),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxMsgSize)),
 	}
-	err := gw.RegisterApiServiceHandlerFromEndpoint(ctx, mux, "localhost:"+cfg.Network.API.GRPCPort, opts)
+	err := gw.RegisterApiServiceHandlerFromEndpoint(ctx, mux, "localhost:"+cfg.Wallet.API.GRPCPort, opts)
 	if err != nil {
 		return err
 	}
 
 	handle := maxBytesHandler(mux)
-	addr := fmt.Sprintf("%s%s%s", cfg.Network.API.Host, ":", cfg.Network.API.HttpPort)
+	addr := fmt.Sprintf("%s%s%s", cfg.Wallet.API.Host, ":", cfg.Wallet.API.HttpPort)
 	serv := &http.Server{
 		Addr:    addr,
 		Handler: allowCORS(handle, cfg),
 	}
 
 	// http
-	if cfg.Network.API.DisableTls {
+	if cfg.Wallet.API.DisableTls {
 		return serv.ListenAndServe()
 	}
 
 	// https
-	tlsConfig, err := LoadTLSConfig(cfg.Network.API.RpcCert)
+	tlsConfig, err := LoadTLSConfig(cfg.Wallet.API.RpcCert)
 	if err != nil {
 		return err
 	}
 	serv.TLSConfig = tlsConfig
-	return serv.ListenAndServeTLS(cfg.Network.API.RpcCert, cfg.Network.API.RpcKey)
+	return serv.ListenAndServeTLS(cfg.Wallet.API.RpcCert, cfg.Wallet.API.RpcKey)
 }
 
 func maxBytesHandler(h http.Handler) http.Handler {

@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/wire"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/utils"
-	"massnet.org/mass-wallet/wire"
 )
 
 func canonicalOutPoint(txHash *wire.Hash, index uint32) []byte {

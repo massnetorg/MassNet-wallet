@@ -61,45 +61,6 @@
         ]
       }
     },
-    "/v1/addresses/binding": {
-      "post": {
-        "summary": "query by poc addresses",
-        "operationId": "GetAddressBinding",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/rpcprotobufGetAddressBindingResponse"
-            }
-          },
-          "403": {
-            "description": "No permission.",
-            "schema": {
-              "format": "string"
-            }
-          },
-          "404": {
-            "description": "Not found.",
-            "schema": {
-              "format": "string"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/rpcprotobufGetAddressBindingRequest"
-            }
-          }
-        ],
-        "tags": [
-          "ApiService"
-        ]
-      }
-    },
     "/v1/addresses/create": {
       "post": {
         "operationId": "CreateAddress",
@@ -250,6 +211,156 @@
         ]
       }
     },
+    "/v1/bindings/networkbinding": {
+      "get": {
+        "operationId": "GetNetworkBinding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetNetworkBindingResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "height",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/bindings/networkbinding/{height}": {
+      "get": {
+        "operationId": "GetNetworkBinding2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufGetNetworkBindingResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "height",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "uint64"
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/bindings/poolpubkeys": {
+      "post": {
+        "operationId": "CheckPoolPkCoinbase",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCheckPoolPkCoinbaseResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCheckPoolPkCoinbaseRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/bindings/targets": {
+      "post": {
+        "operationId": "CheckTargetBinding",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCheckTargetBindingResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCheckTargetBindingRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
     "/v1/blocks/best": {
       "get": {
         "operationId": "GetBestBlock",
@@ -257,7 +368,7 @@
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/rpcprotobufGetBestBlockResponse"
+              "$ref": "#/definitions/rpcprotobufGetBlockResponse"
             }
           },
           "403": {
@@ -710,6 +821,44 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/rpcprotobufTxHistoryRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ApiService"
+        ]
+      }
+    },
+    "/v1/transactions/poolpkcoinbase": {
+      "post": {
+        "operationId": "CreatePoolPkCoinbaseTransaction",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreateRawTransactionResponse"
+            }
+          },
+          "403": {
+            "description": "No permission.",
+            "schema": {
+              "format": "string"
+            }
+          },
+          "404": {
+            "description": "Not found.",
+            "schema": {
+              "format": "string"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/rpcprotobufCreatePoolPkCoinbaseTransactionRequest"
             }
           }
         ],
@@ -1401,11 +1550,18 @@
         "holder_address": {
           "type": "string"
         },
-        "binding_address": {
-          "type": "string"
-        },
         "amount": {
           "type": "string"
+        },
+        "binding_target": {
+          "type": "string"
+        },
+        "target_type": {
+          "type": "string"
+        },
+        "target_size": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
@@ -1728,11 +1884,14 @@
             "type": "string"
           }
         },
-        "addresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "from_address": {
+          "type": "string"
+        },
+        "staking_address": {
+          "type": "string"
+        },
+        "binding_target": {
+          "type": "string"
         }
       }
     },
@@ -1749,11 +1908,14 @@
           "type": "integer",
           "format": "int32"
         },
-        "addresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "recipient_address": {
+          "type": "string"
+        },
+        "staking_address": {
+          "type": "string"
+        },
+        "binding_target": {
+          "type": "string"
         }
       }
     },
@@ -1857,6 +2019,77 @@
         }
       }
     },
+    "rpcprotobufCheckPoolPkCoinbaseRequest": {
+      "type": "object",
+      "properties": {
+        "pool_pubkeys": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rpcprotobufCheckPoolPkCoinbaseResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/rpcprotobufCheckPoolPkCoinbaseResponseInfo"
+          }
+        }
+      }
+    },
+    "rpcprotobufCheckPoolPkCoinbaseResponseInfo": {
+      "type": "object",
+      "properties": {
+        "nonce": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "coinbase": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufCheckTargetBindingRequest": {
+      "type": "object",
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rpcprotobufCheckTargetBindingResponse": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/rpcprotobufCheckTargetBindingResponseInfo"
+          }
+        }
+      }
+    },
+    "rpcprotobufCheckTargetBindingResponseInfo": {
+      "type": "object",
+      "properties": {
+        "target_type": {
+          "type": "string"
+        },
+        "target_size": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "amount": {
+          "type": "string"
+        }
+      }
+    },
     "rpcprotobufCreateAddressRequest": {
       "type": "object",
       "properties": {
@@ -1901,6 +2134,17 @@
           "type": "string"
         },
         "amount": {
+          "type": "string"
+        }
+      }
+    },
+    "rpcprotobufCreatePoolPkCoinbaseTransactionRequest": {
+      "type": "object",
+      "properties": {
+        "from_address": {
+          "type": "string"
+        },
+        "payload": {
           "type": "string"
         }
       }
@@ -2032,7 +2276,10 @@
             "$ref": "#/definitions/rpcprotobufDecodeRawTransactionResponseVout"
           }
         },
-        "payload": {
+        "payload_hex": {
+          "type": "string"
+        },
+        "payload_decode": {
           "type": "string"
         }
       }
@@ -2079,11 +2326,14 @@
         "script_hex": {
           "type": "string"
         },
-        "addresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "recipient_address": {
+          "type": "string"
+        },
+        "staking_address": {
+          "type": "string"
+        },
+        "binding_target": {
+          "type": "string"
         }
       }
     },
@@ -2132,28 +2382,6 @@
         }
       }
     },
-    "rpcprotobufGetAddressBindingRequest": {
-      "type": "object",
-      "properties": {
-        "addresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
-    "rpcprotobufGetAddressBindingResponse": {
-      "type": "object",
-      "properties": {
-        "amounts": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      }
-    },
     "rpcprotobufGetAddressesResponse": {
       "type": "object",
       "properties": {
@@ -2162,18 +2390,6 @@
           "items": {
             "$ref": "#/definitions/GetAddressesResponseAddressDetail"
           }
-        }
-      }
-    },
-    "rpcprotobufGetBestBlockResponse": {
-      "type": "object",
-      "properties": {
-        "height": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "target": {
-          "type": "string"
         }
       }
     },
@@ -2271,6 +2487,9 @@
         "tx_count": {
           "type": "integer",
           "format": "int64"
+        },
+        "binding_root": {
+          "type": "string"
         }
       }
     },
@@ -2320,6 +2539,30 @@
         },
         "peers": {
           "$ref": "#/definitions/GetClientStatusResponsepeerList"
+        }
+      }
+    },
+    "rpcprotobufGetNetworkBindingResponse": {
+      "type": "object",
+      "properties": {
+        "height": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "total_binding": {
+          "type": "string"
+        },
+        "binding_price_mass_bitlength": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "binding_price_chia_k": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -2405,10 +2648,6 @@
           "additionalProperties": {
             "type": "string"
           }
-        },
-        "lock_time": {
-          "type": "string",
-          "format": "uint64"
         },
         "inputs": {
           "type": "array",

@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/massnetorg/mass-core/logging"
 	"massnet.org/mass-wallet/api"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/logging"
 	"massnet.org/mass-wallet/masswallet"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 )
@@ -108,12 +108,12 @@ func (l *Loader) createWallet(dbPath string) (*masswallet.WalletManager, error) 
 		return nil, ErrLoaded
 	}
 
-	db, err := mwdb.CreateDB(l.cfg.Data.DbType, dbPath)
+	db, err := mwdb.CreateDB(l.cfg.Core.Datastore.DBType, dbPath)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "Error opening database", logging.LogFormat{"err": err})
 		return nil, err
 	}
-	w, err := masswallet.NewWalletManager(l.massServer, db, l.cfg, l.chainParams, l.cfg.Data.WalletPubPass)
+	w, err := masswallet.NewWalletManager(l.massServer, db, l.cfg, l.chainParams, l.cfg.Wallet.PubPass)
 	if err != nil {
 		if e := db.Close(); e != nil {
 			logging.CPrint(logging.WARN, "Error closing database", logging.LogFormat{"dbPath": dbPath, "err": err})
@@ -141,11 +141,11 @@ func (l *Loader) openWallet(dbPath string) (*masswallet.WalletManager, error) {
 		return nil, ErrLoaded
 	}
 
-	db, err := mwdb.OpenDB(l.cfg.Data.DbType, dbPath)
+	db, err := mwdb.OpenDB(l.cfg.Core.Datastore.DBType, dbPath)
 	if err != nil {
 		return nil, err
 	}
-	w, err := masswallet.NewWalletManager(l.massServer, db, l.cfg, l.chainParams, l.cfg.Data.WalletPubPass)
+	w, err := masswallet.NewWalletManager(l.massServer, db, l.cfg, l.chainParams, l.cfg.Wallet.PubPass)
 	if err != nil {
 		if e := db.Close(); e != nil {
 			logging.CPrint(logging.WARN, "Error closing database", logging.LogFormat{"dbPath": dbPath, "err": err})
@@ -175,12 +175,12 @@ func (l *Loader) LoadedWalletManager() (*masswallet.WalletManager, bool) {
 }
 
 func (l *Loader) LoadWallet() error {
-	dbPath := filepath.Join(l.cfg.Data.DbDir, walletDbName)
+	dbPath := filepath.Join(l.cfg.Core.Datastore.Dir, walletDbName)
 	fi, _ := os.Stat(dbPath)
 	if fi != nil {
 		if _, err := l.openWallet(dbPath); err != nil {
 			logging.CPrint(logging.ERROR, "Error opening wallet", logging.LogFormat{
-				"DbType": l.cfg.Data.DbType,
+				"DbType": l.cfg.Core.Datastore.DBType,
 				"path":   dbPath,
 				"err":    err,
 			})
@@ -189,7 +189,7 @@ func (l *Loader) LoadWallet() error {
 	} else {
 		if _, err := l.createWallet(dbPath); err != nil {
 			logging.CPrint(logging.ERROR, "Error creating wallet", logging.LogFormat{
-				"DbType": l.cfg.Data.DbType,
+				"DbType": l.cfg.Core.Datastore.DBType,
 				"path":   dbPath,
 				"err":    err,
 			})

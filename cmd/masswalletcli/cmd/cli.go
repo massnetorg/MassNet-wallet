@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/limits"
+	"github.com/massnetorg/mass-core/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -18,6 +21,15 @@ var rootCmd = &cobra.Command{
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	// Use all processor cores.
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	// Up some limits.
+	if err := limits.SetLimits(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to set limits: %v\n", err)
+		os.Exit(1)
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		logging.VPrint(logging.FATAL, "Command failed", logging.LogFormat{"err": err})
 	}
@@ -30,6 +42,7 @@ func init() {
 	rootCmd.AddCommand(createCertCmd)
 	rootCmd.AddCommand(getClientStatusCmd)
 	rootCmd.AddCommand(getBestBlockCmd)
+	rootCmd.AddCommand(getBlockByHeightCmd)
 	rootCmd.AddCommand(stopCmd)
 
 	// cmd_wallet
@@ -64,6 +77,20 @@ func init() {
 	rootCmd.AddCommand(getBlockStakingReward)
 
 	rootCmd.AddCommand(createBindingTransactionCmd)
+
+	batchBindPoolPkCmd.Flags().BoolP("check", "c", false, "only check current bound coinbase")
+	rootCmd.AddCommand(batchBindPoolPkCmd)
+
+	rootCmd.AddCommand(checkPoolPkCoinbaseCmd)
+	rootCmd.AddCommand(checkTargetBindingCmd)
+	rootCmd.AddCommand(getNetworkBindingCmd)
 	rootCmd.AddCommand(getBindingHistoryCmd)
-	rootCmd.AddCommand(getAddressBindingCmd)
+
+	rootCmd.AddCommand(exportChainCmd)
+
+	importChainCmd.Flags().BoolVarP(&NoExpensiveValidation, "fast-validation", "f", false, "disable expensive validations")
+	rootCmd.AddCommand(importChainCmd)
+
+	batchBindingCmd.Flags().BoolP("check", "c", false, "only check unbound targets")
+	rootCmd.AddCommand(batchBindingCmd)
 }

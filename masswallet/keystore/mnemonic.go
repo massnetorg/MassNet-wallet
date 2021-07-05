@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/binary"
+	"errors"
 	"math/big"
 	"strings"
 
 	"golang.org/x/crypto/pbkdf2"
 
-	"massnet.org/mass-wallet/errors"
 	"massnet.org/mass-wallet/masswallet/keystore/wordlists"
 )
 

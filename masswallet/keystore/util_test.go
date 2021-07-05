@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"encoding/hex"
-	"massnet.org/mass-wallet/massutil/base58"
 	"math"
 	"math/big"
 	"sync"
+
+	"github.com/massnetorg/mass-core/massutil/base58"
 )
 
 func TestBase58(t *testing.T) {

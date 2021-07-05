@@ -8,15 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"massnet.org/mass-wallet/blockchain"
-	mdebug "massnet.org/mass-wallet/debug"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/mass-core/blockchain"
+	mdebug "github.com/massnetorg/mass-core/debug"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/wire"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/keystore"
 	"massnet.org/mass-wallet/masswallet/txmgr"
 	"massnet.org/mass-wallet/masswallet/utils"
-	"massnet.org/mass-wallet/wire"
 )
 
 // const ...

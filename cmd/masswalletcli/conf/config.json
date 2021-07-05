@@ -1,5 +1,0 @@
-{
-    "server": "https://localhost:9688",
-    "log_dir": "./logs",
-    "log_level": "debug"
-}

@@ -3,9 +3,10 @@ package keystore
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/btcsuite/btcd/btcec"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/massutil/bech32"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/massutil/bech32"
 )
 
 func pubKeyToAccountID(pubKey *btcec.PublicKey) (string, error) {

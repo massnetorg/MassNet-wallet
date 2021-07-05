@@ -5,16 +5,16 @@ import (
 	"errors"
 	"fmt"
 
-	"massnet.org/mass-wallet/blockchain"
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/debug"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/wire"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/debug"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/ifc"
 	"massnet.org/mass-wallet/masswallet/keystore"
 	"massnet.org/mass-wallet/masswallet/utils"
-	"massnet.org/mass-wallet/wire"
 )
 
 //TxStore definition
@@ -464,7 +464,7 @@ func (s *TxStore) ExistUnminedTx(tx mwdb.ReadTransaction, hash *wire.Hash) (mtx 
 }
 
 // for current wallet
-func (s *TxStore) ExistsTx(tx mwdb.ReadTransaction, out *wire.OutPoint) (mtx *wire.MsgTx, err error) {
+func (s *TxStore) ExistsTx(tx mwdb.ReadTransaction, out *wire.OutPoint) (mtx *wire.MsgTx, meta *BlockMeta, err error) {
 	nsUnspent := tx.FetchBucket(s.bucketMeta.nsUnspent)
 	nsCredits := tx.FetchBucket(s.bucketMeta.nsCredits)
 	nsTxRecords := tx.FetchBucket(s.bucketMeta.nsTxRecords)
@@ -475,7 +475,7 @@ func (s *TxStore) ExistsTx(tx mwdb.ReadTransaction, out *wire.OutPoint) (mtx *wi
 
 	_, credKey, err := existsUnspent(nsUnspent, s.ksmgr.CurrentKeystore().Name(), out)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	found := false
@@ -483,19 +483,19 @@ func (s *TxStore) ExistsTx(tx mwdb.ReadTransaction, out *wire.OutPoint) (mtx *wi
 	if credKey != nil { // unspent exists
 		err = readRawCreditKey(credKey, &cred)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		found = true
 	} else { // unspent not exists
 		entries, err := getCreditsByTxHash(nsCredits, &out.Hash)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		for _, entry := range entries {
 			err = readRawCreditKey(entry.Key, &cred)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if cred.outPoint.Index == out.Index {
 				found = true
@@ -508,12 +508,12 @@ func (s *TxStore) ExistsTx(tx mwdb.ReadTransaction, out *wire.OutPoint) (mtx *wi
 		_, recVal := existsTxRecord(nsTxRecords, &cred.outPoint.Hash, cred.block)
 		_, txLoc, err := readTxRecordLoc(recVal)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		msgtx, err := s.chainFetcher.FetchTxByLoc(cred.block.Height, txLoc)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "txrecord found but FetchTxByLoc error", logging.LogFormat{"err": err})
-			return nil, err
+			return nil, nil, err
 		}
 		mHash := msgtx.TxHash()
 		if !bytes.Equal(mHash[:], cred.outPoint.Hash[:]) {
@@ -524,11 +524,11 @@ func (s *TxStore) ExistsTx(tx mwdb.ReadTransaction, out *wire.OutPoint) (mtx *wi
 				"height": cred.block.Height,
 				"txloc":  txLoc,
 			})
-			return nil, ErrNotFound
+			return nil, nil, ErrNotFound
 		}
-		return msgtx, nil
+		return msgtx, cred.block, nil
 	}
-	return nil, ErrNotFound
+	return nil, nil, ErrNotFound
 }
 
 // ExistsUtxo returns ErrNotFound if not exists

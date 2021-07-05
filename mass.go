@@ -6,27 +6,27 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/pprof"
 
+	"github.com/massnetorg/mass-core/blockchain/state"
+	"github.com/massnetorg/mass-core/database"
+	_ "github.com/massnetorg/mass-core/database/ldb"
+	"github.com/massnetorg/mass-core/database/storage"
+	_ "github.com/massnetorg/mass-core/database/storage/ldbstorage"
+	_ "github.com/massnetorg/mass-core/database/storage/rdbstorage"
+	"github.com/massnetorg/mass-core/limits"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/trie/massdb"
+	"github.com/massnetorg/mass-core/trie/rawdb"
+	"github.com/massnetorg/mass-core/version"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/database"
-	_ "massnet.org/mass-wallet/database/ldb"
-	"massnet.org/mass-wallet/database/storage"
-	_ "massnet.org/mass-wallet/database/storage/ldbstorage"
-	_ "massnet.org/mass-wallet/database/storage/rdbstorage"
-	"massnet.org/mass-wallet/limits"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
 	_ "massnet.org/mass-wallet/masswallet/db/ldb"
 	_ "massnet.org/mass-wallet/masswallet/db/rdb"
-	"massnet.org/mass-wallet/version"
 )
 
 var (
@@ -55,15 +55,15 @@ func massMain(serverChan chan<- *server) error {
 	config.LoadConfig(tempCfg)
 	cfg = config.CheckConfig(tempCfg)
 
-	logging.Init(cfg.Log.LogDir, config.DefaultLoggingFilename, cfg.Log.LogLevel, 1, false)
+	logging.Init(cfg.Core.Log.LogDir, config.DefaultLoggingFilename, cfg.Core.Log.LogLevel, 1, false)
 
 	// Show version at startup.
 	logging.CPrint(logging.INFO, fmt.Sprintf("version %s", version.GetVersion()), logging.LogFormat{})
 
 	// Enable http profiling server if requested.
-	if cfg.App.Profile != "" {
+	if cfg.Core.Metrics.ProfilePort != "" {
 		go func() {
-			listenAddr := net.JoinHostPort("", cfg.App.Profile)
+			listenAddr := net.JoinHostPort("", cfg.Core.Metrics.ProfilePort)
 			logging.CPrint(logging.INFO, fmt.Sprintf("profile server listening on %s", listenAddr), logging.LogFormat{})
 			profileRedirect := http.RedirectHandler("/debug/pprof",
 				http.StatusSeeOther)
@@ -72,35 +72,34 @@ func massMain(serverChan chan<- *server) error {
 		}()
 	}
 
-	// Write cpu profile if requested.
-	if cfg.App.CPUProfile != "" {
-		f, err := os.Create(cfg.App.CPUProfile)
-		if err != nil {
-			logging.CPrint(logging.ERROR, "unable to create cpu profile", logging.LogFormat{"err": err})
-			return err
-		}
-		pprof.StartCPUProfile(f)
-		defer f.Close()
-		defer pprof.StopCPUProfile()
+	bindingDb, err := openStateDatabase(cfg.Core.Datastore.Dir, "bindingstate", 0, 0, "", false)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "failed to load binding database", logging.LogFormat{"err": err})
+		return err
 	}
 
 	// Load the block database.
-	db, err := loadBlockDB()
+	db, err := setupBlockDB()
 	if err != nil {
-		logging.CPrint(logging.ERROR, "loadBlockDB error", logging.LogFormat{"err": err})
+		bindingDb.Close()
+		logging.CPrint(logging.ERROR, "setupBlockDB error", logging.LogFormat{"err": err})
 		return err
 	}
 
 	// Create server
-	server, err := newServer(db)
+	server, err := newServer(db, state.NewDatabase(bindingDb), config.ChainParams)
 	if err != nil {
-		logging.CPrint(logging.ERROR, "unable to start server on address", logging.LogFormat{"addr": cfg.Network.P2P.ListenAddress, "err": err})
+		bindingDb.Close()
+		db.Close()
+		logging.CPrint(logging.ERROR, "unable to start server on address", logging.LogFormat{"addr": cfg.Core.P2P.ListenAddress, "err": err})
 		return err
 	}
 
 	// Load wallet
-	loader := NewLoader(server, &config.ChainParams, cfg)
+	loader := NewLoader(server, config.ChainParams, cfg)
 	if err = loader.LoadWallet(); err != nil {
+		bindingDb.Close()
+		db.Close()
 		return err
 	}
 
@@ -112,9 +111,11 @@ func massMain(serverChan chan<- *server) error {
 		}
 
 		server.WaitForShutdown()
-		err = db.Close()
-		logging.CPrint(logging.INFO, "Chain db closed", logging.LogFormat{
-			"err": err,
+		err0 := bindingDb.Close()
+		err1 := db.Close()
+		logging.CPrint(logging.INFO, "db closed", logging.LogFormat{
+			"binding error": err0,
+			"chain error":   err1,
 		})
 		closeDbChannel <- struct{}{}
 	})
@@ -183,7 +184,7 @@ func blockDbPath(dbType string) string {
 	if dbType == "sqlite" {
 		dbName = dbName + ".db"
 	}
-	dbPath := filepath.Join(cfg.Data.DbDir, dbName)
+	dbPath := filepath.Join(cfg.Core.Datastore.Dir, dbName)
 	return dbPath
 }
 
@@ -196,9 +197,9 @@ func setupBlockDB() (database.Db, error) {
 	// The memdb backend does not have a file path associated with it, so
 	// handle it uniquely.  We also don't want to worry about the multiple
 	// database type warnings when running with the memory database.
-	if cfg.Data.DbType == "memdb" {
+	if cfg.Core.Datastore.DBType == "memdb" {
 		logging.CPrint(logging.INFO, "creating block database in memory", logging.LogFormat{})
-		db, err := database.CreateDB(cfg.Data.DbType)
+		db, err := database.CreateDB("memdb")
 		if err != nil {
 			return nil, err
 		}
@@ -206,57 +207,27 @@ func setupBlockDB() (database.Db, error) {
 	}
 
 	// Create the new path if needed.
-	err := os.MkdirAll(cfg.Data.DbDir, 0700)
+	err := os.MkdirAll(cfg.Core.Datastore.Dir, 0700)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = storage.CheckCompatibility(cfg.Data.DbType, cfg.Data.DbDir); err != nil {
+	if err = storage.CheckCompatibility(cfg.Core.Datastore.DBType, cfg.Core.Datastore.Dir); err != nil {
 		logging.CPrint(logging.ERROR, "check storage compatibility failed", logging.LogFormat{"err": err})
 		return nil, err
 	}
 
-	dbPath := blockDbPath(cfg.Data.DbType)
-	db, err := database.OpenDB(cfg.Data.DbType, dbPath)
+	dbPath := blockDbPath(cfg.Core.Datastore.DBType)
+	db, err := database.OpenDB(cfg.Core.Datastore.DBType, dbPath, false)
 	if err != nil {
 		logging.CPrint(logging.WARN, "open db failed", logging.LogFormat{"err": err, "path": dbPath})
-		db, err = database.CreateDB(cfg.Data.DbType, dbPath)
+		db, err = database.CreateDB(cfg.Core.Datastore.DBType, dbPath)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "create db failed", logging.LogFormat{"err": err, "path": dbPath})
 			return nil, err
 		}
 	}
 
-	return db, nil
-}
-
-// loadBlockDB opens the block database and returns a handle to it.
-func loadBlockDB() (database.Db, error) {
-	db, err := setupBlockDB()
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the latest block height from the database.
-	_, height, err := db.NewestSha()
-	if err != nil {
-		db.Close()
-		return nil, err
-	}
-
-	// Insert the appropriate genesis block for the Mass network being
-	// connected to if needed.
-	if height == math.MaxUint64 {
-		genesis := massutil.NewBlock(config.ChainParams.GenesisBlock)
-		if err := db.InitByGenesisBlock(genesis); err != nil {
-			db.Close()
-			return nil, err
-		}
-		logging.CPrint(logging.INFO, "inserted genesis block", logging.LogFormat{"hash": config.ChainParams.GenesisHash})
-		height = 0
-	}
-
-	logging.CPrint(logging.INFO, "ledger loaded", logging.LogFormat{"height": height})
 	return db, nil
 }
 
@@ -268,4 +239,13 @@ func FileExists(name string) bool {
 		}
 	}
 	return true
+}
+
+func openStateDatabase(dataDir, name string, cache, handles int, namespace string, readonly bool) (massdb.Database, error) {
+	if dataDir == "" {
+		return rawdb.NewMemoryDatabase(), nil
+	} else {
+		path := filepath.Join(dataDir, name)
+		return rawdb.NewLevelDBDatabase(path, cache, handles, namespace, readonly)
+	}
 }

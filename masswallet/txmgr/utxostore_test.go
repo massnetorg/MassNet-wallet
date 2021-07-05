@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/wire"
 	"github.com/stretchr/testify/assert"
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/utils"
-	"massnet.org/mass-wallet/wire"
 )
 
 func TestGetPutWalletBalance(t *testing.T) {

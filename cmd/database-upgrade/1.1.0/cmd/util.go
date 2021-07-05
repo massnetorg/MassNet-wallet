@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/database/storage"
-	_ "massnet.org/mass-wallet/database/storage/ldbstorage"
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/database/storage"
+	_ "github.com/massnetorg/mass-core/database/storage/ldbstorage"
+	"github.com/massnetorg/mass-core/logging"
 )
 
 var (
@@ -38,7 +38,7 @@ func loadDatabase(dbDir string, supportedVersions ...int32) (database.Db, string
 	}
 
 	blksPath := filepath.Join(dbDir, "blocks.db")
-	db, err := database.OpenDB(typ, blksPath)
+	db, err := database.OpenDB(typ, blksPath, false)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "OpenDB failed", logging.LogFormat{"err": err, "path": blksPath})
 		return nil, "", 0, err

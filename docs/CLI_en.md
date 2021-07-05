@@ -163,17 +163,19 @@ Return:
 ```
 
 ## createwallet
-    createwallet <passphrase> [entropy=?] [remarks=?]
+    createwallet [entropy=?] [remarks=?]
 
 Parameter:  
 
-    passphrase    6 to 40 valid characters to encrypt the wallet.
     entropy       The initial entropy length for generating mnemonics must be an integer multiple of 32 in the range of [128,256]. The default is 128.
     remarks       Note information of wallet, without any chain semantics.
 
 Example:  
 ```bash
-> masswallet-cli createwallet 123456 entropy=160 remarks="for test"
+> masswallet-cli createwallet entropy=160 remarks="for test"
+
+// Set 6 to 40 valid characters to encrypt the wallet
+> Enter password: 
 ```
 
 Return:  
@@ -192,11 +194,10 @@ Returns the mnemonic of currently used wallet.
 Parameter:  
 
     wallet_id
-    passphrase      
 
 Example:  
 ```bash
-> masswallet-cli getwalletmnemonic ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds 123456
+> masswallet-cli getwalletmnemonic ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds
 ```
 
 Return:  
@@ -208,16 +209,15 @@ Return:
 ```
 
 ## exportwallet
-    exportwallet <wallet_id> <passphrase>
+    exportwallet <wallet_id>
 
 Parameter:  
 
     wallet_id
-    passphrase      
 
 Example:  
 ```bash
-> masswallet-cli exportwallet ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds 123456
+> masswallet-cli exportwallet ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds
 ```
 
 Return:  
@@ -228,16 +228,15 @@ Return:
 ```
 
 ## removewallet
-    removewallet <wallet_id> <passphrase>
+    removewallet <wallet_id>
 
 Parameter:  
 
     wallet_id
-    passphrase    
 
 Example:  
 ```bash
-> masswallet-cli removewallet ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds 123456
+> masswallet-cli removewallet ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds
 ```
 
 Return:  
@@ -248,22 +247,21 @@ Return:
 ```
 
 ## importwallet
-    importwallet <keystore> <passphrase>
+    importwallet <keystore>
 Imports a wallet by keystore.
 
 Parameter:  
 
     keystore        json data
-    passphrase      
 
 Example1:  
 ```bash
-> masswallet-cli importwallet '{"remarks":"for test","crypto":{"cipher":"Stream cipher","entropyEnc":"ac6de145205481dc95ab6a22f8b978edb3f1b2d69f5036a2158339bc7465c0a7311d6d08983ef8e2f5d443dad7dc7580095b024cd809ab6006743624","kdf":"scrypt","pubParams":"","privParams":"b999d54a2369d9be570928c32e0a727e95eb395ad8ba5383608c9cb800a4cad82c52fe054cdcdfae5b3d751810452425704095a32fcb6cea85913575ac39174c000004000000000008000000000000000100000000000000","cryptoKeyPubEnc":"","cryptoKeyPrivEnc":"","cryptoKeyEntropyEnc":"cac4a9b04cca089d396430cb9115627d97e914590183b5a835e7cbf76ae6b85ae4a6cbaafe12e2fa1a43f52c78c5aa62e9d3f5265baf9eb2618e020b1d5ce5555d9cc69f005c6a44"},"hdPath":{"Purpose":44,"Coin":1,"Account":1,"ExternalChildNum":0,"InternalChildNum":0}}' 123456
+> masswallet-cli importwallet '{"remarks":"for test","crypto":{"cipher":"Stream cipher","entropyEnc":"ac6de145205481dc95ab6a22f8b978edb3f1b2d69f5036a2158339bc7465c0a7311d6d08983ef8e2f5d443dad7dc7580095b024cd809ab6006743624","kdf":"scrypt","pubParams":"","privParams":"b999d54a2369d9be570928c32e0a727e95eb395ad8ba5383608c9cb800a4cad82c52fe054cdcdfae5b3d751810452425704095a32fcb6cea85913575ac39174c000004000000000008000000000000000100000000000000","cryptoKeyPubEnc":"","cryptoKeyPrivEnc":"","cryptoKeyEntropyEnc":"cac4a9b04cca089d396430cb9115627d97e914590183b5a835e7cbf76ae6b85ae4a6cbaafe12e2fa1a43f52c78c5aa62e9d3f5265baf9eb2618e020b1d5ce5555d9cc69f005c6a44"},"hdPath":{"Purpose":44,"Coin":1,"Account":1,"ExternalChildNum":0,"InternalChildNum":0}}'
 ```
 
 Example2:  
 ```bash
-> masswallet-cli importwallet "{\"remarks\":\"for test\",\"crypto\":{\"cipher\":\"Stream cipher\",\"entropyEnc\":\"ac6de145205481dc95ab6a22f8b978edb3f1b2d69f5036a2158339bc7465c0a7311d6d08983ef8e2f5d443dad7dc7580095b024cd809ab6006743624\",\"kdf\":\"scrypt\",\"pubParams\":\"\",\"privParams\":\"b999d54a2369d9be570928c32e0a727e95eb395ad8ba5383608c9cb800a4cad82c52fe054cdcdfae5b3d751810452425704095a32fcb6cea85913575ac39174c000004000000000008000000000000000100000000000000\",\"cryptoKeyPubEnc\":\"\",\"cryptoKeyPrivEnc\":\"\",\"cryptoKeyEntropyEnc\":\"cac4a9b04cca089d396430cb9115627d97e914590183b5a835e7cbf76ae6b85ae4a6cbaafe12e2fa1a43f52c78c5aa62e9d3f5265baf9eb2618e020b1d5ce5555d9cc69f005c6a44\"},\"hdPath\":{\"Purpose\":44,\"Coin\":1,\"Account\":1,\"ExternalChildNum\":0,\"InternalChildNum\":0}}" 123456
+> masswallet-cli importwallet "{\"remarks\":\"for test\",\"crypto\":{\"cipher\":\"Stream cipher\",\"entropyEnc\":\"ac6de145205481dc95ab6a22f8b978edb3f1b2d69f5036a2158339bc7465c0a7311d6d08983ef8e2f5d443dad7dc7580095b024cd809ab6006743624\",\"kdf\":\"scrypt\",\"pubParams\":\"\",\"privParams\":\"b999d54a2369d9be570928c32e0a727e95eb395ad8ba5383608c9cb800a4cad82c52fe054cdcdfae5b3d751810452425704095a32fcb6cea85913575ac39174c000004000000000008000000000000000100000000000000\",\"cryptoKeyPubEnc\":\"\",\"cryptoKeyPrivEnc\":\"\",\"cryptoKeyEntropyEnc\":\"cac4a9b04cca089d396430cb9115627d97e914590183b5a835e7cbf76ae6b85ae4a6cbaafe12e2fa1a43f52c78c5aa62e9d3f5265baf9eb2618e020b1d5ce5555d9cc69f005c6a44\"},\"hdPath\":{\"Purpose\":44,\"Coin\":1,\"Account\":1,\"ExternalChildNum\":0,\"InternalChildNum\":0}}"
 ```
 
 Return:  
@@ -278,19 +276,18 @@ Return:
 ```
 
 ## importmnemonic
-    importmnemonic <mnemonic> <passphrase> [initial=?] [remarks=?]
+    importmnemonic <mnemonic> [initial=?] [remarks=?]
 Imports a wallet backup mnemonic.
 
 Parameter:  
 
     mnemonic        
-    passphrase
     initial   optional, number of initial addresses
     remarks   optional
 
 Example:  
 ```bash
-> masswallet-cli importmnemonic "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse" 123456
+> masswallet-cli importmnemonic "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse"
 ```
 
 Return:  
@@ -533,13 +530,12 @@ Return:
 ```
 
 ## signrawtransaction
-    signrawtransaction <hexstring> <passphrase> [mode=?]
+    signrawtransaction <hexstring> [mode=?]
 Signs a transaction.
 
 Parameter:  
 
     hexstring       Transactions to be signed
-    passphrase      
     mode            optional.default "ALL"
                     ALL
                     NONE
@@ -550,7 +546,10 @@ Parameter:
 
 Example:  
 ```bash
-> masswallet-cli signrawtransaction 080112310a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d29719ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064 123456
+> masswallet-cli signrawtransaction 080112310a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d29719ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064
+
+// Enter wallet password
+> Enter password:
 ```
 
 Return:  
@@ -562,7 +561,7 @@ Return:
 ```
 
 ## gettransactionfee
-    gettransactionfee <outputs> <inputs> [binding=true] [locktime=?]
+    gettransactionfee <outputs> <inputs> [binding=true]
 Estimates transaction fee.
 
 Parameter:  
@@ -570,7 +569,6 @@ Parameter:
     outputs         format:{"address1":"vlaue1","address2":"vlaue2",...}
     inputs          format:[{"tx_id":"...","vout":0},...]
     binding         optional.Include staking or not,default false
-    locktime        optional
 
 Example:  
 ```bash
@@ -634,61 +632,78 @@ Parameter:
 
 Example:  
 ```bash
-> masswallet-cli getrawtransaction 06a47d7d1c1e3702c944e9bd300b97b9d40080407b61b933db64205f13b6c101
+> masswallet-cli getrawtransaction fe7104abbc30b56ec62c092966eccdabaec7034bf87ae1eb653572ad648902e9
 ```
 
 Return:  
 ```json
-{
-  "hex": "080112a2010a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d2971248473044022010b789a4ac96e6c6f3caafc2b9f548a0e97cf1ad6bfe4a850ad73a3a4818861a0220532098aa7fa238511fdac8ab7aaf2541027e29f4b4d3eccb882d45263c860a0901122551210203a70a76734af100ed151ecf69ec776e4ef03ca0df06457176c1d61bb4c9d52e51ae19ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064",
-  "tx_id": "2c8d77bb380786822acce767139eb8441027637d0c3dd248cc0ddf070bb52dc8",
+{  "hex": "080112a5010a280a2409338ec05a33cd12c5117564055e95df7bc4197d62963fb196bdac21b8eaf3a6a8aa698010011249483045022100cf67a3663729ddf708500a293274fce5694e68df92d4fadf6c1cdaa2d90105be02203b0162b309017e46e0334999b7270cb8c0f8d5fa415fa7fc946a623397a3717301122551210356830b4780dc5f5463aa91eeaa6508f93698e039fce8cf17db363ba99afd790451ae19ffffffffffffffff12a4010a280a2409017da021af9f30b911f18c999e15c4934a19ee0733fc5aadeacc21cfc1e765b6ee3ab110011248473044022053839e7e9afe0b56b4da9e58e9da7c0371a7cec6eb383d74dab704ec8f4b7d2a02203c635076d031779de22231afd355195b346551ead655aaeee81df8249cc75d6501122551210356830b4780dc5f5463aa91eeaa6508f93698e039fce8cf17db363ba99afd790451ae19ffffffffffffffff1a3f08e0efc1a0251237002076c83de3af1270125e4cf2db9b2b6c80d63d1043d9d0a57875193ad9d55783ef14f5000204050607080102030605060708000203041a2a08d0a7fcf41e122200200c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d3866907",
+  "txId": "fe7104abbc30b56ec62c092966eccdabaec7034bf87ae1eb653572ad648902e9",
   "version": 1,
-  "lock_time": "0",
   "block": {
-    "height": "15695",
-    "block_hash": "ce4c5d1ef257c7b83f0c5117f56ddc663e244fbca0909b11c48d88d97eccba85",
-    "timestamp": "1566924154"
+    "height": "3322",
+    "blockHash": "c012ce1b7617fcd4a8711ea0d63e80d4a8691971b9aef9d3e729ece9b6252fad",
+    "timestamp": "1624690938"
   },
   "vin": [
     {
-      "value": "20",
-      "n": 0,
+      "value": "91.9989",
       "type": 1,
-      "redeem_detail": {
-        "tx_id": "08e60b73ef43f5bfcf3f954f103f618e8bc69995ba414fdf97d2098841863695",
-        "vout": 0,
+      "redeemDetail": {
+        "txId": "c512cd335ac08e33c47bdf955e056475acbd96b13f96627d8069aaa8a6f3eab8",
+        "vout": 1,
         "sequence": "18446744073709551615",
         "witness": [
-          "473044022010b789a4ac96e6c6f3caafc2b9f548a0e97cf1ad6bfe4a850ad73a3a4818861a0220532098aa7fa238511fdac8ab7aaf2541027e29f4b4d3eccb882d45263c860a0901",
-          "51210203a70a76734af100ed151ecf69ec776e4ef03ca0df06457176c1d61bb4c9d52e51ae"
+          "483045022100cf67a3663729ddf708500a293274fce5694e68df92d4fadf6c1cdaa2d90105be02203b0162b309017e46e0334999b7270cb8c0f8d5fa415fa7fc946a623397a3717301",
+          "51210356830b4780dc5f5463aa91eeaa6508f93698e039fce8cf17db363ba99afd790451ae"
         ],
-        "addresses": [
-          "ms1qqf8870v59cdaanj3cxgfq97d3xpz94g9gqqsvz0wnj7lmlp9ehr2sxdj0um"
-        ]
+        "fromAddress": "ms1qqpsc4s7xllmcj48evnh77df5tg0q06tl7v0u5ul8ngk2pr5uxdyrspx4x5g"
+      }
+    },
+    {
+      "value": "90.9879",
+      "n": 1,
+      "type": 1,
+      "redeemDetail": {
+        "txId": "b9309faf21a07d014a93c4159e998cf1cceaad5afc3307eeb13aeeb665e7c1cf",
+        "vout": 1,
+        "sequence": "18446744073709551615",
+        "witness": [
+          "473044022053839e7e9afe0b56b4da9e58e9da7c0371a7cec6eb383d74dab704ec8f4b7d2a02203c635076d031779de22231afd355195b346551ead655aaeee81df8249cc75d6501",
+          "51210356830b4780dc5f5463aa91eeaa6508f93698e039fce8cf17db363ba99afd790451ae"
+        ],
+        "fromAddress": "ms1qqpsc4s7xllmcj48evnh77df5tg0q06tl7v0u5ul8ngk2pr5uxdyrspx4x5g"
       }
     }
   ],
   "vout": [
     {
-      "value": "19.99999",
-      "n": 0,
+      "value": "100.003",
+      "type": 3,
+      "scriptDetail": {
+        "asm": "0 76c83de3af1270125e4cf2db9b2b6c80d63d1043d9d0a57875193ad9d55783ef f500020405060708010203060506070800020304",
+        "hex": "002076c83de3af1270125e4cf2db9b2b6c80d63d1043d9d0a57875193ad9d55783ef14f500020405060708010203060506070800020304",
+        "reqSigs": 1,
+        "recipientAddress": "ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut",
+        "bindingTarget": "1PLSZYeBhp6UW1MXaBtCqesJ5oQq4YEoyc:MASS:0"
+      }
+    },
+    {
+      "value": "82.9837",
+      "n": 1,
       "type": 1,
-      "script_detail": {
-        "asm": "0 403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064",
-        "hex": "0020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064",
-        "req_sigs": 1,
-        "addresses": [
-          "ms1qqgq750hhj0lcem3pmv6gymvvmfmrzmvhyxqwyp4fey2cmec372pjq3uw7yg"
-        ]
+      "scriptDetail": {
+        "asm": "0 0c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d3866907",
+        "hex": "00200c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d3866907",
+        "reqSigs": 1,
+        "recipientAddress": "ms1qqpsc4s7xllmcj48evnh77df5tg0q06tl7v0u5ul8ngk2pr5uxdyrspx4x5g"
       }
     }
   ],
-  "payload": "",
-  "confirmations": "82",
-  "size": 207,
-  "fee": "0.00001",
-  "status": 1,
-  "coinbase": false
+  "confirmations": "370",
+  "size": 424,
+  "fee": "0.0001",
+  "status": 1
 }
 ```
 
@@ -999,7 +1014,9 @@ Return:
         "vout": 0,
         "holder_address": "ms1qqku7shpmxnwj08evpxng29p8sk79vvm7u9g4h3l7lqqm6m069xmgsd7mz4z",
         "binding_address": "18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga",
-        "amount": "0.15625"
+        "amount": "0.15625",
+        "target_type": "MASS",
+        "target_size": 0
       },
       "from_addresses": [
         "ms1qqku7shpmxnwj08evpxng29p8sk79vvm7u9g4h3l7lqqm6m069xmgsd7mz4z"
@@ -1013,8 +1030,10 @@ Return:
         "tx_id": "8fca0d35aa8219b5c9b6bb402ddbcb7fdb1cc12fb73f739f8f2d781d461e0623",
         "vout": 1,
         "holder_address": "ms1qqku7shpmxnwj08evpxng29p8sk79vvm7u9g4h3l7lqqm6m069xmgsd7mz4z",
-        "binding_address": "1EJY8EKpP91T9WbGD1BJihDDdL8x1fSAfc",
-        "amount": "0.15625"
+        "binding_address": "18W8DkbtU6i8advRSkUaSocZqkE2JnDDZEbGH",
+        "amount": "0.15625",
+        "target_type": "MASS",
+        "target_size": 32
       },
       "from_addresses": [
         "ms1qqku7shpmxnwj08evpxng29p8sk79vvm7u9g4h3l7lqqm6m069xmgsd7mz4z"
@@ -1028,8 +1047,10 @@ Return:
         "tx_id": "8fca0d35aa8219b5c9b6bb402ddbcb7fdb1cc12fb73f739f8f2d781d461e0623",
         "vout": 2,
         "holder_address": "ms1qqku7shpmxnwj08evpxng29p8sk79vvm7u9g4h3l7lqqm6m069xmgsd7mz4z",
-        "binding_address": "14AkJD4kHBWk8PY7AU8rECAHYrQzg835Qi",
-        "amount": "0.15625"
+        "binding_address": "18W8DkbtU6i8advRSkUaSocZqkE2Jni2JNFhT",
+        "amount": "0.15625",
+        "target_type": "Chia",
+        "target_size": 32
       },
       "from_addresses": [
         "ms1qqku7shpmxnwj08evpxng29p8sk79vvm7u9g4h3l7lqqm6m069xmgsd7mz4z"
@@ -1039,24 +1060,173 @@ Return:
 }
 ```
 
-## getaddresstotalbinding
-    getaddresstotalbinding <poc_address>...
-Returns total binding MASS on the specified __poc_address__, which has no relevance to the wallet context.
+## checkpoolpkcoinbase
+    checkpoolpkcoinbase <chia pool pubkey> <chia pool pubkey> ...
 
 Parameter:  
 
-    poc_address     poc address
+  \<chia pool pubkey\>
 
 Example:  
 ```bash
-> masswallet-cli getaddresstotalbinding 18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga
+> masswallet-cli checkpoolpkcoinbase 8919b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948 7719b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948
 ```
 
 Return:  
 ```json
 {
-  "amounts": {
-    "18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga": "0.15625" // in MASS
+  "result": {
+    "8919b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948": {        // has bound coinbase
+      "nonce": 6,
+      "coinbase": "ms1qq2gyvf5khdpnafyhedcm3syvla5ntzhdz2zj69nf65v5yw35zy2fsc7s6vs"
+    },
+    "7719b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948": {        // never bound
+      // nonce is 0, 0 means never bound
+      // coinbase is ""
+    },
+    "97d5be5d8612daf12a1658afe2ed2b8e708bb1d4128d0f31d71fa1272eff3ee66a4edec12aaae0e4f0a3d4421e2624c4": {       // bound coinbase is cleared
+      "nonce": 7
+      // coinbase is ""
+    }
   }
+}
+```
+
+## getnetworkbinding
+    getnetworkbinding [height]
+
+Parameter:  
+
+  height      optional, use best height if not specified or zero
+
+Example:  
+```bash
+> masswallet-cli getnetworkbinding
+```
+
+Return:  
+```json
+{
+  "height": "4932",
+  "totalBinding": "45059.5772956 MASS",
+  "bindingPriceMassBitlength": {
+    "32": "0.50860595 MASS",
+    "34": "2.0344238 MASS",
+    "36": "9.1549071 MASS",
+    "38": "38.6540522 MASS",
+    "40": "162.753904 MASS"
+  },
+  "bindingPriceChiaK": {
+    "32": "2.0344238 MASS",
+    "33": "4.0688476 MASS",
+    "34": "8.64630115 MASS",
+    "35": "17.80120825 MASS",
+    "36": "37.12823435 MASS",
+    "37": "76.2908925 MASS",
+    "38": "156.6506326 MASS",
+    "39": "321.4389604 MASS",
+    "40": "659.1533112 MASS"
+  }
+}
+```
+
+## checktargetbinding
+    checktargetbinding <target> <target>
+Returns total bound MASS on the specified __target address__
+
+Parameter:  
+
+    target     base58 encoded address.
+
+Example:  
+```bash
+> masswallet-cli checktargetbinding 146hGPwfYRDde6tJ6trbyhkSoPwt69AqyZ 1EgzSkV7vJ7xhC5g38ULLPoMBhHVW38VZN 14LQhx7dGPFyfRS7rYv4uKVdKjoyAJejcVVqw 18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga
+```
+
+Return:  
+```json
+{
+  "result": {
+    "146hGPwfYRDde6tJ6trbyhkSoPwt69AqyZ": {
+      "targetType": "MASS",
+      "amount": "0 MASS"
+    },
+    "14LQhx7dGPFyfRS7rYv4uKVdKjoyAJejcVVqw": {
+      "targetType": "MASS",
+      "targetSize": 34,
+      "amount": "4.5776367 MASS"
+    },
+    "18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga": {
+      "targetType": "MASS",
+      "amount": "100.002 MASS"
+    },
+    "1EgzSkV7vJ7xhC5g38ULLPoMBhHVW38VZN": {
+      "targetType": "MASS",
+      "amount": "0 MASS"
+    }
+  }
+}
+```
+
+## batchbinding
+    batchbinding -c <file>
+    batchbinding <file> <from>
+Batch check or send binding transactions from file.
+
+Parameter:  
+
+  file        - Required, file storing targets to be bound. Exported by 'massminercli'.
+  from        - Specify the address to pay for bindings. Ignored if flag '-c' is set. 
+  
+  file sample
+  ```json
+  {
+    "plots": [
+      {
+        "target": "17rkPoiqpWwdyuFnM2buHrs8kwfXZGEvx3iqp",
+        "type": 0,  // MASS
+        "size": 34
+      },
+      {
+        "target": "17JDi7zj8PpgDVTdZvZAvmQy2t785EQfgSzRe",
+        "type": 1,  // Chia
+        "size": 32
+      }
+    ],
+    "total_count": 2,
+    "default_count": 1,
+    "chia_count": 1
+  }
+  ```
+
+Example:  
+```bash
+> masswallet-cli batchbinding binding_list.json ms1qqg8qxsllfkpmt6mpfu9rpk3k86f45fvy2hsu0997ck37mnklvpsuqzf8fme
+
+// Enter wallet password to sign transactions.
+> Enter password: 
+```
+
+## batchbindpoolpk
+    batchbindpoolpk -c <chiaKeystore>
+    batchbindpoolpk <chiaKeystore> <from> [coinbase]
+Check or bind coinbase for chia pool pubkey.
+
+Parameter:  
+
+  chiaKeystore    - Required, keystore storing chia poolSks/poolPks. Exported by 'massminercli'.  
+  from            - Specify the address to pay for the transaction. Ensure it has at least 1.01 MASS. 
+  coinbase        - Specify coinbase to be bound to poolpk, clear already bound coinbase if not provided.
+
+
+Example:  
+```bash
+> masswallet-cli batchbindpoolpk chia-miner-keystore.json ms1qqpsc4s7xllmcj48evnh77df5tg0q06tl7v0u5ul8ngk2pr5uxdyrspx4x5g  ms1qqg8qxsllfkpmt6mpfu9rpk3k86f45fvy2hsu0997ck37mnklvpsuqzf8fme
+```
+
+Return:  
+```json
+{
+  "hex": "080112330a280a2409da45322b721715a0117513a7ee4ea8bfac193850811d324a992e2131eba0232bd9d2ad100119ffffffffffffffff1a2808c0843d122200200c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d38669071a2a08a0adf98f13122200200c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d38669072ab60100018919b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948b3a20ffb39ad711c2fe6c102f028a12f9bd16b6d99b676598529ac3bee094e0a069562ab2c9f5d6fdb56be73a7aafb6403c97488e3621fc1eede30bf65e702658a479e7716268b9097d2dae7886f58ab97603c3c60f91189cca0a4d0241e00620000000741c0687fe9b076bd6c29e1461b46c7d26b44b08abc38f297d8b47db9dbec0c38"
 }
 ```

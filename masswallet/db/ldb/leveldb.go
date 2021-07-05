@@ -11,11 +11,11 @@ import (
 
 	"massnet.org/mass-wallet/masswallet/db"
 
+	"github.com/massnetorg/mass-core/logging"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/filter"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"massnet.org/mass-wallet/logging"
 )
 
 const (

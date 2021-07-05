@@ -1,12 +1,13 @@
 package masswallet
 
 import (
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/massutil"
+	"errors"
+
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/netsync"
 	"massnet.org/mass-wallet/masswallet/txmgr"
-	"massnet.org/mass-wallet/netsync"
 )
 
 var (

@@ -8,17 +8,17 @@ import (
 	"strings"
 
 	"google.golang.org/grpc/status"
-	"massnet.org/mass-wallet/blockchain"
+
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/consensus"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/massutil/safetype"
+	"github.com/massnetorg/mass-core/txscript"
 	"massnet.org/mass-wallet/config"
-	configpb "massnet.org/mass-wallet/config/pb"
-	"massnet.org/mass-wallet/consensus"
 	"massnet.org/mass-wallet/errors"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/massutil/safetype"
 	"massnet.org/mass-wallet/masswallet"
 	"massnet.org/mass-wallet/masswallet/keystore"
-	"massnet.org/mass-wallet/txscript"
 )
 
 const (
@@ -183,11 +183,7 @@ func checkFormatAmount(amt massutil.Amount) (string, error) {
 	return s, nil
 }
 
-func checkWitnessAddress(address string, expectLocktime bool, net *config.Params) (massutil.Address, error) {
-	err := checkAddressLen(address)
-	if err != nil {
-		return nil, err
-	}
+func checkWitnessAddress(address string, expectStaking bool, net *config.Params) (massutil.Address, error) {
 	addr, err := massutil.DecodeAddress(address, net)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "failed to decode address", logging.LogFormat{
@@ -199,39 +195,33 @@ func checkWitnessAddress(address string, expectLocktime bool, net *config.Params
 	}
 	witAddr, ok := addr.(*massutil.AddressWitnessScriptHash)
 	if !ok || witAddr.WitnessVersion() != 0 ||
-		(expectLocktime && witAddr.WitnessExtendVersion() != 1) ||
-		(!expectLocktime && witAddr.WitnessExtendVersion() != 0) {
+		(expectStaking && witAddr.WitnessExtendVersion() != 1) ||
+		(!expectStaking && witAddr.WitnessExtendVersion() != 0) {
 		st := status.New(ErrAPIInvalidAddress, ErrCode[ErrAPIInvalidAddress])
 		return nil, st.Err()
 	}
 	return witAddr, nil
 }
 
-// PoC pub key address is P2PKH address
-func checkPoCPubKeyAddress(address string, net *config.Params) (massutil.Address, error) {
-	err := checkAddressLen(address)
+func parseBindingTarget(address string, net *config.Params) (massutil.Address, error) {
+	target, err := massutil.DecodeAddress(address, net)
 	if err != nil {
-		return nil, err
-	}
-	addr, err := massutil.DecodeAddress(address, net)
-	if err != nil {
-		logging.CPrint(logging.ERROR, "failed to decode poc pk address", logging.LogFormat{
-			"address": addr,
+		logging.CPrint(logging.ERROR, "failed to decode binding target", logging.LogFormat{
+			"address": address,
 			"err":     err,
 		})
 		st := status.New(ErrAPIInvalidAddress, ErrCode[ErrAPIInvalidAddress])
 		return nil, st.Err()
 	}
-	addr, ok := addr.(*massutil.AddressPubKeyHash)
-	if !ok {
+	if !massutil.IsValidBindingTarget(target) {
 		st := status.New(ErrAPIInvalidAddress, ErrCode[ErrAPIInvalidAddress])
 		return nil, st.Err()
 	}
-	return addr, nil
+	return target, nil
 }
 
-func checkTxFeeLimit(cfg *configpb.Config, fee massutil.Amount) error {
-	max, err := checkParseAmount(cfg.Advanced.MaxTxFee)
+func checkTxFeeLimit(cfg *config.Config, fee massutil.Amount) error {
+	max, err := checkParseAmount(cfg.Wallet.Settings.MaxTxFee)
 	if err != nil {
 		logging.CPrint(logging.WARN, "invalid max_tx_fee", logging.LogFormat{
 			"err": err,
@@ -525,4 +515,38 @@ func checkRemarksLen(remarks string) string {
 		return string(r[:LenRemarksMax])
 	}
 	return remarks
+}
+
+func extractAddressInfos(pkScript []byte) (scriptClass txscript.ScriptClass, recipient, staking, binding string, reqSigs int, err error) {
+	scriptClass, addrs, _, reqSigs, err := txscript.ExtractPkScriptAddrs(pkScript, config.ChainParams)
+	if err != nil {
+		return 0, "", "", "", 0, err
+	}
+	if len(addrs) == 0 {
+		return 0, "", "", "", 0, fmt.Errorf("no address parsed from output script")
+	}
+
+	switch scriptClass {
+	case txscript.StakingScriptHashTy:
+		std, err := massutil.NewAddressWitnessScriptHash(addrs[0].ScriptAddress(), config.ChainParams)
+		if err != nil {
+			return 0, "", "", "", 0, err
+		}
+		recipient = std.EncodeAddress()
+		staking = addrs[0].EncodeAddress()
+	case txscript.BindingScriptHashTy:
+		targetType := "MASS"
+		targetSize := 0
+		if len(addrs[1].ScriptAddress()) == 22 {
+			if addrs[1].ScriptAddress()[20] == 1 {
+				targetType = "Chia"
+			}
+			targetSize = int(addrs[1].ScriptAddress()[21])
+		}
+		binding = fmt.Sprintf("%s:%s:%d", addrs[1].EncodeAddress(), targetType, targetSize)
+		recipient = addrs[0].EncodeAddress()
+	case txscript.WitnessV0ScriptHashTy:
+		recipient = addrs[0].EncodeAddress()
+	}
+	return
 }

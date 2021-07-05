@@ -1,7 +1,7 @@
 # v1.1.0
 
 ## How to Upgrade
-See [cmd/database-upgrade/1.1.0/USAGE.md](https://github.com/massnetorg/MassNet-wallet/tree/1.1/cmd/database-upgrade/1.1.0/USAGE.md).
+See [cmd/database-upgrade/1.1.0/USAGE.md](https://github.com/mass-community/MassNet-wallet/tree/1.1/cmd/database-upgrade/1.1.0/USAGE.md).
 
 ## Behavior Changes
 * Now removing wallet is asynchronous.

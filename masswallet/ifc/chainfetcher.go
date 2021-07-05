@@ -3,10 +3,10 @@ package ifc
 import (
 	"sort"
 
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/database/storage"
+	"github.com/massnetorg/mass-core/wire"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/database/storage"
-	"massnet.org/mass-wallet/wire"
 )
 
 type chainFetcher struct {

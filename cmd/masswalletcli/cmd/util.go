@@ -4,20 +4,22 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"reflect"
 	"strings"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/logging"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 
 	jww "github.com/spf13/jwalterweatherman"
+	spb "google.golang.org/genproto/googleapis/rpc/status"
 )
 
 // server is the interface for http/rpc server.
@@ -125,20 +127,25 @@ func (c *Client) Call(ctx context.Context, path string, method Method, request, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		var buf [1000]byte
-		resp.Body.Read(buf[:])
-		fmt.Fprintf(os.Stderr, "%v\n", string(buf[:]))
-		logging.VPrint(logging.ERROR, "fail on request with code", logging.LogFormat{
-			"code":    resp.StatusCode,
-			"content": string(buf[:]),
+		buf, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read response body: %v", err)
+		}
+
+		var st spb.Status
+		if err = json.Unmarshal(buf, &st); err != nil {
+			return fmt.Errorf("failed to unmarshal response: %v", err)
+		}
+		logging.CPrint(logging.WARN, "got error response", logging.LogFormat{
+			"code":    st.Code,
+			"message": st.Message,
+			"details": st.Details,
 		})
+		return fmt.Errorf(st.Message)
 	} else {
 		u := jsonpb.Unmarshaler{AllowUnknownFields: true}
-		err = u.Unmarshal(resp.Body, response.(proto.Message))
-		printJSON(response)
+		return u.Unmarshal(resp.Body, response.(proto.Message))
 	}
-
-	return err
 }
 
 // ClientCall selects a client type and execute calling
@@ -147,12 +154,23 @@ func ClientCall(path string, method Method, request, response interface{}) error
 	if err := client.Call(context.Background(), path, method, request, response); err != nil {
 		logging.VPrint(logging.ERROR, "fail on client call", logging.LogFormat{"err": err})
 		return err
+	} else {
+		printJSON(response)
 	}
 	return nil
 }
 
+func ClientCallWithoutPrintResponse(path string, method Method, request, response interface{}) error {
+	initClient()
+	err := client.Call(context.Background(), path, method, request, response)
+	if err != nil {
+		logging.VPrint(logging.ERROR, "fail on client call", logging.LogFormat{"err": err})
+	}
+	return err
+}
+
 func printJSON(data interface{}) {
-	m := jsonpb.Marshaler{EmitDefaults: true, Indent: "  "}
+	m := jsonpb.Marshaler{EmitDefaults: false, Indent: "  "}
 
 	str, err := m.MarshalToString(data.(proto.Message))
 	if err != nil {

@@ -1,8 +1,8 @@
 package masswallet
 
 import (
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/massutil"
 	"massnet.org/mass-wallet/masswallet/txmgr"
 )
 

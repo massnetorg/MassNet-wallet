@@ -1,19 +1,18 @@
 package cmd
 
 import (
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/logging"
 
 	"github.com/spf13/viper"
 )
 
 const (
-	defaultServer      = "https://localhost:9686"
-	defaultLogFilename = "clilog"
+	defaultServer      = "http://localhost:9688"
+	defaultLogFilename = "walletcli"
 	defaultLogLevel    = "info"
-	defaultLogDir      = "./logs"
-	rpcCert            = "./conf/cert.crt"
-	rpcKey             = "./conf/cert.key"
-	configFile         = "./cli-config.json"
+	defaultLogDir      = "walletcli-logs"
+	rpcCert            = "cert.crt"
+	rpcKey             = "cert.key"
 )
 
 var (
@@ -28,10 +27,10 @@ type Config struct {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	// viper.AutomaticEnv() // read in environment variables that match
+	viper.AutomaticEnv() // read in environment variables that match
 
 	// If a config file is found, read it in.
-	viper.SetConfigFile(configFile)
+	viper.SetConfigFile("walletcli-config.json")
 	if err := viper.ReadInConfig(); err != nil {
 		panic(err)
 	}

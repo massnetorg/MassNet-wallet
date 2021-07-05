@@ -55,7 +55,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 
 // API Endpoints
 service ApiService {
-    rpc GetBestBlock (google.protobuf.Empty) returns (GetBestBlockResponse) {
+    rpc GetBestBlock (google.protobuf.Empty) returns (GetBlockResponse) {
         option (google.api.http) = {
             get: "/v1/blocks/best"
         };
@@ -227,14 +227,6 @@ service ApiService {
         };
     }
 
-    // query by poc addresses
-    rpc GetAddressBinding(GetAddressBindingRequest) returns (GetAddressBindingResponse) {
-        option (google.api.http) = {
-            post: "/v1/addresses/binding"
-            body:"*"
-        };
-    }
-
     rpc GetStakingHistory (GetStakingHistoryRequest) returns (GetStakingHistoryResponse){
         option (google.api.http) = {
             get: "/v1/transactions/staking/history/{type}"
@@ -257,6 +249,36 @@ service ApiService {
         option (google.api.http) = {
             post: "/v1/transactions/binding"
             body: "*"
+        };
+    }
+
+    rpc CreatePoolPkCoinbaseTransaction(CreatePoolPkCoinbaseTransactionRequest) returns (CreateRawTransactionResponse) {
+        option (google.api.http) = {
+            post: "/v1/transactions/poolpkcoinbase"
+            body: "*"
+        };
+    }
+
+    rpc GetNetworkBinding(GetNetworkBindingRequest) returns (GetNetworkBindingResponse) {
+        option (google.api.http) = {
+            get: "/v1/bindings/networkbinding"
+            additional_bindings {
+                get: "/v1/bindings/networkbinding/{height}"
+            }
+        };
+    }
+
+    rpc CheckPoolPkCoinbase(CheckPoolPkCoinbaseRequest) returns (CheckPoolPkCoinbaseResponse) {
+        option (google.api.http) = {
+            post: "/v1/bindings/poolpubkeys"
+            body: "*"
+        };
+    }
+
+    rpc CheckTargetBinding(CheckTargetBindingRequest) returns (CheckTargetBindingResponse) {
+        option (google.api.http) = {
+            post: "/v1/bindings/targets"
+            body:"*"
         };
     }
 }
@@ -473,12 +495,9 @@ message DecodeRawTransactionResponse {
         uint32 type = 3; // 1-transfer, 2-staking, 3-binding
         string script_asm = 4;
         string script_hex = 5; // hex-encoded script
-        repeated string addresses = 6;  // addresses[0]
-                                        //          recipient address
-                                        // addresses[1]    
-                                        //          - not exists when type=1
-                                        //          - staking_address when type=2
-                                        //          - binding_address when type=3
+        string recipient_address = 6;
+        string staking_address = 7;
+        string binding_target = 8;
     }
 
     string tx_id = 1;
@@ -487,7 +506,8 @@ message DecodeRawTransactionResponse {
     int32 size = 4;
 	repeated Vin vin = 5;
 	repeated Vout vout = 6;
-    string payload = 7;
+    string payload_hex = 7;
+    string payload_decode = 8;
 }
 
 message CreateRawTransactionRequest {
@@ -566,9 +586,8 @@ message SendRawTransactionResponse {
 
 message GetTransactionFeeRequest {
     map <string, string> amounts = 1;
-    uint64 lock_time = 2;
-    repeated TransactionInput inputs = 3;//optional; if no txIn input, regard it as auto construct tx
-    bool has_binding = 4;
+    repeated TransactionInput inputs = 2;   // optional; if no txIn input, regard it as auto construct tx
+    bool has_binding = 3;                   // optional
 }
 message GetTransactionFeeResponse {
     string fee = 1;
@@ -585,11 +604,9 @@ message Vin {
         uint32 vout = 2;
         uint64 sequence = 3;
         repeated string witness= 4;
-        repeated string addresses = 5;  // addresses[0]
-                                        //          holder_address of input utxo
-                                        // addresses[1]    -  not exists when type=1
-                                        //          type=2: staking_address
-                                        //          type=3: binding_address
+        string from_address = 5;
+        string staking_address = 6; // empty if type is not 2
+        string binding_target = 7;  // empty if type is not 3          
     }
     string value = 1;
     uint32 n = 2;
@@ -602,11 +619,9 @@ message Vout {
         string asm = 1;
         string hex = 2;
         int32 req_sigs = 3;
-        repeated string addresses = 4;  // addresses[0]
-                                        //          holder_address of output utxo
-                                        // addresses[1]    -  not exists when type=1
-                                        //          type=2: staking_address
-                                        //          type=3: binding_address
+        string recipient_address = 4;
+        string staking_address = 5; // empty if type is not 2
+        string binding_target = 6;  // empty if type is not 3 
     }
     string value = 1;
     uint32 n = 2;
@@ -670,12 +685,6 @@ message AddressUTXO {
 message GetUtxoResponse {
     repeated AddressUTXO address_utxos = 1;
 }
-message GetAddressBindingRequest {
-    repeated string addresses = 1;
-}
-message GetAddressBindingResponse {
-    map<string, string> amounts = 1;
-}
 
 message GetBindingHistoryRequest {
     string type = 1;    // ""       - excluding withdrawn
@@ -687,8 +696,10 @@ message GetBindingHistoryResponse {
         string tx_id = 1;
         uint32 vout = 2;
         string holder_address = 3;
-        string binding_address = 4;
-        string amount = 5;
+        string amount = 4;
+        string binding_target = 5;
+        string target_type = 6; // "MASS" or "Chia"
+        uint32 target_size = 7; // bitlength of MASS or K of Chia, 0 for old binding
     }
     message History {
         string tx_id = 1; 
@@ -703,7 +714,7 @@ message GetBindingHistoryResponse {
 message CreateBindingTransactionRequest {
     message Output {
         string holder_address = 1; // utxo receiver
-        string binding_address = 2; // miner pk address
+        string binding_address = 2; // MASS or Chia target
         string amount = 3;
     }
     repeated Output outputs = 1;
@@ -711,10 +722,6 @@ message CreateBindingTransactionRequest {
     string fee = 3;
 }
 
-message GetBestBlockResponse {
-    uint64 height = 1;
-    string target = 2; //difficulty
-}
 
 message GetWalletMnemonicRequest {
     string wallet_id = 1;
@@ -726,19 +733,6 @@ message GetWalletMnemonicResponse {
     uint32 version = 2;
 }
 
-message MakeUpUTXORequest {
-    string passphrase = 1; // Optional, if not provided, returns latest making task info(ongoing or finished).
-    string threshold = 2; // Optional, only UTXOs that less than this number(in MASS) will be made up, default 100.
-    repeated string addresses = 3; // Optional, only UTXOs of specified addresses will be made up, default all of current wallet.
-}
-
-message MakeUpUTXOResponse {
-    string status = 1; // "none", "ongoing", "interrupted", "finished"
-    string status_msg = 2;
-    string wallet_id = 3;
-    uint32 success_num = 4; // number of transactions that have been sent
-    uint32 fail_num = 5; // number of failed transactions
-}
 
 message GetBlockByHeightRequest {
     uint64 height = 1;
@@ -822,4 +816,46 @@ message GetBlockResponse {
     uint32 size = 21;
     string time_utc = 22;
     uint32 tx_count = 23;
+    string binding_root = 24;
+}
+
+message CreatePoolPkCoinbaseTransactionRequest {
+    string from_address = 1;
+    string payload = 2; // hex-encoded payload, see blochchain.TransactionPayload
+}
+
+message CheckPoolPkCoinbaseRequest {
+    repeated string pool_pubkeys = 1;
+}
+
+message CheckPoolPkCoinbaseResponse {
+    message Info {
+        uint32 nonce = 1;
+        string coinbase = 2;
+    }
+    map<string, Info> result = 1;
+}
+
+message GetNetworkBindingRequest {
+    uint64 height = 1;
+}
+
+message GetNetworkBindingResponse {
+    uint64 height = 1;
+    string total_binding = 2;
+    map<uint32, string> binding_price_mass_bitlength = 3;
+    map<uint32, string> binding_price_chia_k = 4;
+}
+
+message CheckTargetBindingRequest {
+    repeated string targets = 1;
+}
+
+message CheckTargetBindingResponse {
+    message Info {
+        string target_type = 1; // MASS or Chia or Unknown
+        uint32 target_size = 2; // bitlength of MASS or K of Chia
+        string amount = 3;
+    }
+    map<string, Info> result = 1;
 }

@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
-	"massnet.org/mass-wallet/database"
-	"massnet.org/mass-wallet/massutil"
+	"github.com/massnetorg/mass-core/database"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/wire"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/utils"
-	"massnet.org/mass-wallet/wire"
 )
 
 const (
@@ -348,8 +348,8 @@ func (l *StakingHistoryDetail) IsDeposit() bool {
 type BindingUtxo struct {
 	Hash           wire.Hash
 	Index          uint32
-	HolderAddress  string
-	BindingAddress string
+	Holder         massutil.Address
+	BindingTarget  massutil.Address
 	Amount         massutil.Amount
 	Spent          bool
 	SpentByUnmined bool

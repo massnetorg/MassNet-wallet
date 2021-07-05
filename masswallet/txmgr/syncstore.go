@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/massnetorg/mass-core/logging"
 	"massnet.org/mass-wallet/config"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 )
@@ -137,4 +138,59 @@ func (s *SyncStore) MarkDeleteWallet(tx mwdb.DBTransaction, walletId string) err
 	}
 	status.Flags |= WalletFlagsRemove
 	return s.PutWalletStatus(tx, status)
+}
+
+func (s *SyncStore) CountAll(tx mwdb.ReadTransaction) {
+	buckets, err := tx.BucketNames()
+	logging.CPrint(logging.INFO, "---->buckets",
+		logging.LogFormat{
+			"buckets": buckets,
+			"err":     err,
+		})
+	nsWalletStatus := tx.FetchBucket(s.bucketMeta.nsWalletStatus)
+	printEntryCount("nsWalletStatus", nsWalletStatus)
+	nsSyncBucketName := tx.FetchBucket(s.bucketMeta.nsSyncBucketName)
+	printEntryCount("nsSyncBucketName", nsSyncBucketName)
+	// utxo
+	nsDebits := tx.FetchBucket(s.bucketMeta.nsDebits)
+	printEntryCount("nsDebits", nsDebits)
+	nsCredits := tx.FetchBucket(s.bucketMeta.nsCredits)
+	printEntryCount("nsCredits", nsCredits)
+	nsMinedBalance := tx.FetchBucket(s.bucketMeta.nsMinedBalance)
+	printEntryCount("nsMinedBalance", nsMinedBalance)
+	nsUnminedCredits := tx.FetchBucket(s.bucketMeta.nsUnminedCredits)
+	printEntryCount("nsUnminedCredits", nsUnminedCredits)
+	nsUnminedInputs := tx.FetchBucket(s.bucketMeta.nsUnminedInputs)
+	printEntryCount("nsUnminedInputs", nsUnminedInputs)
+	nsUnspent := tx.FetchBucket(s.bucketMeta.nsUnspent)
+	printEntryCount("nsUnspent", nsUnspent)
+
+	// nsUnminedGameHistory := tx.FetchBucket(s.bucketMeta.nsUnminedGameHistory)
+	// printEntryCount("nsUnminedGameHistory", nsUnminedGameHistory)
+	// nsGameHistory := tx.FetchBucket(s.bucketMeta.nsGameHistory)
+	// printEntryCount("nsGameHistory", nsGameHistory)
+	nsAddresses := tx.FetchBucket(s.bucketMeta.nsAddresses)
+	printEntryCount("nsAddresses", nsAddresses)
+	nsBlocks := tx.FetchBucket(s.bucketMeta.nsBlocks)
+	printEntryCount("nsBlocks", nsBlocks)
+	nsTxRecords := tx.FetchBucket(s.bucketMeta.nsTxRecords)
+	printEntryCount("nsTxRecords", nsTxRecords)
+	nsUnmined := tx.FetchBucket(s.bucketMeta.nsUnmined)
+	printEntryCount("nsUnmined", nsUnmined)
+}
+
+func printEntryCount(name string, bkt mwdb.Bucket) {
+	num := 0
+	size := 0
+	it := bkt.NewIterator(mwdb.BytesPrefix(nil))
+	defer it.Release()
+	for it.Next() {
+		num++
+		size += len(it.Key()) + len(it.Value())
+	}
+	logging.CPrint(logging.INFO, fmt.Sprintf("----%s----", name),
+		logging.LogFormat{
+			"num":  num,
+			"size": size,
+		})
 }

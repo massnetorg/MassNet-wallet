@@ -1,7 +1,7 @@
 package masswallet
 
 import (
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/logging"
 )
 
 const (

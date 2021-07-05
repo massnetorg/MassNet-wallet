@@ -5,25 +5,25 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/consensus"
+	"github.com/massnetorg/mass-core/consensus/forks"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/massutil/safetype"
+	"github.com/massnetorg/mass-core/txscript"
+	"github.com/massnetorg/mass-core/wire"
+
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/consensus"
-	"massnet.org/mass-wallet/massutil/safetype"
-	"massnet.org/mass-wallet/txscript"
-
-	"massnet.org/mass-wallet/blockchain"
-
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/txmgr"
 	"massnet.org/mass-wallet/masswallet/utils"
-	"massnet.org/mass-wallet/wire"
 )
 
 // for current wallet
-func (w *WalletManager) existsMsgTx(out *wire.OutPoint) (mtx *wire.MsgTx, err error) {
+func (w *WalletManager) existsMsgTx(out *wire.OutPoint) (mtx *wire.MsgTx, meta *txmgr.BlockMeta, err error) {
 	err = mwdb.View(w.db, func(tx mwdb.ReadTransaction) error {
-		mtx, err = w.txStore.ExistsTx(tx, out)
+		mtx, meta, err = w.txStore.ExistsTx(tx, out)
 		return err
 	})
 	return
@@ -53,7 +53,7 @@ func (w *WalletManager) addTxIn(msgTx *wire.MsgTx, LockTime uint64, inputUtxos [
 			txIn.Sequence = wire.MaxTxInSequenceNum - 1
 		}
 
-		prevTx, err := w.existsMsgTx(&txIn.PreviousOutPoint)
+		prevTx, block, err := w.existsMsgTx(&txIn.PreviousOutPoint)
 		if err != nil {
 			return err
 		}
@@ -67,8 +67,12 @@ func (w *WalletManager) addTxIn(msgTx *wire.MsgTx, LockTime uint64, inputUtxos [
 				})
 			return err
 		}
-		if pks.IsStaking() {
+		switch {
+		case pks.IsStaking():
 			txIn.Sequence = pks.Maturity()
+		case pks.IsBinding() && forks.EnforceMASSIP0002WarmUp(block.Height):
+			txIn.Sequence = consensus.MASSIP0002BindingLockedPeriod
+		default:
 		}
 		msgTx.AddTxIn(txIn)
 	}
@@ -164,6 +168,7 @@ func (w *WalletManager) autoConstructTxInAndChangeTxOut(msgTx *wire.MsgTx, LockT
 			logging.CPrint(logging.ERROR, "estimate signedSize failed", logging.LogFormat{"err": err})
 			return outAmounts, ErrInvalidParameter
 		}
+		signedTxSize += int64(len(msgTx.Payload))
 		requiredFee, err := blockchain.CalcMinRequiredTxRelayFee(signedTxSize, massutil.MinRelayTxFee())
 		if err != nil {
 			return outAmounts, err
@@ -351,7 +356,7 @@ func amountToTxOut(encodedAddr string, amount massutil.Amount) (*wire.TxOut, err
 		return nil, ErrInvalidAmount
 	}
 
-	pkScript, err := PayToWitnessV0Address(encodedAddr, &config.ChainParams)
+	pkScript, err := PayToWitnessV0Address(encodedAddr, config.ChainParams)
 	if err != nil {
 		return nil, err
 	}

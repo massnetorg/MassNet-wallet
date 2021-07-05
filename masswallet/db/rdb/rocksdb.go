@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"massnet.org/mass-wallet/logging"
+	"github.com/massnetorg/mass-core/logging"
 	"massnet.org/mass-wallet/masswallet/db"
 
 	"github.com/tecbot/gorocksdb"

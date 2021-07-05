@@ -4,22 +4,22 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-
-	"massnet.org/mass-wallet/masswallet/keystore"
-
-	pb "massnet.org/mass-wallet/api/proto"
+	"sort"
 
 	"github.com/btcsuite/btcd/btcec"
-	"massnet.org/mass-wallet/blockchain"
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
-	mwdb "massnet.org/mass-wallet/masswallet/db"
-	"massnet.org/mass-wallet/masswallet/utils"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/consensus"
+	"github.com/massnetorg/mass-core/consensus/forks"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/txscript"
+	"github.com/massnetorg/mass-core/wire"
 
-	"sort"
+	pb "massnet.org/mass-wallet/api/proto"
+	"massnet.org/mass-wallet/config"
+	mwdb "massnet.org/mass-wallet/masswallet/db"
+	"massnet.org/mass-wallet/masswallet/keystore"
+	"massnet.org/mass-wallet/masswallet/utils"
 
 	"massnet.org/mass-wallet/masswallet/ifc"
 	"massnet.org/mass-wallet/masswallet/txmgr"
@@ -42,9 +42,9 @@ type StakingTxOut struct {
 }
 
 type BindingOutput struct {
-	HolderAddress  string
-	BindingAddress string
-	Amount         massutil.Amount
+	Holder        massutil.Address
+	BindingTarget massutil.Address
+	Amount        massutil.Amount
 }
 
 func (w *WalletManager) constructTxIn(inputs []*TxIn, lockTime uint64) (*wire.MsgTx, []utils.PkScript, massutil.Amount, error) {
@@ -66,9 +66,9 @@ func (w *WalletManager) constructTxIn(inputs []*TxIn, lockTime uint64) (*wire.Ms
 		prevOut := wire.NewOutPoint(txHash, input.Vout)
 		txIn := wire.NewTxIn(prevOut, nil)
 		if lockTime != 0 {
-			txIn.Sequence = wire.MaxTxInSequenceNum - 1
+			txIn.Sequence = wire.MaxTxInSequenceNum - 1 // sequence lock disabled
 		}
-		prevTx, err := w.existsMsgTx(&txIn.PreviousOutPoint)
+		prevTx, block, err := w.existsMsgTx(&txIn.PreviousOutPoint)
 		if err == txmgr.ErrNotFound {
 			logging.CPrint(logging.INFO, "mined prev tx not found, check unmined tx", logging.LogFormat{})
 			prevTx, err = w.existsUnminedTx(&txIn.PreviousOutPoint.Hash)
@@ -88,8 +88,12 @@ func (w *WalletManager) constructTxIn(inputs []*TxIn, lockTime uint64) (*wire.Ms
 		if err != nil {
 			return nil, nil, massutil.ZeroAmount(), ErrNoAddressInWallet
 		}
-		if pks.IsStaking() {
+		switch {
+		case pks.IsStaking():
 			txIn.Sequence = pks.Maturity()
+		case pks.IsBinding() && forks.EnforceMASSIP0002WarmUp(block.Height):
+			txIn.Sequence = consensus.MASSIP0002BindingLockedPeriod
+		default:
 		}
 
 		mtx.AddTxIn(txIn)
@@ -156,7 +160,7 @@ func constructStakingTxOut(outputs []*StakingTxOut, mtx *wire.MsgTx) error {
 		// Ensure the wallet is one of the supported types and that
 		// the network encoded with the wallet matches the network the
 		// server is currently on.
-		addr, err := massutil.DecodeAddress(output.Address, &config.ChainParams)
+		addr, err := massutil.DecodeAddress(output.Address, config.ChainParams)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "Failed to decode address", logging.LogFormat{
 				"err: ":   err,
@@ -164,7 +168,7 @@ func constructStakingTxOut(outputs []*StakingTxOut, mtx *wire.MsgTx) error {
 			})
 			return ErrFailedDecodeAddress
 		}
-		if !addr.IsForNet(&config.ChainParams) {
+		if !addr.IsForNet(config.ChainParams) {
 			return ErrNet
 		}
 
@@ -191,64 +195,6 @@ func constructStakingTxOut(outputs []*StakingTxOut, mtx *wire.MsgTx) error {
 	return nil
 }
 
-func constructBindingTxOut(outputs []*BindingOutput, mtx *wire.MsgTx) error {
-	// Add all transaction outputs to the transaction after performing
-	// some validity checks.
-	for _, output := range outputs {
-		// Ensure amount is in the valid range for monetary amounts.
-		if output.Amount.IsZero() || output.Amount.Cmp(massutil.MaxAmount()) > 0 {
-			return ErrInvalidAmount
-		}
-
-		// Decode the provided wallet.
-		HolderAddress, err := massutil.DecodeAddress(output.HolderAddress, &config.ChainParams)
-		if err != nil {
-			logging.CPrint(logging.ERROR, "Failed to decode address", logging.LogFormat{
-				"err: ":   err,
-				"address": output.HolderAddress,
-			})
-			return ErrFailedDecodeAddress
-		}
-		BindingAddress, err := massutil.DecodeAddress(output.BindingAddress, &config.ChainParams)
-		if err != nil {
-			logging.CPrint(logging.ERROR, "Failed to decode address", logging.LogFormat{
-				"err: ":   err,
-				"address": output.BindingAddress,
-			})
-			return ErrFailedDecodeAddress
-		}
-		// Ensure the wallet is one of the supported types and that
-		// the network encoded with the wallet matches the network the
-		// server is currently on.
-		if !massutil.IsWitnessV0Address(HolderAddress) {
-			logging.CPrint(logging.ERROR, "Invalid HolderAddress or key", logging.LogFormat{"address": HolderAddress.String()})
-			return ErrInvalidAddress
-		}
-		if !HolderAddress.IsForNet(&config.ChainParams) {
-			return ErrNet
-		}
-
-		if !massutil.IsAddressPubKeyHash(BindingAddress) {
-			logging.CPrint(logging.ERROR, "Invalid BindingAddress or key", logging.LogFormat{"address": BindingAddress.String()})
-			return ErrInvalidAddress
-		}
-		if !BindingAddress.IsForNet(&config.ChainParams) {
-			return ErrNet
-		}
-		// Create a new script which pays to the provided wallet.
-		pkScript, err := txscript.PayToBindingScriptHashScript(HolderAddress.ScriptAddress(), BindingAddress.ScriptAddress())
-		if err != nil {
-			logging.CPrint(logging.ERROR, "Failed to create pkScript", logging.LogFormat{})
-			return ErrCreatePkScript
-		}
-
-		txOut := wire.NewTxOut(output.Amount.IntValue(), pkScript)
-		mtx.AddTxOut(txOut)
-
-	}
-	return nil
-}
-
 // messageToHex serializes a message to the wire protocol encoding using the
 // latest protocol version and returns a hex-encoded string of the result.
 func messageToHex(msg wire.Message) (string, error) {
@@ -266,6 +212,7 @@ func (w *WalletManager) EstimateTxFee(
 	userTxFee massutil.Amount,
 	fromAddr,
 	changeAddr string,
+	payload []byte,
 ) (msgTx *wire.MsgTx, fee massutil.Amount, err error) {
 
 	addrs, err := w.prepareFromAddresses(fromAddr)
@@ -274,6 +221,7 @@ func (w *WalletManager) EstimateTxFee(
 	}
 
 	msgTx = wire.NewMsgTx()
+	msgTx.SetPayload(payload)
 	// construct output
 	for encodedAddr, amount := range amounts {
 		txOut, err := amountToTxOut(encodedAddr, amount)
@@ -319,9 +267,19 @@ func (w *WalletManager) EstimateBindingTxFee(outputs []*BindingOutput, LockTime 
 	}
 
 	msgTx = wire.NewMsgTx()
-	err = constructBindingTxOut(outputs, msgTx)
-	if err != nil {
-		return nil, massutil.ZeroAmount(), err
+	for _, output := range outputs {
+		if output.Amount.IsZero() {
+			return nil, massutil.ZeroAmount(), ErrInvalidAmount
+		}
+
+		pkScript, err := txscript.PayToBindingScriptHashScript(output.Holder.ScriptAddress(), output.BindingTarget.ScriptAddress())
+		if err != nil {
+			logging.CPrint(logging.ERROR, "failed to create binding script", logging.LogFormat{"err": err})
+			return nil, massutil.ZeroAmount(), ErrCreatePkScript
+		}
+
+		txOut := wire.NewTxOut(output.Amount.IntValue(), pkScript)
+		msgTx.AddTxOut(txOut)
 	}
 
 	u, err := w.autoConstructTxInAndChangeTxOut(msgTx, LockTime, addrs, userTxFee, changeAddr)
@@ -339,13 +297,13 @@ func (w *WalletManager) estimateSignedSize(utxos []*txmgr.Credit, TxOutLen int) 
 		outPoint := &utx.OutPoint
 		txIn := wire.NewTxIn(outPoint, nil)
 
-		mtx, err := w.existsMsgTx(&txIn.PreviousOutPoint)
+		mtx, _, err := w.existsMsgTx(&txIn.PreviousOutPoint)
 		if err != nil {
 			return 0, err
 		}
 
 		pkScript := mtx.TxOut[txidx].PkScript
-		_, addrs, _, _, err := txscript.ExtractPkScriptAddrs(pkScript, &config.ChainParams)
+		_, addrs, _, _, err := txscript.ExtractPkScriptAddrs(pkScript, config.ChainParams)
 		if err != nil {
 			return 0, err
 		}
@@ -372,7 +330,7 @@ func (w *WalletManager) estimateSignedSize(utxos []*txmgr.Credit, TxOutLen int) 
 		}
 
 		class, _, _, nrequired, err := txscript.ExtractPkScriptAddrs(script,
-			&config.ChainParams)
+			config.ChainParams)
 		if err != nil || class != txscript.MultiSigTy {
 			return 0, err
 		}
@@ -650,11 +608,12 @@ func (w *WalletManager) signWitnessTx(password []byte, tx *wire.MsgTx, hashType 
 	})
 
 	cache := make(map[wire.Hash]*wire.MsgTx)
+	cacheMeta := make(map[wire.Hash]*txmgr.BlockMeta)
 	defer w.ksmgr.ClearPrivKey()
 	for i, txIn := range tx.TxIn {
 		prevTx, ok := cache[txIn.PreviousOutPoint.Hash]
 		if !ok {
-			prevTx, err = w.existsMsgTx(&txIn.PreviousOutPoint)
+			prevTx, cacheMeta[txIn.PreviousOutPoint.Hash], err = w.existsMsgTx(&txIn.PreviousOutPoint)
 			if err == txmgr.ErrNotFound {
 				prevTx, err = w.existsUnminedTx(&txIn.PreviousOutPoint.Hash)
 			}
@@ -711,10 +670,14 @@ func (w *WalletManager) signWitnessTx(password []byte, tx *wire.MsgTx, hashType 
 			txIn.Witness = script
 		}
 
+		scriptFlags := txscript.StandardVerifyFlags
+		if forks.EnforceMASSIP0002WarmUp(cacheMeta[txIn.PreviousOutPoint.Hash].Height) {
+			scriptFlags |= txscript.ScriptMASSip2
+		}
 		// Either it was already signed or we just signed it.
 		// Find out if it is completely satisfied or still needs more.
 		vm, err := txscript.NewEngine(prevTxOut.PkScript, tx, i,
-			txscript.StandardVerifyFlags, nil, hashCache, prevTxOut.Value)
+			scriptFlags, nil, hashCache, prevTxOut.Value)
 		if err == nil {
 			err = vm.Execute()
 			if err != nil {

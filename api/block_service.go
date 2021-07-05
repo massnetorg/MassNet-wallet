@@ -2,18 +2,37 @@ package api
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"time"
 
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/interfaces"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/pocec"
+	"github.com/massnetorg/mass-core/txscript"
+	"github.com/massnetorg/mass-core/wire"
+	wirepb "github.com/massnetorg/mass-core/wire/pb"
 	"google.golang.org/grpc/status"
 	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/blockchain"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
 )
+
+func (s *APIServer) GetBestBlock(ctx context.Context, in *empty.Empty) (*pb.GetBlockResponse, error) {
+	logging.CPrint(logging.INFO, "api: GetBestBlock", logging.LogFormat{})
+
+	height := s.node.Blockchain().BestBlockHeight()
+	block, err := s.node.Blockchain().GetBlockByHeight(height)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "failed to get best block", logging.LogFormat{"height": height, "err": err})
+		st := status.New(ErrAPIBlockNotFound, ErrCode[ErrAPIBlockNotFound])
+		return nil, st.Err()
+	}
+
+	return s.marshalGetBlockResponse(block)
+}
 
 func (s *APIServer) GetBlockByHeight(ctx context.Context, in *pb.GetBlockByHeightRequest) (*pb.GetBlockResponse, error) {
 	logging.CPrint(logging.INFO, "api: GetBlockByHeight", logging.LogFormat{"height": in.Height})
@@ -48,7 +67,7 @@ func (s *APIServer) marshalGetBlockResponse(blk *massutil.Block) (*pb.GetBlockRe
 		banList = append(banList, hex.EncodeToString(pk.SerializeCompressed()))
 	}
 
-	var proof = blockHeader.Proof
+	var proof = wirepb.ProofToProto(blockHeader.Proof)
 	blockReply := &pb.GetBlockResponse{
 		Hash:            blockHash,
 		ChainId:         blockHeader.ChainID.String(),
@@ -65,12 +84,13 @@ func (s *APIServer) marshalGetBlockResponse(blk *massutil.Block) (*pb.GetBlockRe
 		Quality:         blk.MsgBlock().Header.Quality().Text(16),
 		Challenge:       hex.EncodeToString(blockHeader.Challenge.Bytes()),
 		PublicKey:       hex.EncodeToString(blockHeader.PubKey.SerializeCompressed()),
-		Proof:           &pb.GetBlockResponse_Proof{X: hex.EncodeToString(proof.X), XPrime: hex.EncodeToString(proof.XPrime), BitLength: uint32(proof.BitLength)},
-		BlockSignature:  &pb.GetBlockResponse_PoCSignature{R: hex.EncodeToString(blockHeader.Signature.R.Bytes()), S: hex.EncodeToString(blockHeader.Signature.S.Bytes())},
+		Proof:           &pb.GetBlockResponse_Proof{X: hex.EncodeToString(proof.X), XPrime: hex.EncodeToString(proof.XPrime), BitLength: proof.BitLength},
+		BlockSignature:  createPoCSignatureResult(blockHeader.Signature),
 		BanList:         banList,
 		Size:            uint32(blk.Size()),
 		TimeUtc:         blockHeader.Timestamp.UTC().Format(time.RFC3339),
 		TxCount:         uint32(len(blk.Transactions())),
+		BindingRoot:     hex.EncodeToString(blockHeader.BindingRoot[:]),
 	}
 	proposalArea := blk.MsgBlock().Proposals
 	punishments := createFaultPubKeyResult(proposalArea.PunishmentArea)
@@ -145,7 +165,7 @@ func (s *APIServer) createBlockTx(mtx *wire.MsgTx, blkHeader *wire.BlockHeader, 
 		return nil, err
 	}
 
-	vouts, totalOutValue, err := createVoutList(mtx, &config.ChainParams)
+	vouts, totalOutValue, err := createVoutList(mtx, config.ChainParams)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +235,7 @@ func createFaultPubKeyResult(proposals []*wire.FaultPubKey) []*pb.GetBlockRespon
 				ban = append(ban, hex.EncodeToString(pk.SerializeCompressed()))
 			}
 
+			var proof = wirepb.ProofToProto(h.Proof)
 			th := &pb.GetBlockResponse_ProposalArea_FaultPubKey_Header{
 				Hash:            h.BlockHash().String(),
 				ChainId:         h.ChainID.String(),
@@ -228,8 +249,8 @@ func createFaultPubKeyResult(proposals []*wire.FaultPubKey) []*pb.GetBlockRespon
 				Target:          h.Target.Text(16),
 				Challenge:       hex.EncodeToString(h.Challenge.Bytes()),
 				PublicKey:       hex.EncodeToString(h.PubKey.SerializeCompressed()),
-				Proof:           &pb.GetBlockResponse_Proof{X: hex.EncodeToString(h.Proof.X), XPrime: hex.EncodeToString(h.Proof.XPrime), BitLength: uint32(h.Proof.BitLength)},
-				BlockSignature:  &pb.GetBlockResponse_PoCSignature{R: hex.EncodeToString(h.Signature.R.Bytes()), S: hex.EncodeToString(h.Signature.S.Bytes())},
+				Proof:           &pb.GetBlockResponse_Proof{X: hex.EncodeToString(proof.X), XPrime: hex.EncodeToString(proof.XPrime), BitLength: proof.BitLength},
+				BlockSignature:  createPoCSignatureResult(h.Signature),
 				BanList:         ban,
 			}
 			t = append(t, th)
@@ -244,4 +265,160 @@ func createFaultPubKeyResult(proposals []*wire.FaultPubKey) []*pb.GetBlockRespon
 		result = append(result, fpk)
 	}
 	return result
+}
+
+// TODO: show more types
+func createPoCSignatureResult(sigI interfaces.Signature) *pb.GetBlockResponse_PoCSignature {
+	if sig, ok := sigI.(*pocec.Signature); ok {
+		return &pb.GetBlockResponse_PoCSignature{R: hex.EncodeToString(sig.R.Bytes()), S: hex.EncodeToString(sig.S.Bytes())}
+	}
+	return &pb.GetBlockResponse_PoCSignature{}
+}
+
+func (s *APIServer) GetBlockStakingReward(ctx context.Context, in *pb.GetBlockStakingRewardRequest) (*pb.GetBlockStakingRewardResponse, error) {
+
+	logging.CPrint(logging.INFO, "api: GetBlockStakingReward", logging.LogFormat{"height": in.Height})
+	if in.Height > s.node.Blockchain().BestBlockHeight() {
+		return nil, status.New(ErrAPIInvalidParameter, ErrCode[ErrAPIInvalidParameter]).Err()
+	}
+
+	height := in.Height
+	if height == 0 {
+		height = s.node.Blockchain().BestBlockHeight()
+	}
+	ranks, err := s.node.Blockchain().GetBlockStakingRewardRankOnList(height)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "GetBlockStakingRewardList failed", logging.LogFormat{"err": err, "height": height})
+		return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
+	}
+
+	block, err := s.node.Blockchain().GetBlockByHeight(height)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "GetBlockByHeight failed", logging.LogFormat{"err": err, "height": height})
+		return nil, status.New(ErrAPIQueryDataFailed, ErrCode[ErrAPIQueryDataFailed]).Err()
+	}
+	coinbase, err := block.Tx(0)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "coinbase error", logging.LogFormat{"err": err, "height": height})
+		return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+	}
+
+	coinbasePayload := blockchain.NewCoinbasePayload()
+	err = coinbasePayload.SetBytes(coinbase.MsgTx().Payload)
+	if err != nil {
+		logging.CPrint(logging.ERROR, "coinbase payload error", logging.LogFormat{"err": err, "height": height})
+		return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+	}
+
+	txOuts := coinbase.MsgTx().TxOut
+	rankToProfit := make(map[[sha256.Size]byte]int64)
+	for _, rank := range ranks {
+		rankToProfit[rank.ScriptHash] = 0
+	}
+
+	for j := 0; uint32(j) < coinbasePayload.NumStakingReward(); j++ {
+		class, pops := txscript.GetScriptInfo(txOuts[j].PkScript)
+		_, hash, err := txscript.GetParsedOpcode(pops, class)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "pkscript error", logging.LogFormat{"err": err, "height": height})
+			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+		}
+
+		if profit, ok := rankToProfit[hash]; !ok || profit != 0 {
+			logging.CPrint(logging.ERROR, "unexpected staking reward",
+				logging.LogFormat{
+					"exist":  ok,
+					"height": height,
+					"profit": profit,
+				})
+			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+		}
+		rankToProfit[hash] = txOuts[j].Value
+	}
+
+	list := make([]*pb.GetBlockStakingRewardResponse_RewardDetail, 0)
+	for idx, rank := range ranks {
+		if rankToProfit[rank.ScriptHash] == 0 {
+			break
+		}
+
+		scriptHashStruct, err := massutil.NewAddressStakingScriptHash(rank.ScriptHash[:], config.ChainParams)
+		if err != nil {
+			logging.CPrint(logging.ERROR, "script hash error", logging.LogFormat{
+				"err":        err,
+				"height":     height,
+				"rank_index": idx,
+			})
+			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+		}
+		address := scriptHashStruct.EncodeAddress()
+		if err != nil {
+			logging.CPrint(logging.ERROR, "encode address error", logging.LogFormat{
+				"err":        err,
+				"height":     height,
+				"rank_index": idx,
+			})
+			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+		}
+
+		total := massutil.ZeroAmount()
+		for _, stk := range rank.StakingTx {
+			total, err = total.AddInt(int64(stk.Value))
+			if err != nil {
+				logging.CPrint(logging.ERROR, "total amount error", logging.LogFormat{
+					"err":        err,
+					"height":     height,
+					"rank_index": idx,
+				})
+				return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+			}
+		}
+		amt, err := AmountToString(total.IntValue())
+		if err != nil {
+			logging.CPrint(logging.ERROR, "AmountToString error", logging.LogFormat{
+				"err":        err,
+				"height":     height,
+				"rank_index": idx,
+			})
+			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+		}
+
+		profit, err := AmountToString(rankToProfit[rank.ScriptHash])
+		if err != nil {
+			logging.CPrint(logging.ERROR, "AmountToString failed", logging.LogFormat{
+				"err":        err,
+				"height":     height,
+				"rank_index": idx,
+			})
+			return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+		}
+
+		list = append(list, &pb.GetBlockStakingRewardResponse_RewardDetail{
+			Rank:    rank.Rank,
+			Address: address,
+			Weight:  rank.Weight.Float64(),
+			Amount:  amt,
+			Profit:  profit,
+		})
+	}
+
+	if int(coinbasePayload.NumStakingReward()) != len(list) {
+		logging.CPrint(logging.ERROR, "unexpected error",
+			logging.LogFormat{
+				"reward":      coinbasePayload.NumStakingReward(),
+				"list_length": len(list),
+				"height":      height,
+			})
+		return nil, status.New(ErrAPIAbnormalData, ErrCode[ErrAPIAbnormalData]).Err()
+	}
+
+	reply := &pb.GetBlockStakingRewardResponse{
+		Details: list,
+		Height:  height,
+	}
+	logging.CPrint(logging.INFO, "api: GetBlockStakingReward completed", logging.LogFormat{
+		"number_of_rank": len(ranks),
+		"number_of_list": len(list),
+	})
+	return reply, nil
 }

@@ -9,17 +9,15 @@ import (
 	"path/filepath"
 	"time"
 
-	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/massutil"
-	"massnet.org/mass-wallet/netsync"
-
 	"google.golang.org/grpc"
 
+	"github.com/massnetorg/mass-core/blockchain"
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/netsync"
+
 	pb "massnet.org/mass-wallet/api/proto"
-	"massnet.org/mass-wallet/blockchain"
-
-	"massnet.org/mass-wallet/logging"
-
+	"massnet.org/mass-wallet/config"
 	"massnet.org/mass-wallet/masswallet"
 )
 
@@ -64,14 +62,14 @@ func NewAPIServer(node MassNode, masswallet *masswallet.WalletManager, quitClien
 }
 
 func (s *APIServer) Start() error {
-	address := fmt.Sprintf("%s%s%s", GRPCListenAddress, ":", s.config.Network.API.GRPCPort)
+	address := fmt.Sprintf("%s%s%s", GRPCListenAddress, ":", s.config.Wallet.API.GRPCPort)
 	listen, err := net.Listen("tcp", address)
 	if err != nil {
-		logging.CPrint(logging.ERROR, "failed to start grpc server", logging.LogFormat{"port": s.config.Network.API.GRPCPort, "error": err})
+		logging.CPrint(logging.ERROR, "failed to start grpc server", logging.LogFormat{"port": s.config.Wallet.API.GRPCPort, "error": err})
 		return err
 	}
 	go s.rpcServer.Serve(listen)
-	logging.CPrint(logging.INFO, "grpc server started", logging.LogFormat{"port": s.config.Network.API.GRPCPort})
+	logging.CPrint(logging.INFO, "grpc server started", logging.LogFormat{"port": s.config.Wallet.API.GRPCPort})
 	return nil
 }
 
@@ -83,30 +81,30 @@ func (s *APIServer) Stop() {
 func (s *APIServer) RunGateway() {
 	go func() {
 		if err := Run(s.config); err != nil {
-			logging.CPrint(logging.ERROR, "failed to start grpc-gateway", logging.LogFormat{"port": s.config.Network.API.HttpPort, "error": err})
+			logging.CPrint(logging.ERROR, "failed to start grpc-gateway", logging.LogFormat{"port": s.config.Wallet.API.HttpPort, "error": err})
 			return
 		}
-		logging.CPrint(logging.INFO, "grpc-gateway start", logging.LogFormat{"port": s.config.Network.API.HttpPort})
+		logging.CPrint(logging.INFO, "grpc-gateway start", logging.LogFormat{"port": s.config.Wallet.API.HttpPort})
 	}()
 }
 
 func openRPCKeyPair(cfg *config.Config) (tls.Certificate, error) {
-	_, e := os.Stat(cfg.Network.API.RpcKey)
+	_, e := os.Stat(cfg.Wallet.API.RpcKey)
 	if os.IsNotExist(e) {
 		return generateRPCKeyPair(cfg)
 	}
-	return tls.LoadX509KeyPair(cfg.Network.API.RpcCert, cfg.Network.API.RpcKey)
+	return tls.LoadX509KeyPair(cfg.Wallet.API.RpcCert, cfg.Wallet.API.RpcKey)
 }
 
 func generateRPCKeyPair(cfg *config.Config) (tls.Certificate, error) {
 	logging.CPrint(logging.INFO, "Generating TLS certificates...", logging.LogFormat{
-		"cert": cfg.Network.API.RpcCert,
-		"key":  cfg.Network.API.RpcKey,
+		"cert": cfg.Wallet.API.RpcCert,
+		"key":  cfg.Wallet.API.RpcKey,
 	})
 
 	// Create directories for cert and key files if they do not yet exist.
-	certDir, _ := filepath.Split(cfg.Network.API.RpcCert)
-	keyDir, _ := filepath.Split(cfg.Network.API.RpcKey)
+	certDir, _ := filepath.Split(cfg.Wallet.API.RpcCert)
+	keyDir, _ := filepath.Split(cfg.Wallet.API.RpcKey)
 	err := os.MkdirAll(certDir, 0700)
 	if err != nil {
 		return tls.Certificate{}, err
@@ -129,13 +127,13 @@ func generateRPCKeyPair(cfg *config.Config) (tls.Certificate, error) {
 	}
 
 	// Write cert and (potentially) the key files.
-	err = ioutil.WriteFile(cfg.Network.API.RpcCert, cert, 0700)
+	err = ioutil.WriteFile(cfg.Wallet.API.RpcCert, cert, 0700)
 	if err != nil {
 		return tls.Certificate{}, err
 	}
-	err = ioutil.WriteFile(cfg.Network.API.RpcKey, key, 0700)
+	err = ioutil.WriteFile(cfg.Wallet.API.RpcKey, key, 0700)
 	if err != nil {
-		rmErr := os.Remove(cfg.Network.API.RpcCert)
+		rmErr := os.Remove(cfg.Wallet.API.RpcCert)
 		if rmErr != nil {
 			logging.CPrint(logging.WARN, "Cannot remove written certificates", logging.LogFormat{"error": rmErr})
 		}

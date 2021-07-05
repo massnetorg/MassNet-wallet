@@ -1,8 +1,19 @@
+# consts
+SCRIPT_BUILD="./build.sh"
+
 build:
 	@echo "make build: begin"
 	@echo "building mass-db-upgrade to ./bin for current platform..."
-	@env GO111MODULE=on go build -o ./bin/mass-db-upgrade-1.1.0
+	@echo "(To build for all platforms, run 'make buildall')"
+	@$(SCRIPT_BUILD) "1.1.0" "CURRENT"
 	@echo "make build: end"
+
+buildall:
+	@echo "make buildall: begin"
+	@echo "building mass-db-upgrade to ./bin for all platforms..."
+	@echo "(To build only for current platform, run 'make build')"
+	@$(SCRIPT_BUILD) "1.1.0"
+	@echo "make buildall: end"
 
 clean:
 	@echo "make clean: begin"

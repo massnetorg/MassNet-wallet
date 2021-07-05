@@ -16,7 +16,7 @@ import (
 	"reflect"
 	"testing"
 
-	"massnet.org/mass-wallet/config"
+	"github.com/massnetorg/mass-core/config"
 )
 
 // TestBIP0032Vectors tests the vectors provided by [BIP32] to ensure the

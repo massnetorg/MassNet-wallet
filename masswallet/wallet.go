@@ -8,15 +8,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/massnetorg/mass-core/logging"
+	"github.com/massnetorg/mass-core/massutil"
+	"github.com/massnetorg/mass-core/txscript"
+	"github.com/massnetorg/mass-core/wire"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/logging"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/ifc"
 	"massnet.org/mass-wallet/masswallet/keystore"
 	"massnet.org/mass-wallet/masswallet/txmgr"
-	"massnet.org/mass-wallet/txscript"
-	"massnet.org/mass-wallet/wire"
 
 	cache "github.com/patrickmn/go-cache"
 )
@@ -276,7 +276,7 @@ func (w *WalletManager) CreateWallet(passphrase, remarks string, bitSize int) (s
 	var version uint8
 	err := mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
 		var err error
-		walletId, mnemonic, err = w.ksmgr.NewKeystore(tx, bitSize, []byte(passphrase), remarks, w.chainParams, &keystore.DefaultScryptOptions, w.config.Advanced.AddressGapLimit)
+		walletId, mnemonic, err = w.ksmgr.NewKeystore(tx, bitSize, []byte(passphrase), remarks, w.chainParams, &keystore.DefaultScryptOptions, w.config.Wallet.Settings.AddressGapLimit)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to new keystore", logging.LogFormat{
 				"err": err,
@@ -312,7 +312,7 @@ func (w *WalletManager) ImportWallet(keystoreJSON, pass string) (*WalletSummary,
 	var ws *txmgr.WalletStatus
 	err := mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
 		var err error
-		am, err = w.ksmgr.ImportKeystore(tx, w.chainFetcher.CheckScriptHashUsed, []byte(keystoreJSON), []byte(pass), w.config.Advanced.AddressGapLimit)
+		am, err = w.ksmgr.ImportKeystore(tx, w.chainFetcher.CheckScriptHashUsed, []byte(keystoreJSON), []byte(pass), w.config.Wallet.Settings.AddressGapLimit)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to import keystore", logging.LogFormat{
 				"err": err,
@@ -761,7 +761,7 @@ func (w *WalletManager) NewAddress(addrClass uint16) (string, error) {
 
 	var address string
 	err := mwdb.Update(w.db, func(tx mwdb.DBTransaction) error {
-		mas, err := w.ksmgr.NextAddresses(tx, w.chainFetcher.CheckScriptHashUsed, false, 1, w.config.Advanced.AddressGapLimit, addrClass)
+		mas, err := w.ksmgr.NextAddresses(tx, w.chainFetcher.CheckScriptHashUsed, false, 1, w.config.Wallet.Settings.AddressGapLimit, addrClass)
 		if err != nil {
 			logging.CPrint(logging.ERROR, "failed to nextAddress", logging.LogFormat{
 				"err": err,
@@ -1021,12 +1021,13 @@ func (w *WalletManager) AutoCreateRawTransaction(
 	userTxFee massutil.Amount,
 	fromAddr,
 	changeAddr string,
+	payload []byte,
 ) (string, massutil.Amount, error) {
 
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	mtx, txFee, err := w.EstimateTxFee(amounts, lockTime, userTxFee, fromAddr, changeAddr)
+	mtx, txFee, err := w.EstimateTxFee(amounts, lockTime, userTxFee, fromAddr, changeAddr, payload)
 	if err != nil {
 		logging.CPrint(logging.ERROR, "estimate txFee failed", logging.LogFormat{
 			"err": err,
@@ -1304,4 +1305,11 @@ func (w *WalletManager) IsAddressInCurrent(addr string) (massutil.Address, bool,
 		return nil, false, err
 	}
 	return address, true, nil
+}
+
+func (w *WalletManager) CountAll() error {
+	return mwdb.View(w.db, func(rtx mwdb.ReadTransaction) (err error) {
+		w.syncStore.CountAll(rtx)
+		return nil
+	})
 }

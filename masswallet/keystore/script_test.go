@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/massnetorg/mass-core/massutil"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/massutil"
 	mwdb "massnet.org/mass-wallet/masswallet/db"
 )
 
@@ -28,14 +28,14 @@ func Test_newWitnessScriptAddressForBtcec(t *testing.T) {
 		if err != nil {
 			return fmt.Errorf("failed to get bucket, %v", err)
 		}
-		km, err = NewKeystoreManager(bucket, pubPassphrase, &config.ChainParams)
+		km, err = NewKeystoreManager(bucket, pubPassphrase, config.ChainParams)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore manager, %v", err)
 		}
 
 		//new keystore
 		var mnemonic1 string
-		accountID1, mnemonic1, err = km.NewKeystore(tx, 0, privPassphrase, "first", &config.ChainParams, nil, addressGapLimit)
+		accountID1, mnemonic1, err = km.NewKeystore(tx, 0, privPassphrase, "first", config.ChainParams, nil, addressGapLimit)
 		if err != nil {
 			return fmt.Errorf("failed to new keystore, %v", err)
 		}
@@ -68,7 +68,7 @@ func Test_newWitnessScriptAddressForBtcec(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	redeemScript, witAddress, err := newWitnessScriptAddressForBtcec(pks, 1, massutil.AddressClassWitnessV0, &config.ChainParams)
+	redeemScript, witAddress, err := newWitnessScriptAddressForBtcec(pks, 1, massutil.AddressClassWitnessV0, config.ChainParams)
 	if err != nil {
 		t.Fatalf("failed to new witness script address, %v", err)
 	}

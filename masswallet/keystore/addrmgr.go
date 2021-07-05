@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec"
+	"github.com/massnetorg/mass-core/logging"
 	"massnet.org/mass-wallet/config"
-	"massnet.org/mass-wallet/logging"
 	"massnet.org/mass-wallet/masswallet/db"
 	"massnet.org/mass-wallet/masswallet/keystore/hdkeychain"
 	"massnet.org/mass-wallet/masswallet/keystore/snacl"

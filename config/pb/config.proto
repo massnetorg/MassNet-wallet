@@ -1,59 +1,127 @@
 syntax = "proto3";
 package configpb;
 
-message Config {
-    AppConfig     app     = 1;
-    NetworkConfig network = 2;
-    LogConfig     log     = 3;
-    DataConfig   data   = 4;
-    AdvancedConfig advanced = 5; // Warning: Advanced settings can break compatibility. 
-                                 // Do not attempt to set them if you dont kown how they work.
-}
+// import "../../../mass-core/config/pb/config.proto";
 
-message P2PConfig {
-    string          seeds              = 1;
-    repeated string add_peer           = 2;
-    bool            skip_upnp          = 3;
-    uint32          handshake_timeout  = 4;
-    uint32          dial_timeout       = 5;
-    bool            vault_mode         = 6;
-    string          listen_address     = 7;
-}
+// message Config {
+//     AppConfig     app     = 1;
+//     NetworkConfig network = 2;
+//     LogConfig     log     = 3;
+//     DataConfig   data   = 4;
+//     AdvancedConfig advanced = 5; // Warning: Advanced settings can break compatibility. 
+//                                  // Do not attempt to set them if you dont kown how they work.
+// }
 
-message APIConfig {
-    string host         = 1;
-    string grpc_port    = 2;
-    string http_port    = 3;
-    repeated string http_cors_addr = 4;
-    bool disable_tls = 5;
-    string rpc_cert     = 6;
-    string rpc_key      = 7;
-}
+// message P2PConfig {
+//     string          seeds              = 1;
+//     repeated string add_peer           = 2;
+//     bool            skip_upnp          = 3;
+//     uint32          handshake_timeout  = 4;
+//     uint32          dial_timeout       = 5;
+//     bool            vault_mode         = 6;
+//     string          listen_address     = 7;
+// }
 
-message NetworkConfig {
-    P2PConfig p2p = 1;
-    APIConfig api = 2;
-}
+// message APIConfig {
+//     string host         = 1;
+//     string grpc_port    = 2;
+//     string http_port    = 3;
+//     repeated string http_cors_addr = 4;
+//     bool disable_tls = 5;
+//     string rpc_cert     = 6;
+//     string rpc_key      = 7;
+// }
 
-message LogConfig {
-    string log_dir       = 1;
-    string log_level     = 2;
-}
+// message NetworkConfig {
+//     P2PConfig p2p = 1;
+//     APIConfig api = 2;
+// }
 
-message AppConfig {
-    string profile       = 1;
-    string cpu_profile   = 2;
-    bool   no_peer_bloom_filters = 3;
-}
+// message LogConfig {
+//     string log_dir       = 1;
+//     string log_level     = 2;
+// }
 
-message DataConfig {
-    string db_type  = 1;
-    string db_dir = 2;
-    string wallet_pub_pass = 3;
-}
+// message AppConfig {
+//     string profile       = 1;
+//     string cpu_profile   = 2;
+//     bool   no_peer_bloom_filters = 3;
+// }
 
-message AdvancedConfig {
-    uint32 address_gap_limit = 1;
-    uint32 max_unused_staking_address = 2;
-    string max_tx_fee = 3; // never create transactions larger than max_tx_fee, floating fee(default: 1.0) in MASS
+// message DataConfig {
+//     string db_type  = 1;
+//     string db_dir = 2;
+//     string wallet_pub_pass = 3;
+// }
+
+// message AdvancedConfig {
+//     uint32 address_gap_limit = 1;
+//     uint32 max_unused_staking_address = 2;
+//     string max_tx_fee = 3; // never create transactions larger than max_tx_fee, floating fee(default: 1.0) in MASS
+// }
+
+// message Config {
+//     Metrics    metrics     = 1;
+//     P2P        p2p         = 2;
+//     Log        log         = 3;
+//     Datastore  datastore   = 4;
+//     Wallet     wallet      = 5;
+// }
+
+// message Metrics {
+//     message Influx {
+//         bool enable            = 1;
+//         string hostname        = 2;
+//         string url             = 3;
+//         string database        = 4;
+//         string user            = 5;
+//         string password        = 6;
+//     }
+
+//     string profile_port = 1;
+//     Influx influx       = 2;
+// }
+
+// message P2P {
+//     string          seeds              = 1;
+//     repeated string add_peer           = 2;
+//     bool            skip_upnp          = 3;
+//     uint32          handshake_timeout  = 4;
+//     uint32          dial_timeout       = 5;
+//     bool            vault_mode         = 6;
+//     string          listen_address     = 7;
+// }
+
+// message Datastore {
+//     string dir      = 1;
+//     string db_type  = 2;
+//     string pub_pass = 3;
+// }
+
+// message Log {
+//     string log_dir      = 1;
+//     string log_level    = 2;
+//     bool disable_cprint = 3;
+// }
+
+message WalletConfig {
+    message API {
+        string host         = 1;
+        string grpc_port    = 2;
+        string http_port    = 3;
+        repeated string http_cors_addr = 4;
+        bool disable_tls    = 5;
+        string rpc_cert     = 6;
+        string rpc_key      = 7;
+    }
+
+    message Settings {
+        uint32 address_gap_limit          = 1;
+        uint32 max_unused_staking_address = 2;
+        string max_tx_fee                 = 3; // limit transaction fee, a float in MASS, default 1.0
+    }
+
+    string   pub_pass = 1;
+    API      api      = 2;
+    Settings settings = 3;
 }
