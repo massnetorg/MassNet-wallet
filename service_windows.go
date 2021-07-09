@@ -10,13 +10,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/massnetorg/mass-core/version"
-
-	"github.com/massnetorg/mass-core/config"
-
 	"github.com/btcsuite/winsvc/eventlog"
 	"github.com/btcsuite/winsvc/mgr"
 	"github.com/btcsuite/winsvc/svc"
+	"github.com/massnetorg/mass-core/version"
+	"massnet.org/mass-wallet/config"
 )
 
 const (
@@ -40,10 +38,11 @@ var elog *eventlog.Log
 // been started to the Windows event log.
 func logServiceStartOfDay(srvr *server) {
 	var message string
+	wd, _ := os.Getwd()
 	message += fmt.Sprintf("Version %s\n", version.GetVersion())
-	message += fmt.Sprintf("Configuration directory: %s\n", config.MassWalletHomeDir)
-	message += fmt.Sprintf("Configuration file: %s\n", cfg.ConfigFile)
-	message += fmt.Sprintf("Chain Data directory: %s\n", cfg.Data.DbDir)
+	message += fmt.Sprintf("Configuration directory: %s\n", wd)
+	message += fmt.Sprintf("Configuration file: %s\n", config.DefaultConfigFilename)
+	message += fmt.Sprintf("Chain Data directory: %s\n", cfg.Core.Datastore.Dir)
 
 	elog.Info(1, message)
 }

@@ -1,10 +1,10 @@
 # MassNet Wallet
 
-  A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
+A wallet implementation of [MassNet](http://www.massnet.org/) in Golang.
 
 ## Requirements
 
-  [Go](http://golang.org) 1.11 or newer.
+[Go](http://golang.org) 1.13 or newer.
 
 ## Development
 
@@ -20,42 +20,31 @@
   ```
 - Run `./bin/masswallet` to start.
 
-#### Windows
-
-- Clone source code to `$GOPATH\src\massnet.org`.
-- Set environment variable `GO111MODULE="off"` if your Golang version is newer than 1.11.
-- Build the program.
-  ```bat
-  cd %GOPATH%\src\massnet.org\mass-wallet
-  go build -o bin\masswallet.exe
-  ```
-- Run `bin\masswallet.exe` to start.
-
 ### Contributing Code
 
 #### Prerequisites
 
-- Install [Golang](http://golang.org) 1.11 or newer.
+- Install [Golang](http://golang.org) 1.13 or newer.
 - Install the specific version or [ProtoBuf](https://developers.google.com/protocol-buffers), and related `protoc-*`:
   ```
   # libprotoc
   libprotoc 3.6.1
   
-  # github.com/golang/protobuf 1.3.2
+  # github.com/golang/protobuf 1.4.2
   protoc-gen-go
   
-  # github.com/gogo/protobuf 1.2.1
+  # github.com/gogo/protobuf 1.3.1
   protoc-gen-gogo
   protoc-gen-gofast
   
-  # github.com/grpc-ecosystem/grpc-gateway 1.9.6
+  # github.com/grpc-ecosystem/grpc-gateway 1.14.5
   protoc-gen-grpc-gateway
   protoc-gen-swagger
   ```
 
 #### Modifying Code
 
-- New codes should be compatible with Go 1.11 or newer.
+- New codes should be compatible with Go 1.13 or newer.
 - Run `gofmt` and `goimports` to lint go files.
 - Run `make test` before building executables.
 
