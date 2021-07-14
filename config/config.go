@@ -76,6 +76,7 @@ type Config struct {
 	AddCheckpoints []coreconfig.Checkpoint `json:"-"`
 	ShowVersion    bool                    `short:"V" long:"version" description:"Display Version information and exit" json:"-"`
 	Create         bool                    `long:"create" description:"Create the wallet if it does not exist" json:"-"`
+	ConfigFile     string                  `short:"C" long:"configfile" description:"Path to configuration file" json:"-"`
 }
 
 // newConfigParser returns a new command line flags parser.
@@ -95,6 +96,7 @@ func newConfigParser(cfg *Config, so *serviceOptions, options flags.Options) *fl
 func ParseConfig() (*Config, []string, error) {
 	// Default config.
 	cfg := Config{
+		ConfigFile:  DefaultConfigFilename,
 		ShowVersion: defaultShowVersion,
 		Create:      defaultCreate,
 		Core:        NewDefCoreConfig(),
@@ -153,7 +155,7 @@ func ParseConfig() (*Config, []string, error) {
 }
 
 func LoadConfig(cfg *Config) {
-	b, err := ioutil.ReadFile(DefaultConfigFilename)
+	b, err := ioutil.ReadFile(cfg.ConfigFile)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(0)

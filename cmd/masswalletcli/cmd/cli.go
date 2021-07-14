@@ -93,4 +93,11 @@ func init() {
 
 	batchBindingCmd.Flags().BoolP("check", "c", false, "only check unbound targets")
 	rootCmd.AddCommand(batchBindingCmd)
+
+	getBindingListCmd.Flags().BoolVarP(&getBindingListFlagOverwrite, "overwrite", "o", false, "overwrite existed file")
+	getBindingListCmd.Flags().BoolVarP(&getBindingListFlagListAll, "all", "a", false, "list all files instead of only plotted files")
+	getBindingListCmd.Flags().StringVarP(&getBindingListFlagKeystore, "keystore", "", "", "specify the keystore to eliminate files without private key")
+	getBindingListCmd.Flags().StringVarP(&getBindingListFlagPlotType, "type", "t", "", "specify the searching plot type: m1 (for native MassDB) or m2 (for Chia Plot)")
+	getBindingListCmd.Flags().StringSliceVarP(&getBindingListFlagDirectories, "dirs", "d", nil, "specify the searching directories")
+	rootCmd.AddCommand(getBindingListCmd)
 }
