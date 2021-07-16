@@ -66,7 +66,7 @@ func initClient() {
 
 	switch {
 	case u.Scheme == "https":
-		cert, err := tls.LoadX509KeyPair(rpcCert, rpcKey)
+		cert, err := tls.LoadX509KeyPair(config.RpcCert, config.RpcKey)
 		if err != nil {
 			logging.VPrint(logging.FATAL, "failed to load certificate", logging.LogFormat{"err": err})
 		}

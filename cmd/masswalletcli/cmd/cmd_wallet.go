@@ -284,7 +284,7 @@ var importMnemonicCmd = &cobra.Command{
 		"\nArguments:\n" +
 		"  <mnemonic>	mnemonic phrase\n" +
 		"  [initial]	number of initial addresses, default 0\n",
-	Example: `  importmnemonic 'tomorrow entry oval ...' 123456 initial=10 remarks='backup mnemonic'`,
+	Example: `  importmnemonic 'tomorrow entry oval ...' initial=10 remarks='backup mnemonic'`,
 	Args:    cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 

@@ -22,6 +22,7 @@ import (
 	"github.com/massnetorg/mass-core/poc/chiapos"
 	"github.com/massnetorg/mass-core/poc/chiawallet"
 	"github.com/spf13/cobra"
+	"massnet.org/mass-wallet/api"
 	pb "massnet.org/mass-wallet/api/proto"
 	wcfg "massnet.org/mass-wallet/config"
 )
@@ -147,8 +148,8 @@ var batchBindPoolPkCmd = &cobra.Command{
 		}
 
 		if len(pkToInfo) == 0 {
-			fmt.Println("done! no pool pk found")
-			return nil
+			fmt.Println("no pool pk to bind")
+			os.Exit(ExitBindPoolPkNone)
 		}
 
 		req := &pb.CheckPoolPkCoinbaseRequest{}
@@ -205,6 +206,9 @@ var batchBindPoolPkCmd = &cobra.Command{
 			}
 			respCreate := &pb.CreateRawTransactionResponse{}
 			if err := ClientCallWithoutPrintResponse("/v1/transactions/poolpkcoinbase", POST, reqCreate, respCreate); err != nil {
+				if strings.Contains(err.Error(), "Insufficient wallet balance") {
+					os.Exit(ExitBindPoolPkInsufficientBalance)
+				}
 				return err
 			}
 
@@ -276,6 +280,25 @@ var checkTargetBindingCmd = &cobra.Command{
 	},
 }
 
+func getPrice(massPrices, chiaPrices map[uint32]string, plot massutil.BindingPlot) (string, error) {
+	var (
+		price string
+		ok    bool
+	)
+	switch plot.Type {
+	case uint8(poc.ProofTypeDefault):
+		price, ok = massPrices[uint32(plot.Size)]
+	case uint8(poc.ProofTypeChia):
+		price, ok = chiaPrices[uint32(plot.Size)]
+	default:
+		return "", fmt.Errorf("unknown plot type %d, target %s", plot.Type, plot.Target)
+	}
+	if !ok {
+		return "", fmt.Errorf("price not found for target %s, type %d, size %d", plot.Target, plot.Type, plot.Size)
+	}
+	return price, nil
+}
+
 var batchBindingCmd = &cobra.Command{
 	Use:   `batchbinding <file> <from>`,
 	Short: "Batch check or send binding transactions from file.",
@@ -332,6 +355,12 @@ var batchBindingCmd = &cobra.Command{
 			}
 			unbound = append(unbound, ub...)
 		}
+
+		if len(unbound) == 0 {
+			fmt.Println("no targets to bind")
+			os.Exit(ExitBindPlotNoUnbound)
+		}
+
 		fmt.Printf("total %d, unbound %d\n", list.TotalCount, len(unbound))
 
 		if isCheck {
@@ -350,10 +379,6 @@ var batchBindingCmd = &cobra.Command{
 		if len(args) < 2 {
 			return fmt.Errorf("require 2 arguments, <file> and <from>")
 		}
-		if len(unbound) == 0 {
-			fmt.Println("done! no unbound")
-			return nil
-		}
 
 		password := readPassword()
 
@@ -369,29 +394,51 @@ var batchBindingCmd = &cobra.Command{
 			return err
 		}
 
+		// get from balance
+		resp := &pb.GetAddressBalanceResponse{}
+		if err := ClientCallWithoutPrintResponse("/v1/addresses/balance", POST, &pb.GetAddressBalanceRequest{
+			RequiredConfirmations: 1,
+			Addresses:             []string{from},
+		}, resp); err != nil {
+			return err
+		}
+
+		// check balance enough
+		totalAmt := massutil.ZeroAmount()
+		for _, target := range unbound {
+			price, err := getPrice(massPrices, chiaPrices, targetPlot[target])
+			if err != nil {
+				return err
+			}
+			amt, err := stringToAmount(price)
+			if err != nil {
+				return err
+			}
+			if totalAmt, err = totalAmt.Add(amt); err != nil {
+				return err
+			}
+		}
+
+		available, err := stringToAmount(resp.Balances[0].Spendable)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("from available balance %s, total required %s\n", available, totalAmt)
+
+		if available.Cmp(totalAmt) < 0 {
+			os.Exit(ExitBindPlotInsufficientBalance)
+		}
+
 		// prepare outputs
 		i := 0
 		total := 0
 		var txids []string
 		outputs := make([]*pb.CreateBindingTransactionRequest_Output, 0, batchSize)
 		for _, target := range unbound {
-			plot := targetPlot[target]
-			var (
-				price string
-				ok    bool
-			)
-			switch plot.Type {
-			case uint8(poc.ProofTypeDefault):
-				price, ok = massPrices[uint32(plot.Size)]
-			case uint8(poc.ProofTypeChia):
-				price, ok = chiaPrices[uint32(plot.Size)]
-			default:
-				return fmt.Errorf("unknown plot type %d", plot.Type)
+			price, err := getPrice(massPrices, chiaPrices, targetPlot[target])
+			if err != nil {
+				return err
 			}
-			if !ok {
-				return fmt.Errorf("price not found for target %s, type %d, size %d", target, plot.Type, plot.Size)
-			}
-
 			outputs = append(outputs, &pb.CreateBindingTransactionRequest_Output{
 				HolderAddress:  from,
 				BindingAddress: target,
@@ -430,7 +477,8 @@ var batchBindingCmd = &cobra.Command{
 		}
 
 		if total < len(unbound) {
-			return fmt.Errorf("partial done, please retry! bound %d(total unbound %d)", total, len(unbound))
+			fmt.Printf("partial done, please retry! bound %d(total unbound %d)\n", total, len(unbound))
+			os.Exit(ExitBindPlotPartialDone)
 		}
 
 		fmt.Printf("done! bound %d(total unbound %d)\n", total, len(unbound))
@@ -471,6 +519,12 @@ func queryBindingPrices() (massPrices, chiaPrices map[uint32]string, err error) 
 		chiaPrices[size] = strings.TrimSuffix(price, " MASS")
 	}
 	return
+}
+
+func stringToAmount(str string) (massutil.Amount, error) {
+	str = strings.TrimSuffix(str, "MASS")
+	str = strings.TrimSpace(str)
+	return api.StringToAmount(str)
 }
 
 func createSignSend(outputs []*pb.CreateBindingTransactionRequest_Output, pass, from string) (string, error) {

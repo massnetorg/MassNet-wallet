@@ -1,5 +1,7 @@
 {
     "server": "http://localhost:9688",
     "log_dir": "./logs",
-    "log_level": "debug"
+    "log_level": "debug",
+    "rpc_cert": "cert.crt",
+    "rpc_key": "cert.key"
 }
