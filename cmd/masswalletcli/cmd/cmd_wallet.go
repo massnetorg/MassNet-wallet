@@ -263,7 +263,7 @@ var importWalletCmd = &cobra.Command{
 	Long: "Imports a wallet keystore, both version 0 and 1 are compatible\n" +
 		"\nArguments:\n" +
 		"  <keystore>     raw json of keystore.\n",
-	Example: `  importwallet '{"crypto":"", "hdPath":"","remarks":"",...}' 123456`,
+	Example: `  importwallet '{"crypto":"", "hdPath":"","remarks":"",...}'`,
 	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		logging.VPrint(logging.INFO, "importwallet called", EmptyLogFormat)
