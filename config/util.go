@@ -232,6 +232,7 @@ func NewDefCoreConfig() *coreconfig.Config {
 			HandshakeTimeout: 30,
 			DialTimeout:      3,
 			ListenAddress:    "tcp://0.0.0.0:43454",
+			Whitelist:        make([]string, 0),
 		},
 		Log: &coreconfig.Log{
 			LogDir:   "logs",
