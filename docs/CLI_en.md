@@ -5,9 +5,9 @@
 config option
 ```json
 {
-    "server": "https://localhost:9688", // or http://localhost:9688
-    "log_dir": "./logs",
-    "log_level": "info"
+  "server": "https://localhost:9688", // or http://localhost:9688
+  "log_dir": "./logs",
+  "log_level": "info"
 }
 ```
 
@@ -26,7 +26,7 @@ config option
 
 # Command
 
-> note:  
+> note:
 >- All parameters marked with '< >' are required
 >- Parameters marked with '[]' are optional
 
@@ -34,7 +34,7 @@ config option
     createcert <directory>
 Creates a new TLS certificate.
 
-Example:  
+Example:
 ```bash
 > masswallet-cli createcert .
 ```
@@ -43,45 +43,45 @@ Example:
     getclientstatus
 Returns current node status.
 
-Parameter:  
+Parameter:
 
     null
 
-Example:  
+Example:
 ```bash
 > masswallet-cli getclientstatus
 ```
 
-Return:  
+Return:
 ```json
 {
-    "peer_listening": true,
-    "syncing": false,
-    "chain_id": "e931abb77f2568f752a29ed28d442558764a5961ed773df7188430a0e0f7cf18",
-    "local_best_height": "176992",
-    "known_best_height": "176992",
-    "wallet_sync_height": "176992",
-    "peer_count": {
-        "total": 2,
-        "outbound": 2,
-        "inbound": 0
-    },
-    "peers": {
-        "outbound": [
-            {
-                "id": "0A6AFB3678A1612296AA5FD4338AF9304EA8831455DDC014D3F554357BBBC2EE",
-                "address": "[host]:[port]",
-                "direction": "outbound"
-            },
-            {
-                "id": "B3664A9AC4AF1DBB457BB82F2F856F25DDE1F9F226D51BCA94A7F71123839100",
-                "address": "[host]:[port]",
-                "direction": "outbound"
-            }
-        ],
-        "inbound": [],
-        "other": []
-    }
+  "peer_listening": true,
+  "syncing": false,
+  "chain_id": "e931abb77f2568f752a29ed28d442558764a5961ed773df7188430a0e0f7cf18",
+  "local_best_height": "176992",
+  "known_best_height": "176992",
+  "wallet_sync_height": "176992",
+  "peer_count": {
+    "total": 2,
+    "outbound": 2,
+    "inbound": 0
+  },
+  "peers": {
+    "outbound": [
+      {
+        "id": "0A6AFB3678A1612296AA5FD4338AF9304EA8831455DDC014D3F554357BBBC2EE",
+        "address": "[host]:[port]",
+        "direction": "outbound"
+      },
+      {
+        "id": "B3664A9AC4AF1DBB457BB82F2F856F25DDE1F9F226D51BCA94A7F71123839100",
+        "address": "[host]:[port]",
+        "direction": "outbound"
+      }
+    ],
+    "inbound": [],
+    "other": []
+  }
 }
 ```
 
@@ -89,19 +89,19 @@ Return:
     getbestblock
 Query the latest block information of the node.
 
-Parameter:  
+Parameter:
 
     null
 
-Example:  
+Example:
 ```bash
 > masswallet-cli getbestblock
 ```
 
-Return:  
+Return:
 ```json
 {
-  "height": "8993",         
+  "height": "8993",
   "target": "1f56abb05"     //mining difficulty (hex)
 }
 ```
@@ -110,24 +110,24 @@ Return:
     listwallets
 Returns all imported wallets.
 
-Parameter:  
+Parameter:
 
     null
 
-Example:  
+Example:
 ```bash
 > masswallet-cli listwallets
 ```
 
-Return:  
+Return:
 ```json
 {
   "wallets": [
     {
-      "wallet_id": "ac102yfx0q2v6v3aug35hw42jn8k6sljeypffn85w3",       
+      "wallet_id": "ac102yfx0q2v6v3aug35hw42jn8k6sljeypffn85w3",
       "type": 1,                //fixed value
       "version": 0,
-      "remarks": "for test",   
+      "remarks": "for test",
       "status": 0|1|2,      // 0-ready, 2-removing, 1-syncing
       "status_msg": "ready"|"removing"|<synced_height>
     }
@@ -139,23 +139,23 @@ Return:
     usewallet <wallet_id>
 Toggles the wallet context currently in use. All transaction related commands can only be used in specific wallet context.
 
-Parameter:  
+Parameter:
 
     wallet_id       
 
-Example:  
+Example:
 ```bash
 > masswallet-cli usewallet ac102yfx0q2v6v3aug35hw42jn8k6sljeypffn85w3
 ```
 
-Return:  
+Return:
 ```json
 {
   "chain_id": "...",
   "wallet_id": "ac102yfx0q2v6v3aug35hw42jn8k6sljeypffn85w3",
   "type": 1,
-  "version": 0,                                                    
-  "total_balance": "1234.00001428",                            
+  "version": 0,
+  "total_balance": "1234.00001428",
   "external_key_count": 10,                                       //external pk(address) total
   "internal_key_count": 0,                                        //internal pk total ,not currently in use
   "remarks": "for test"
@@ -165,12 +165,12 @@ Return:
 ## createwallet
     createwallet [entropy=?] [remarks=?]
 
-Parameter:  
+Parameter:
 
     entropy       The initial entropy length for generating mnemonics must be an integer multiple of 32 in the range of [128,256]. The default is 128.
     remarks       Note information of wallet, without any chain semantics.
 
-Example:  
+Example:
 ```bash
 > masswallet-cli createwallet entropy=160 remarks="for test"
 
@@ -178,10 +178,10 @@ Example:
 > Enter password: 
 ```
 
-Return:  
+Return:
 ```json
 {
-  "wallet_id": "ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds",     
+  "wallet_id": "ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds",
   "mnemonic": "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse",            //mnemonics
   "version": 1
 }
@@ -191,16 +191,16 @@ Return:
     getwalletmnemonic
 Returns the mnemonic of currently used wallet.
 
-Parameter:  
+Parameter:
 
     wallet_id
 
-Example:  
+Example:
 ```bash
 > masswallet-cli getwalletmnemonic ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds
 ```
 
-Return:  
+Return:
 ```json
 {
   "mnemonic": "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse",
@@ -211,16 +211,16 @@ Return:
 ## exportwallet
     exportwallet <wallet_id>
 
-Parameter:  
+Parameter:
 
     wallet_id
 
-Example:  
+Example:
 ```bash
 > masswallet-cli exportwallet ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds
 ```
 
-Return:  
+Return:
 ```json
 {
   "keystore": "{\"remarks\":\"for test\",\"crypto\":{\"cipher\":\"Stream cipher\",\"entropyEnc\":\"ac6de145205481dc95ab6a22f8b978edb3f1b2d69f5036a2158339bc7465c0a7311d6d08983ef8e2f5d443dad7dc7580095b024cd809ab6006743624\",\"kdf\":\"scrypt\",\"pubParams\":\"\",\"privParams\":\"b999d54a2369d9be570928c32e0a727e95eb395ad8ba5383608c9cb800a4cad82c52fe054cdcdfae5b3d751810452425704095a32fcb6cea85913575ac39174c000004000000000008000000000000000100000000000000\",\"cryptoKeyPubEnc\":\"\",\"cryptoKeyPrivEnc\":\"\",\"cryptoKeyEntropyEnc\":\"cac4a9b04cca089d396430cb9115627d97e914590183b5a835e7cbf76ae6b85ae4a6cbaafe12e2fa1a43f52c78c5aa62e9d3f5265baf9eb2618e020b1d5ce5555d9cc69f005c6a44\"},\"hdPath\":{\"Purpose\":44,\"Coin\":1,\"Account\":1,\"ExternalChildNum\":0,\"InternalChildNum\":0}}"
@@ -230,16 +230,16 @@ Return:
 ## removewallet
     removewallet <wallet_id>
 
-Parameter:  
+Parameter:
 
     wallet_id
 
-Example:  
+Example:
 ```bash
 > masswallet-cli removewallet ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds
 ```
 
-Return:  
+Return:
 ```json
 {
   "ok": true
@@ -250,21 +250,21 @@ Return:
     importwallet <keystore>
 Imports a wallet by keystore.
 
-Parameter:  
+Parameter:
 
     keystore        json data
 
-Example1:  
+Example1:
 ```bash
 > masswallet-cli importwallet '{"remarks":"for test","crypto":{"cipher":"Stream cipher","entropyEnc":"ac6de145205481dc95ab6a22f8b978edb3f1b2d69f5036a2158339bc7465c0a7311d6d08983ef8e2f5d443dad7dc7580095b024cd809ab6006743624","kdf":"scrypt","pubParams":"","privParams":"b999d54a2369d9be570928c32e0a727e95eb395ad8ba5383608c9cb800a4cad82c52fe054cdcdfae5b3d751810452425704095a32fcb6cea85913575ac39174c000004000000000008000000000000000100000000000000","cryptoKeyPubEnc":"","cryptoKeyPrivEnc":"","cryptoKeyEntropyEnc":"cac4a9b04cca089d396430cb9115627d97e914590183b5a835e7cbf76ae6b85ae4a6cbaafe12e2fa1a43f52c78c5aa62e9d3f5265baf9eb2618e020b1d5ce5555d9cc69f005c6a44"},"hdPath":{"Purpose":44,"Coin":1,"Account":1,"ExternalChildNum":0,"InternalChildNum":0}}'
 ```
 
-Example2:  
+Example2:
 ```bash
 > masswallet-cli importwallet "{\"remarks\":\"for test\",\"crypto\":{\"cipher\":\"Stream cipher\",\"entropyEnc\":\"ac6de145205481dc95ab6a22f8b978edb3f1b2d69f5036a2158339bc7465c0a7311d6d08983ef8e2f5d443dad7dc7580095b024cd809ab6006743624\",\"kdf\":\"scrypt\",\"pubParams\":\"\",\"privParams\":\"b999d54a2369d9be570928c32e0a727e95eb395ad8ba5383608c9cb800a4cad82c52fe054cdcdfae5b3d751810452425704095a32fcb6cea85913575ac39174c000004000000000008000000000000000100000000000000\",\"cryptoKeyPubEnc\":\"\",\"cryptoKeyPrivEnc\":\"\",\"cryptoKeyEntropyEnc\":\"cac4a9b04cca089d396430cb9115627d97e914590183b5a835e7cbf76ae6b85ae4a6cbaafe12e2fa1a43f52c78c5aa62e9d3f5265baf9eb2618e020b1d5ce5555d9cc69f005c6a44\"},\"hdPath\":{\"Purpose\":44,\"Coin\":1,\"Account\":1,\"ExternalChildNum\":0,\"InternalChildNum\":0}}"
 ```
 
-Return:  
+Return:
 ```json
 {
   "ok": true,
@@ -279,18 +279,18 @@ Return:
     importmnemonic <mnemonic> [initial=?] [remarks=?]
 Imports a wallet backup mnemonic.
 
-Parameter:  
+Parameter:
 
     mnemonic        
     initial   optional, number of initial addresses
     remarks   optional
 
-Example:  
+Example:
 ```bash
 > masswallet-cli importmnemonic "figure vapor flame artwork clarify local right insect fall pulp dwarf steel tip author pulse"
 ```
 
-Return:  
+Return:
 ```json
 {
   "ok": true,
@@ -305,25 +305,25 @@ Return:
     getwalletbalance [minconf=?] [detail=?]
 
 
-Parameter:  
+Parameter:
 
     minconf        Optional, only utxos that have been confirmed by at least <minconf> blocks would be count, default 1.
     detail         Optional, whether to count the total amount of that spendable, default false.
 
-Example:  
+Example:
 ```bash
 > masswallet-cli getwalletbalance minfconf=100 detail=true
 ```
 
-Return:  
+Return:
 ```json
 {
   "wallet_id": "ac10uz28q8yjevkvvfva84txu2dztsahu7mqxlvxds",
-  "total": "100.00001428",         
+  "total": "100.00001428",
   "detail": {
-    "spendable": "100.00001428",     
-    "withdrawable_staking": "0",      
-    "withdrawable_binding": "0"      
+    "spendable": "100.00001428",
+    "withdrawable_staking": "0",
+    "withdrawable_binding": "0"
   }
 }
 ```
@@ -332,24 +332,24 @@ Return:
     listaddresses <version>
 Returns all addresses of currently used wallet.
 
-Parameter:  
+Parameter:
 
     version     0  - create normal address
                 1  - create staking address
 
-Example:  
+Example:
 ```bash
 > masswallet-cli listaddresses 1
 ```
 
-Return:  
+Return:
 ```json
 {
   "details": [
     {
       "address": "ms1qp0czrc8errz8gdmpjgxd59kwvydf3g3ch72d6qm2kqwzlgm232pksqw0eky",
       "version": 1,             //0-normal address,1-staking address
-      "used": true|false,       
+      "used": true|false,
       "std_address": "ms1qq0czrc8errz8gdmpjgxd59kwvydf3g3ch72d6qm2kqwzlgm232pksl9lut6"          //indicates revenue address when version=1
     }
   ]
@@ -360,20 +360,20 @@ Return:
     createaddress <version>
 Creates a new address of currently used wallet.
 
-Parameter:  
+Parameter:
 
     version     0  - create a normal address
                 1  - create a staking address
 
-Example:  
+Example:
 ```bash
 > masswallet-cli createaddress 0
 ```
 
-Return:  
+Return:
 ```json
 {
-    "address": "ms1qqgrq0g20u8tpq2vv0596vm3uxh0ptn72449wvpr86gaqk0gx78scqmp7jyl"  
+  "address": "ms1qqgrq0g20u8tpq2vv0596vm3uxh0ptn72449wvpr86gaqk0gx78scqmp7jyl"
 }
 ```
 
@@ -385,17 +385,17 @@ parameter；
 
     address    
 
-Example:  
+Example:
 ```bash
 > masswallet-cli validateaddress ms1qqgrq0g20u8tpq2vv0596vm3uxh0ptn72449wvpr86gaqk0gx78scqmp7jyl
 ```
 
-Return:  
+Return:
 ```json
 {
-  "is_valid": true|false,       
+  "is_valid": true|false,
   "is_mine": true|false,         //belongs to the current Wallet
-  "address": "",                   
+  "address": "",
   "version": 0|1                 //0-normal address,1-staking address
 }
 ```
@@ -404,17 +404,17 @@ Return:
     getaddressbalance <min_conf> [<address> <address> ...]
 
 
-Parameter:  
+Parameter:
 
     min_conf        fixed value.Only count utxo confirmed by Min conf block at least
     address         optional.If null, return the balance of all addresses
 
-Example:  
+Example:
 ```bash
 > masswallet-cli getaddressbalance 1 ms1qqf8870v59cdaanj3cxgfq97d3xpz94g9gqqsvz0wnj7lmlp9ehr2sxdj0um ms1qqgq750hhj0lcem3pmv6gymvvmfmrzmvhyxqwyp4fey2cmec372pjq3uw7yg
 ```
 
-Return:  
+Return:
 ```json
 {
   "balances": [
@@ -423,7 +423,7 @@ Return:
       "total": "20",                // in MASS
       "spendable": "20",            // mature part of total
       "withdrawable_staking": "0",  // expired and unspent staking utxo    
-      "withdrawable_binding": "0"       
+      "withdrawable_binding": "0"
     },
     {
       "address": "ms1qqgq750hhj0lcem3pmv6gymvvmfmrzmvhyxqwyp4fey2cmec372pjq3uw7yg",
@@ -440,30 +440,30 @@ Return:
     listutxo <address> <address> ...
 Querys utxos of the current wallet address.
 
-Parameter:  
+Parameter:
 
     address     optional.If null, return the balance of all addresses
 
-Example:  
+Example:
 ```bash
 > masswallet-cli listutxo ms1qqf8870v59cdaanj3cxgfq97d3xpz94g9gqqsvz0wnj7lmlp9ehr2sxdj0um
 ```
 
-Return:  
+Return:
 ```json
 {
-    "address_utxos":[{
-        "address": "ms1qqf8870v59cdaanj3cxgfq97d3xpz94g9gqqsvz0wnj7lmlp9ehr2sxdj0um",
-        "utxos":[{
-          "tx_id": "08e60b73ef43f5bfcf3f954f103f618e8bc69995ba414fdf97d2098841863695",
-          "vout": 0,
-          "amount": "20",
-          "block_height": "1279",
-          "maturity": 0,
-          "confirmations": 13935,
-          "spent_by_unmined": false  
-        },...]
-    }]
+  "address_utxos":[{
+    "address": "ms1qqf8870v59cdaanj3cxgfq97d3xpz94g9gqqsvz0wnj7lmlp9ehr2sxdj0um",
+    "utxos":[{
+      "tx_id": "08e60b73ef43f5bfcf3f954f103f618e8bc69995ba414fdf97d2098841863695",
+      "vout": 0,
+      "amount": "20",
+      "block_height": "1279",
+      "maturity": 0,
+      "confirmations": 13935,
+      "spent_by_unmined": false
+    },...]
+  }]
 }
 ```
 
@@ -483,7 +483,7 @@ Example:
     createrawtransaction <json_data>
 Creates a transaction spending given inputs of current wallet.
 
-Parameter:  
+Parameter:
 
     <json_data>:
         - inputs              required
@@ -492,12 +492,12 @@ Parameter:
         - change_address      optional, the first sender address will be used by default.
         - subtractfeefrom     optional, if not provided, the sender pays the fee.
 
-Example:  
+Example:
 ```bash
 > masswallet-cli createrawtransaction '{"inputs":[{"tx_id": "af03d3916639143e343628ba9286c33a70752bf6bc495512dbd093c18e033bc0", "vout": 1}],"amounts":{"ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut": "0.999"},"change_address":"ms1qq8mg72nwy02g0zpej0247rwtccycy3zrjmv8na5vl3yp6dgttd7ds0pa2df","subtractfeefrom": ["ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut"]}'
 ```
 
-Return:  
+Return:
 ```json
 {
   "hex": "080112310a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d29719ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064"
@@ -508,7 +508,7 @@ Return:
     autocreaterawtransaction <json_data>
 Creates a transaction with randomly selected utxos from the current wallet.
 
-Parameter:   
+Parameter:
 
     <json_data>: 
         - amounts             required  
@@ -517,15 +517,15 @@ Parameter:
         - change_address      optional, the first sender address will be used by default.
         - from_address        optional, specific sender, if not provided, the inputs may be selected from any address of current wallet.
 
-Example:  
+Example:
 ```bash
 > masswallet-cli autocreaterawtransaction '{"amounts":{"ms1qqwmyrmca0zfcpyhjv7tdek2mvsrtr6yzrm8g227r4ryadn42hs0hst2gvut": "1.01"},"change_address":"ms1qq8mg72nwy02g0zpej0247rwtccycy3zrjmv8na5vl3yp6dgttd7ds0pa2df","fee":"0.005"}'
 ```
 
-Return:  
+Return:
 ```json
 {
-    "hex":"080112310a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d29719ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064"    
+  "hex":"080112310a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d29719ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064"
 }
 ```
 
@@ -533,7 +533,7 @@ Return:
     signrawtransaction <hexstring> [mode=?]
 Signs a transaction.
 
-Parameter:  
+Parameter:
 
     hexstring       Transactions to be signed
     mode            optional.default "ALL"
@@ -544,7 +544,7 @@ Parameter:
                     NONE|ANYONECANPAY
                     SINGLE|ANYONECANPAY
 
-Example:  
+Example:
 ```bash
 > masswallet-cli signrawtransaction 080112310a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d29719ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064
 
@@ -552,7 +552,7 @@ Example:
 > Enter password:
 ```
 
-Return:  
+Return:
 ```json
 {
   "hex": "080112a2010a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d2971248473044022010b789a4ac96e6c6f3caafc2b9f548a0e97cf1ad6bfe4a850ad73a3a4818861a0220532098aa7fa238511fdac8ab7aaf2541027e29f4b4d3eccb882d45263c860a0901122551210203a70a76734af100ed151ecf69ec776e4ef03ca0df06457176c1d61bb4c9d52e51ae19ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064",
@@ -564,18 +564,18 @@ Return:
     gettransactionfee <outputs> <inputs> [binding=true]
 Estimates transaction fee.
 
-Parameter:  
+Parameter:
 
     outputs         format:{"address1":"vlaue1","address2":"vlaue2",...}
     inputs          format:[{"tx_id":"...","vout":0},...]
     binding         optional.Include staking or not,default false
 
-Example:  
+Example:
 ```bash
 > masswallet-cli gettransactionfee '{"ms1qqgq750hhj0lcem3pmv6gymvvmfmrzmvhyxqwyp4fey2cmec372pjq3uw7yg":"19.99999"}' '[{"tx_id":"08e60b73ef43f5bfcf3f954f103f618e8bc69995ba414fdf97d2098841863695","vout":0}]'
 ```
 
-Return:  
+Return:
 ```json
 {
   "fee": "0.00000229"      
@@ -585,16 +585,16 @@ Return:
     sendrawtransaction <hexstring>
 Sends a signed transactions.
 
-Parameter:  
+Parameter:
 
     hexstring       signatured transaction 
 
-Example:  
+Example:
 ```bash
 > masswallet-cli sendrawtransaction "080112a2010a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d2971248473044022010b789a4ac96e6c6f3caafc2b9f548a0e97cf1ad6bfe4a850ad73a3a4818861a0220532098aa7fa238511fdac8ab7aaf2541027e29f4b4d3eccb882d45263c860a0901122551210203a70a76734af100ed151ecf69ec776e4ef03ca0df06457176c1d61bb4c9d52e51ae19ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064"
 ```
 
-Return:  
+Return:
 ```json
 {
   "tx_id": "2c8d77bb380786822acce767139eb8441027637d0c3dd248cc0ddf070bb52dc8"
@@ -605,16 +605,16 @@ Return:
     gettransactionstatus <txid>
 
 
-Parameter:  
+Parameter:
 
     txid        
 
-Example:  
+Example:
 ```bash
 > masswallet-cli gettransactionstatus 2c8d77bb380786822acce767139eb8441027637d0c3dd248cc0ddf070bb52dc8
 ```
 
-Return:  
+Return:
 ```json
 {
   "code": 1,
@@ -626,16 +626,16 @@ Return:
     getrawtransaction <txid>
 
 
-Parameter:  
+Parameter:
 
     txid        
 
-Example:  
+Example:
 ```bash
 > masswallet-cli getrawtransaction fe7104abbc30b56ec62c092966eccdabaec7034bf87ae1eb653572ad648902e9
 ```
 
-Return:  
+Return:
 ```json
 {  "hex": "080112a5010a280a2409338ec05a33cd12c5117564055e95df7bc4197d62963fb196bdac21b8eaf3a6a8aa698010011249483045022100cf67a3663729ddf708500a293274fce5694e68df92d4fadf6c1cdaa2d90105be02203b0162b309017e46e0334999b7270cb8c0f8d5fa415fa7fc946a623397a3717301122551210356830b4780dc5f5463aa91eeaa6508f93698e039fce8cf17db363ba99afd790451ae19ffffffffffffffff12a4010a280a2409017da021af9f30b911f18c999e15c4934a19ee0733fc5aadeacc21cfc1e765b6ee3ab110011248473044022053839e7e9afe0b56b4da9e58e9da7c0371a7cec6eb383d74dab704ec8f4b7d2a02203c635076d031779de22231afd355195b346551ead655aaeee81df8249cc75d6501122551210356830b4780dc5f5463aa91eeaa6508f93698e039fce8cf17db363ba99afd790451ae19ffffffffffffffff1a3f08e0efc1a0251237002076c83de3af1270125e4cf2db9b2b6c80d63d1043d9d0a57875193ad9d55783ef14f5000204050607080102030605060708000203041a2a08d0a7fcf41e122200200c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d3866907",
   "txId": "fe7104abbc30b56ec62c092966eccdabaec7034bf87ae1eb653572ad648902e9",
@@ -711,17 +711,17 @@ Return:
     listtransactions [count=?] [address=?]
 Returns the __count__ most recent transactions of current wallet.
 
-Parameter:  
+Parameter:
 
     count       optional.Maximum number of queries
     address     optional.Specify specific address to query, if null, return the latest transaction of wallet
 
-Example:  
+Example:
 ```bash
 > masswallet-cli listtransactions count=10 address=ms1qqgrq0g20u8tpq2vv0596vm3uxh0ptn72449wvpr86gaqk0gx78scqmp7jyl
 ```
 
-Return:  
+Return:
 ```json
 {
   "histories": [
@@ -855,16 +855,16 @@ Return:
     getblockstakingreward [height]
 Returns staking reward list at target height.
 
-Parameter:  
+Parameter:
 
     height      optional, returns the list at best block by default.
 
-Example:  
+Example:
 ```bash
 > masswallet-cli getblockstakingreward
 ```
 
-Return:  
+Return:
 ```json
 {
   "height": 12999,
@@ -884,7 +884,7 @@ Return:
     createstakingtransaction <staking_address> <frozen_period> <value> [fee=?] [from=?]
 Creates a transactions with randomly selected utxos from current wallet.
 
-Parameter:  
+Parameter:
 
         staking_address     
         frozen_period       
@@ -892,12 +892,12 @@ Parameter:
         fee                 optional.specify transaction fee
         from                optional.specify the source address of the payment amount
 
-Example:  
+Example:
 ```bash
 > masswallet-cli createstakingtransaction ms1qp0czrc8errz8gdmpjgxd59kwvydf3g3ch72d6qm2kqwzlgm232pksqw0eky 100 100 from=ms1qqku7shpmxnwj08evpxng29p8sk79vvm7u9g4h3l7lqqm6m069xmgsd7mz4z
 ```
 
-Return:  
+Return:
 ```json
 {
   "hex": "080112330a280a240961a30352ce076ae11116685dc3be033d121957f6e6d405beaaaa21767604eedb312ba5100119ffffffffffffffff1a330880c8afa025122b00207e043c1f23188e86ec32419b42d9cc2353144717f29ba06d560385f46d51506d086400000000000000"
@@ -909,16 +909,16 @@ Return:
     liststakingtransactions [all]
 Returns staking transactions of current wallet.
 
-Parameter: 
+Parameter:
 
     [all]  - returns all stakings, including withdrawn.
 
-Example:  
+Example:
 ```bash
 > masswallet-cli liststakingtransactions all
 ```
 
-Return:  
+Return:
 ```json
 {
   "txs": [
@@ -969,18 +969,18 @@ Return:
     createbindingtransaction <outputs> [fee=?] [from=?]
 Creates a binding transaction with randomly selected utxos from current wallet.
 
-Parameter:  
+Parameter:
 
     outputs     
     fee                 optional.specify transaction fee
     from                optional.specify the source address of the payment amount
 
-Example:  
+Example:
 ```bash
 > masswallet-cli createbindingtransaction "[{\"holder_address\": \"ms1qqku7shpmxnwj08evpxng29p8sk79vvm7u9g4h3l7lqqm6m069xmgsd7mz4z\", \"binding_address\": \"18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga\", \"amount\": \"0.15625\"}]" from=ms1qqku7shpmxnwj08evpxng29p8sk79vvm7u9g4h3l7lqqm6m069xmgsd7mz4z
 ```
 
-Return:  
+Return:
 ```json
 {
   "hex": "080112330a280a24093e9a6e9cf58f7fa01109809b9c6611011219a0ea5be4d297e5ba2194cfad2d9e53a3bb100119ffffffffffffffff1a3e08a8d6b90712370020b73d0b87669ba4f3e58134d0a284f0b78ac66fdc2a2b78ffdf0037adbf4536d11454530aa28d86011c30101584907e26d870bf9c421a2908eef28e3412220020b73d0b87669ba4f3e58134d0a284f0b78ac66fdc2a2b78ffdf0037adbf4536d1"
@@ -992,16 +992,16 @@ Returns binding transactions of current wallet.
 
     listbindingtransactions [all]
 
-Parameter:  
+Parameter:
 
     [all] - returns all bindings, including withdrawn.
 
-Example:  
+Example:
 ```bash
 > masswallet-cli listbindingtransactions all
 ```
 
-Return:  
+Return:
 ```json
 {
   "histories": [
@@ -1063,20 +1063,20 @@ Return:
 ## checkpoolpkcoinbase
     checkpoolpkcoinbase <chia pool pubkey> <chia pool pubkey> ...
 
-Parameter:  
+Parameter:
 
-  \<chia pool pubkey\>
+\<chia pool pubkey\>
 
-Example:  
+Example:
 ```bash
-> masswallet-cli checkpoolpkcoinbase 8919b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948 7719b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948
+> masswallet-cli checkpoolpkcoinbase 8919b3515c0e8998c5d2f39123236c7ab0d44b8285644effe2ee0d9f4566dadf0efc6bbd0917779b2a9462186cd99c948 7719b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948
 ```
 
-Return:  
+Return:
 ```json
 {
   "result": {
-    "8919b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948": {        // has bound coinbase
+    "8919b3515c0e8998c5d2f39123236c7ab0d44b8285644effe2ee0d9f4566dadf0efc6bbd0917779b2a9462186cd99c948": {        // has bound coinbase
       "nonce": 6,
       "coinbase": "ms1qq2gyvf5khdpnafyhedcm3syvla5ntzhdz2zj69nf65v5yw35zy2fsc7s6vs"
     },
@@ -1095,16 +1095,16 @@ Return:
 ## getnetworkbinding
     getnetworkbinding [height]
 
-Parameter:  
+Parameter:
 
-  height      optional, use best height if not specified or zero
+height      optional, use best height if not specified or zero
 
-Example:  
+Example:
 ```bash
 > masswallet-cli getnetworkbinding
 ```
 
-Return:  
+Return:
 ```json
 {
   "height": "4932",
@@ -1134,16 +1134,16 @@ Return:
     checktargetbinding <target> <target>
 Returns total bound MASS on the specified __target address__
 
-Parameter:  
+Parameter:
 
     target     base58 encoded address.
 
-Example:  
+Example:
 ```bash
 > masswallet-cli checktargetbinding 146hGPwfYRDde6tJ6trbyhkSoPwt69AqyZ 1EgzSkV7vJ7xhC5g38ULLPoMBhHVW38VZN 14LQhx7dGPFyfRS7rYv4uKVdKjoyAJejcVVqw 18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga
 ```
 
-Return:  
+Return:
 ```json
 {
   "result": {
@@ -1173,12 +1173,12 @@ Return:
     batchbinding <file> <from>
 Batch check or send binding transactions from file.
 
-Parameter:  
+Parameter:
 
-  file        - Required, file storing targets to be bound. Exported by 'massminercli'.
-  from        - Specify the address to pay for bindings. Ignored if flag '-c' is set. 
-  
-  file sample
+file        - Required, file storing targets to be bound. Exported by 'massminercli'.
+from        - Specify the address to pay for bindings. Ignored if flag '-c' is set.
+
+file sample
   ```json
   {
     "plots": [
@@ -1199,7 +1199,7 @@ Parameter:
   }
   ```
 
-Example:  
+Example:
 ```bash
 > masswallet-cli batchbinding binding_list.json ms1qqg8qxsllfkpmt6mpfu9rpk3k86f45fvy2hsu0997ck37mnklvpsuqzf8fme
 
@@ -1208,23 +1208,24 @@ Example:
 ```
 
 ## batchbindpoolpk
-    batchbindpoolpk -c <chiaKeystore>
-    batchbindpoolpk <chiaKeystore> <from> [coinbase]
+    batchbindpoolpk -c <chiaKeystore/chiaMnemonic>
+    batchbindpoolpk <chiaKeystore/chiaMnemonic> <from> [coinbase]
 Check or bind coinbase for chia pool pubkey.
 
-Parameter:  
+Parameter:
 
-  chiaKeystore    - Required, keystore storing chia poolSks/poolPks. Exported by 'massminercli'.  
-  from            - Specify the address to pay for the transaction. Ensure it has at least 1.01 MASS. 
-  coinbase        - Specify coinbase to be bound to poolpk, clear already bound coinbase if not provided.
+chiaKeystore/chiaMnemonic    - Required, keystore storing chia poolSks/poolPks. Exported by 'massminercli'.  
+from                         - Specify the address to pay for the transaction. Ensure it has at least 1.01 MASS.
+coinbase                     - Specify coinbase to be bound to poolpk, clear already bound coinbase if not provided.
 
 
-Example:  
+Example:
 ```bash
+> masswallet-cli batchbindpoolpk -c "absent ... air"
 > masswallet-cli batchbindpoolpk chia-miner-keystore.json ms1qqpsc4s7xllmcj48evnh77df5tg0q06tl7v0u5ul8ngk2pr5uxdyrspx4x5g  ms1qqg8qxsllfkpmt6mpfu9rpk3k86f45fvy2hsu0997ck37mnklvpsuqzf8fme
 ```
 
-Return:  
+Return:
 ```json
 {
   "hex": "080112330a280a2409da45322b721715a0117513a7ee4ea8bfac193850811d324a992e2131eba0232bd9d2ad100119ffffffffffffffff1a2808c0843d122200200c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d38669071a2a08a0adf98f13122200200c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d38669072ab60100018919b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948b3a20ffb39ad711c2fe6c102f028a12f9bd16b6d99b676598529ac3bee094e0a069562ab2c9f5d6fdb56be73a7aafb6403c97488e3621fc1eede30bf65e702658a479e7716268b9097d2dae7886f58ab97603c3c60f91189cca0a4d0241e00620000000741c0687fe9b076bd6c29e1461b46c7d26b44b08abc38f297d8b47db9dbec0c38"

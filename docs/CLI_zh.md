@@ -5,9 +5,9 @@
 配置选项
 ```json
 {
-    "server": "https://localhost:9688",
-    "log_dir": "./logs",
-    "log_level": "info"
+  "server": "https://localhost:9688",
+  "log_dir": "./logs",
+  "log_level": "info"
 }
 ```
 
@@ -59,33 +59,33 @@
 返回结果：
 ```json
 {
-    "peer_listening": true,
-    "syncing": false,
-    "chain_id": "e931abb77f2568f752a29ed28d442558764a5961ed773df7188430a0e0f7cf18",
-    "local_best_height": "176992",
-    "known_best_height": "176992",
-    "wallet_sync_height": "176992",
-    "peer_count": {
-        "total": 2,
-        "outbound": 2,
-        "inbound": 0
-    },
-    "peers": {
-        "outbound": [
-            {
-                "id": "0A6AFB3678A1612296AA5FD4338AF9304EA8831455DDC014D3F554357BBBC2EE",
-                "address": "[host]:[port]",
-                "direction": "outbound"
-            },
-            {
-                "id": "B3664A9AC4AF1DBB457BB82F2F856F25DDE1F9F226D51BCA94A7F71123839100",
-                "address": "[host]:[port]",
-                "direction": "outbound"
-            }
-        ],
-        "inbound": [],
-        "other": []
-    }
+  "peer_listening": true,
+  "syncing": false,
+  "chain_id": "e931abb77f2568f752a29ed28d442558764a5961ed773df7188430a0e0f7cf18",
+  "local_best_height": "176992",
+  "known_best_height": "176992",
+  "wallet_sync_height": "176992",
+  "peer_count": {
+    "total": 2,
+    "outbound": 2,
+    "inbound": 0
+  },
+  "peers": {
+    "outbound": [
+      {
+        "id": "0A6AFB3678A1612296AA5FD4338AF9304EA8831455DDC014D3F554357BBBC2EE",
+        "address": "[host]:[port]",
+        "direction": "outbound"
+      },
+      {
+        "id": "B3664A9AC4AF1DBB457BB82F2F856F25DDE1F9F226D51BCA94A7F71123839100",
+        "address": "[host]:[port]",
+        "direction": "outbound"
+      }
+    ],
+    "inbound": [],
+    "other": []
+  }
 }
 ```
 
@@ -94,7 +94,7 @@
 查询节点的最新区块信息。
 
 参数：
-    无
+无
 
 示例：
 ```bash
@@ -114,7 +114,7 @@
 关闭节点。
 
 参数：
-    无
+无
 
 示例：
 ```bash
@@ -134,7 +134,7 @@
 显示节点管理的所有钱包摘要。
 
 参数：
-    无
+无
 
 示例：
 ```bash
@@ -396,7 +396,7 @@
 返回结果：
 ```json
 {
-    "address": "ms1qqgrq0g20u8tpq2vv0596vm3uxh0ptn72449wvpr86gaqk0gx78scqmp7jyl"  
+  "address": "ms1qqgrq0g20u8tpq2vv0596vm3uxh0ptn72449wvpr86gaqk0gx78scqmp7jyl"
 }
 ```
 
@@ -475,18 +475,18 @@
 返回结果：
 ```json
 {
-    "address_utxos":[{
-        "address": "ms1qqf8870v59cdaanj3cxgfq97d3xpz94g9gqqsvz0wnj7lmlp9ehr2sxdj0um",
-        "utxos":[{
-          "tx_id": "08e60b73ef43f5bfcf3f954f103f618e8bc69995ba414fdf97d2098841863695",
-          "vout": 0,
-          "amount": "20",
-          "block_height": "1279",
-          "maturity": 0,
-          "confirmations": 13935,
-          "spent_by_unmined": false
-        },...]
-    }]
+  "address_utxos":[{
+    "address": "ms1qqf8870v59cdaanj3cxgfq97d3xpz94g9gqqsvz0wnj7lmlp9ehr2sxdj0um",
+    "utxos":[{
+      "tx_id": "08e60b73ef43f5bfcf3f954f103f618e8bc69995ba414fdf97d2098841863695",
+      "vout": 0,
+      "amount": "20",
+      "block_height": "1279",
+      "maturity": 0,
+      "confirmations": 13935,
+      "spent_by_unmined": false
+    },...]
+  }]
 }
 ```
 
@@ -518,7 +518,7 @@
     autocreaterawtransaction <outputs> [locktime=?] [fee=?] [from=?]
 从当前钱包随机选择utxo构建交易。（当前钱包）
 
-参数：  
+参数：
 
     outputs     必填。交易输出，格式：{"address":"value",...}
                     address  -  普通mass地址
@@ -537,7 +537,7 @@
 返回结果：
 ```json
 {
-    "hex":"080112310a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d29719ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064"     //未签名、序列化、经hex编码的交易
+  "hex":"080112310a260a2409bff543ef730be608118e613f104f953fcf19df4f41ba9599c68b21953686418809d29719ffffffffffffffff1a2a0898a0d6b90712220020403d47def27ff19dc43b66904db19b4ec62db2e4301c40d53922b1bce23e5064"     //未签名、序列化、经hex编码的交易
 }
 ```
 
@@ -851,7 +851,7 @@
 查询指定区块上的锁定奖励。
 
 参数：
-    
+
     height           选填，默认查询最新区块上的锁定奖励
 
 示例：
@@ -903,7 +903,7 @@
     liststakingtransactions [all]
 查询当前钱包的锁定交易记录。
 
-参数： 
+参数：
 
     [all]   选填，查询所有的锁定交易，包括已经提现的。默认不包括
 
@@ -1053,24 +1053,177 @@
 }
 ```
 
-## getaddresstotalbinding
-    getaddresstotalbinding <poc_address>...
-查询指定poc地址（非钱包地址）上的抵押总金额，与钱包上下文无关。
+## checkpoolpkcoinbase
+    checkpoolpkcoinbase <chia pool pubkey> <chia pool pubkey> ...  
+查询当前绑定的矿池地址
 
-参数：
+参数:
 
-    poc_address     poc地址，非钱包地址
+\<chia pool pubkey\>
 
-示例：
+示例:
 ```bash
-> masswallet-cli getaddresstotalbinding 18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga
+> masswallet-cli checkpoolpkcoinbase 8919b3515c0e8998c5d2f39123236c7ab0d44b8285644effe2ee0d9f4566dadf0efc6bbd0917779b2a9462186cd99c948 7719b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948
 ```
 
-返回结果：
+返回结果:
 ```json
 {
-  "amounts": {
-    "18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga": "0.15625" //单位MASS
+  "result": {
+    "8919b3515c0e8998c5d2f39123236c7ab0d44b8285644effe2ee0d9f4566dadf0efc6bbd0917779b2a9462186cd99c948": {        // 已绑定
+      "nonce": 6,
+      "coinbase": "ms1qq2gyvf5khdpnafyhedcm3syvla5ntzhdz2zj69nf65v5yw35zy2fsc7s6vs"
+    },
+    "7719b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948": {        // 从未绑定
+      // nonce is 0, 0 表从未绑定
+      // coinbase is ""
+    },
+    "97d5be5d8612daf12a1658afe2ed2b8e708bb1d4128d0f31d71fa1272eff3ee66a4edec12aaae0e4f0a3d4421e2624c4": {       // 已解绑
+      "nonce": 7
+      // coinbase is ""
+    }
   }
+}
+```
+
+## getnetworkbinding
+    getnetworkbinding [height]
+查询当前网络总激活量和激活新文件需要的最低价格
+
+参数:
+
+height      可选，默认查询最新高度
+
+示例:
+```bash
+> masswallet-cli getnetworkbinding
+```
+
+返回结果:
+```json
+{
+  "height": "4932",
+  "totalBinding": "45059.5772956 MASS",
+  "bindingPriceMassBitlength": {
+    "32": "0.50860595 MASS",
+    "34": "2.0344238 MASS",
+    "36": "9.1549071 MASS",
+    "38": "38.6540522 MASS",
+    "40": "162.753904 MASS"
+  },
+  "bindingPriceChiaK": {
+    "32": "2.0344238 MASS",
+    "33": "4.0688476 MASS",
+    "34": "8.64630115 MASS",
+    "35": "17.80120825 MASS",
+    "36": "37.12823435 MASS",
+    "37": "76.2908925 MASS",
+    "38": "156.6506326 MASS",
+    "39": "321.4389604 MASS",
+    "40": "659.1533112 MASS"
+  }
+}
+```
+
+## checktargetbinding
+    checktargetbinding <target> <target>
+查询目标地址上的绑定金额（旧绑定规则）或激活金额
+
+参数:
+
+    target     绑定地址或激活地址.
+
+示例:
+```bash
+> masswallet-cli checktargetbinding 146hGPwfYRDde6tJ6trbyhkSoPwt69AqyZ 1EgzSkV7vJ7xhC5g38ULLPoMBhHVW38VZN 14LQhx7dGPFyfRS7rYv4uKVdKjoyAJejcVVqw 18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga
+```
+
+返回结果:
+```json
+{
+  "result": {
+    "146hGPwfYRDde6tJ6trbyhkSoPwt69AqyZ": {
+      "targetType": "MASS",
+      "amount": "0 MASS"
+    },
+    "14LQhx7dGPFyfRS7rYv4uKVdKjoyAJejcVVqw": {
+      "targetType": "MASS",
+      "targetSize": 34,
+      "amount": "4.5776367 MASS"
+    },
+    "18gsEwbYu65Qjwz4dUtKpYqfyYawQF8yga": {
+      "targetType": "MASS",
+      "amount": "100.002 MASS"
+    },
+    "1EgzSkV7vJ7xhC5g38ULLPoMBhHVW38VZN": {
+      "targetType": "MASS",
+      "amount": "0 MASS"
+    }
+  }
+}
+```
+
+## batchbinding
+    batchbinding -c <file>        // 查询文件中记录的plot文件的激活情况
+    batchbinding <file> <from>    // 对文件中的plot文件进行批量激活
+已激活plot不会重复激活
+
+
+参数:
+
+file        - 必填，激活文件，由[mass-binding-target](https://github.com/massnetorg/mass-binding-target)导出.
+from        - 指定支付地址，如果设置了`-c`则忽略此参数。
+
+输入文件示例:
+  ```json
+  {
+    "plots": [
+      {
+        "target": "17rkPoiqpWwdyuFnM2buHrs8kwfXZGEvx3iqp",
+        "type": 0,  // MASS
+        "size": 34
+      },
+      {
+        "target": "17JDi7zj8PpgDVTdZvZAvmQy2t785EQfgSzRe",
+        "type": 1,  // Chia
+        "size": 32
+      }
+    ],
+    "total_count": 2,
+    "default_count": 1,
+    "chia_count": 1
+  }
+  ```
+
+示例:
+```bash
+> masswallet-cli batchbinding binding_list.json ms1qqg8qxsllfkpmt6mpfu9rpk3k86f45fvy2hsu0997ck37mnklvpsuqzf8fme
+
+// Enter wallet password to sign transactions.
+> Enter password: 
+```
+
+## batchbindpoolpk
+    batchbindpoolpk -c <chiaKeystore/chiaMnemonic>                // 查询当前绑定的矿池地址
+    batchbindpoolpk <chiaKeystore/chiaMnemonic> <from> [coinbase] // 绑定矿池地址
+绑定矿工到矿池，仅对chia算力有效，可以使用chia的keystore文件或者助记词。
+
+参数:
+
+chiaKeystore/chiaMnemonic    - 必填, `chia-miner-keystore.json`或者chia助记词。  
+from                         - 指定支付地址，需要保证余额大于 1 MASS。如果设置了`-c`则忽略此参数。
+coinbase                     - 指定要绑定的矿池地址，不填表示解绑当前的绑定关系。 如果设置了`-c`则忽略此参数。
+
+
+示例:
+```bash
+> masswallet-cli batchbindpoolpk -c "absent ... air"
+> masswallet-cli batchbindpoolpk chia-miner-keystore.json ms1qqpsc4s7xllmcj48evnh77df5tg0q06tl7v0u5ul8ngk2pr5uxdyrspx4x5g  ms1qqg8qxsllfkpmt6mpfu9rpk3k86f45fvy2hsu0997ck37mnklvpsuqzf8fme
+```
+
+返回结果:
+```json
+{
+  "hex": "080112330a280a2409da45322b721715a0117513a7ee4ea8bfac193850811d324a992e2131eba0232bd9d2ad100119ffffffffffffffff1a2808c0843d122200200c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d38669071a2a08a0adf98f13122200200c315878dffef12a9f2c9dfde6a68b43c0fd2ffe63f94e7cf3459411d38669072ab60100018919b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948b3a20ffb39ad711c2fe6c102f028a12f9bd16b6d99b676598529ac3bee094e0a069562ab2c9f5d6fdb56be73a7aafb6403c97488e3621fc1eede30bf65e702658a479e7716268b9097d2dae7886f58ab97603c3c60f91189cca0a4d0241e00620000000741c0687fe9b076bd6c29e1461b46c7d26b44b08abc38f297d8b47db9dbec0c38"
 }
 ```

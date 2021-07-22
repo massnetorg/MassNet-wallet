@@ -9,4 +9,5 @@ const (
 const (
 	ExitBindPoolPkInsufficientBalance = 10 + iota
 	ExitBindPoolPkNone
+	ExitBindPoolPkInvalidMnemonic
 )

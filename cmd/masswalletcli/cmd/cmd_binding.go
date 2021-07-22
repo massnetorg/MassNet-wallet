@@ -25,6 +25,8 @@ import (
 	"massnet.org/mass-wallet/api"
 	pb "massnet.org/mass-wallet/api/proto"
 	wcfg "massnet.org/mass-wallet/config"
+	"massnet.org/mass-wallet/masswallet/keystore"
+	"massnet.org/mass-wallet/masswallet/keystore/zero"
 )
 
 var createBindingTransactionCmd = &cobra.Command{
@@ -108,17 +110,19 @@ var getBindingHistoryCmd = &cobra.Command{
 }
 
 var batchBindPoolPkCmd = &cobra.Command{
-	Use:   "batchbindpoolpk <chiaKeystore> <from> [coinbase]",
+	Use:   "batchbindpoolpk <chiaKeystore/chiaMnemonic> <from> [coinbase]",
 	Short: "Check or bind coinbase for chia pool pubkey.",
 	Long: "Check or bind coinbase for chia pool pubkey.\n" +
 		"\nArguments:\n" +
-		"  <chiaKeystore>       Required, keystore storing chia poolSks/poolPks. Exported by 'massminercli'.\n" +
-		"  <from>               Specify the address to pay for the transaction. Ensure it has at least 1.01 MASS.\n" +
-		"                       Ignored if flag '-c' is set.\n" +
-		"  [coinbase]           Specify coinbase to be bound to poolpk, clear already bound coinbase if not provided.\n" +
-		"                       Ignored if flag '-c' is set.",
-	Example: "  batchbindpoolpk chia-keystore.json ms1qq0d99znj2pc032frunvme29ypquxprxrrexthv2d9t5v6zgul4a7qapk0jj" +
-		" ms1qqyq0y0wt4el4834acfq9g3t4p2jjsnqg3msw4jdm4u45ext3kr6yqwc06xr",
+		"  <chiaKeystore/chiaMnemonic>    Required, chia mnemonic or 'chia-miner-keystore.json'.\n" +
+		"  <from>                         Specify the address to pay for the transaction. Ensure it has at least 1.01 MASS.\n" +
+		"                                 Ignored if flag '-c' is set.\n" +
+		"  [coinbase]                     Specify coinbase to be bound to poolpk, clear already bound coinbase if not provided.\n" +
+		"                                 Ignored if flag '-c' is set.",
+	Example: "  batchbindpoolpk \"absent ... air\" ms1qq0d99znj2pc032frunvme29ypquxprxrrexthv2d9t5v6zgul4a7qapk0jj" +
+		" ms1qqyq0y0wt4el4834acfq9g3t4p2jjsnqg3msw4jdm4u45ext3kr6yqwc06xr\n\n" +
+		"  batchbindpoolpk chia-miner-keystore.json ms1qq0d99znj2pc032frunvme29ypquxprxrrexthv2d9t5v6zgul4a7qapk0jj" +
+		" ms1qqyq0y0wt4el4834acfq9g3t4p2jjsnqg3msw4jdm4u45ext3kr6yqwc06xr\n",
 	Args: cobra.RangeArgs(1, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 
@@ -127,22 +131,51 @@ var batchBindPoolPkCmd = &cobra.Command{
 			return fmt.Errorf("failed to get flag 'check'")
 		}
 
-		store, err := chiawallet.NewKeystoreFromFile(args[0])
-		if err != nil {
-			return err
-		}
-
 		type pkInfo struct {
 			Pk    *chiapos.G1Element
 			Sk    *chiapos.PrivateKey
 			Nonce uint32
 		}
-
 		pkToInfo := make(map[string]*pkInfo)
-		for _, minerKey := range store.GetAllMinerKeys() {
-			pkToInfo[hex.EncodeToString(minerKey.PoolPublicKey.Bytes())] = &pkInfo{
-				Pk:    minerKey.PoolPublicKey,
-				Sk:    minerKey.PoolPrivateKey,
+
+		if fs, _ := os.Stat(args[0]); fs != nil {
+			store, err := chiawallet.NewKeystoreFromFile(args[0])
+			if err != nil {
+				return err
+			}
+			for _, minerKey := range store.GetAllMinerKeys() {
+				pkToInfo[hex.EncodeToString(minerKey.PoolPublicKey.Bytes())] = &pkInfo{
+					Pk:    minerKey.PoolPublicKey,
+					Sk:    minerKey.PoolPrivateKey,
+					Nonce: 1,
+				}
+			}
+		} else {
+			seed, err := keystore.NewSeedWithErrorChecking(strings.TrimSpace(args[0]), "")
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(ExitBindPoolPkInvalidMnemonic)
+			}
+			masterPriv, err := chiapos.NewAugSchemeMPL().KeyGen(seed)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(ExitBindPoolPkInvalidMnemonic)
+			}
+			zero.Bytes(seed)
+			poolPriv, err := chiapos.MasterSkToPoolSk(masterPriv)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(ExitBindPoolPkInvalidMnemonic)
+			}
+			poolPub, err := poolPriv.GetG1()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(ExitBindPoolPkInvalidMnemonic)
+			}
+
+			pkToInfo[hex.EncodeToString(poolPub.Bytes())] = &pkInfo{
+				Pk:    poolPub,
+				Sk:    poolPriv,
 				Nonce: 1,
 			}
 		}
@@ -230,7 +263,7 @@ var checkPoolPkCoinbaseCmd = &cobra.Command{
 	Long: "Query coinbase bound to chia pool pubkey.\n" +
 		"\nArguments:\n" +
 		"  <pubkey>       Required, hex-encoded chia pool pubkey.\n",
-	Example: "  checkpoolpkcoinbase 8919b3715c0e8998c5d2f36f1236c7ab0d44b8285644effe2ee0d9f54a6dadf0efc6bbd0917371b2e9462186ac99c948",
+	Example: "  checkpoolpkcoinbase 8919b3515c0e8998c5d2f39123236c7ab0d44b8285644effe2ee0d9f4566dadf0efc6bbd0917779b2a9462186cd99c948",
 	Args:    cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		req := &pb.CheckPoolPkCoinbaseRequest{
