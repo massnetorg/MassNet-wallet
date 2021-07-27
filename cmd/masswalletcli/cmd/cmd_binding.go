@@ -229,6 +229,7 @@ var batchBindPoolPkCmd = &cobra.Command{
 			// sign payload
 			sig, err := blockchain.SignPoolPkPayload(info.Sk, coinbaseAddr, info.Nonce)
 			if err != nil {
+				logging.VPrint(logging.ERROR, fmt.Sprintf("failed to sign payload: %v", err))
 				return err
 			}
 			payload := blockchain.NewBindPoolCoinbasePayload(info.Pk, sig, coinbaseAddr, info.Nonce)
@@ -247,6 +248,7 @@ var batchBindPoolPkCmd = &cobra.Command{
 
 			txId, err := signSendTx(respCreate.Hex, pass)
 			if err != nil {
+				logging.VPrint(logging.ERROR, fmt.Sprintf("failed to sign & send tx: %v", err))
 				return err
 			}
 			logging.CPrint(logging.INFO, fmt.Sprintf("bind poolpk %s, txid %s", pk, txId))
@@ -395,6 +397,7 @@ var batchBindingCmd = &cobra.Command{
 		}
 
 		fmt.Printf("total %d, unbound %d\n", list.TotalCount, len(unbound))
+		logging.VPrint(logging.INFO, fmt.Sprintf("total %d, unbound %d\n", list.TotalCount, len(unbound)))
 
 		if isCheck {
 			unboundList := &massutil.BindingList{}
@@ -457,6 +460,7 @@ var batchBindingCmd = &cobra.Command{
 			return err
 		}
 		fmt.Printf("from available balance %s, total required %s\n", available, totalAmt)
+		logging.VPrint(logging.INFO, fmt.Sprintf("from available balance %s, total required %s\n", available, totalAmt))
 
 		if available.Cmp(totalAmt) < 0 {
 			os.Exit(ExitBindPlotInsufficientBalance)
@@ -618,6 +622,7 @@ func signSendTx(txHex, pass string) (string, error) {
 func waitConfirmed(txids []string) error {
 
 	fmt.Printf("waiting %d transactions to be packed\n", len(txids))
+	logging.VPrint(logging.INFO, fmt.Sprintf("waiting %d transactions to be packed\n", len(txids)))
 
 	unconfirmed := make([]string, 0, len(txids))
 	for {
@@ -642,6 +647,7 @@ func waitConfirmed(txids []string) error {
 		}
 
 		fmt.Println("sleep 10s before re-check tx status")
+		logging.VPrint(logging.INFO, "sleep 10s before re-check tx status")
 		time.Sleep(10 * time.Second)
 		txids = append(txids[:0], unconfirmed...)
 		unconfirmed = unconfirmed[:0]

@@ -9,7 +9,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
 	github.com/grpc-ecosystem/grpc-gateway v1.14.5
-	github.com/massnetorg/mass-core v0.0.0-20210722212652-5b2e43405600
+	github.com/massnetorg/mass-core v0.0.0-20210727183201-7912150fc871
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v0.0.5
